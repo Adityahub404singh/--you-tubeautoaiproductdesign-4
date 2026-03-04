@@ -5,59 +5,76 @@ import Link from "next/link"
 
 const plans = [
   {
-    name: "Free Trial",
+    name: "Free",
     price: "₹0",
-    period: "",
-    description: "Start with 10 completely free videos",
+    period: "/month",
+    description: "Perfect to get started",
     features: [
-      "First 10 videos FREE",
-      "Connect 1 YouTube channel",
-      "All AI voices & features",
-      "HD video quality (1080p)",
-      "Auto-upload to YouTube",
-      "Basic analytics dashboard",
+      "2 videos per month",
+      "720p export quality",
+      "Watermark on videos",
+      "1 YouTube channel",
+      "Basic AI script",
+      "No bulk scheduling",
     ],
     cta: "Start Free",
     href: "/signup",
     popular: false,
+    color: "border-border",
   },
   {
-    name: "Pay Per Video",
-    price: "$0.20",
-    period: "/video",
-    description: "Only pay for what you use",
+    name: "Starter",
+    price: "₹499",
+    period: "/month",
+    description: "Perfect for small creators",
     features: [
-      "Videos 11-50: $0.20 each",
-      "Videos 51-100: $0.18 each",
-      "Videos 101+: $0.16 each",
-      "All premium features",
-      "Priority video generation",
-      "Advanced analytics",
-      "Email support",
-      "Cancel anytime",
+      "20 videos per month",
+      "1080p export quality",
+      "No watermark",
+      "Auto post YouTube + Instagram",
+      "Basic AI voice",
+      "1 YouTube + 1 Instagram account",
     ],
     cta: "Get Started",
-    href: "/signup?plan=payperuse",
-    popular: true,
+    href: "/signup?plan=starter",
+    popular: false,
+    color: "border-green-500",
   },
   {
-    name: "YouTube Revenue Share",
-    price: "10%",
-    period: "of YouTube earnings",
-    description: "After channel monetization",
+    name: "Pro",
+    price: "₹999",
+    period: "/month",
+    description: "For growing creators",
     features: [
-      "Pay ONLY after monetization",
-      "Keep 90% of all earnings",
-      "Lifetime partnership",
-      "Unlimited videos",
-      "Multiple channels",
-      "Dedicated account manager",
+      "60 videos per month",
+      "Premium AI voice",
+      "Bulk scheduling",
+      "Analytics dashboard",
+      "2 YouTube + 2 Instagram accounts",
       "Priority support",
-      "Custom branding options",
     ],
-    cta: "Learn More",
-    href: "/signup?plan=revshare",
+    cta: "Go Pro",
+    href: "/signup?plan=pro",
+    popular: true,
+    color: "border-blue-500",
+  },
+  {
+    name: "Creator",
+    price: "₹1999",
+    period: "/month",
+    description: "For agencies & heavy users",
+    features: [
+      "150 videos per month",
+      "Fast rendering queue",
+      "Priority processing",
+      "5 YouTube + 5 Instagram accounts",
+      "Advanced analytics",
+      "Dedicated account manager",
+    ],
+    cta: "Go Creator",
+    href: "/signup?plan=creator",
     popular: false,
+    color: "border-red-500",
   },
 ]
 
@@ -67,19 +84,18 @@ export function Pricing() {
       <div className="mx-auto max-w-2xl text-center mb-16">
         <h2 className="text-3xl font-bold md:text-4xl lg:text-5xl mb-4 text-balance">Simple, Transparent Pricing</h2>
         <p className="text-lg text-muted-foreground leading-relaxed">
-          Start with 10 free videos. Then pay only for what you use. After monetization, we grow together with 10%
-          revenue share.
+          Start free. Upgrade anytime. No hidden charges.
         </p>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-3 max-w-6xl mx-auto">
+      <div className="grid gap-8 md:grid-cols-4 max-w-7xl mx-auto">
         {plans.map((plan, index) => (
           <Card
             key={index}
-            className={`relative ${plan.popular ? "border-accent shadow-lg shadow-accent/20" : "border-border"}`}
+            className={`relative ${plan.popular ? `${plan.color} shadow-lg shadow-blue-500/20` : plan.color}`}
           >
             {plan.popular && (
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground px-4 py-1 rounded-full text-sm font-medium">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">
                 Most Popular
               </div>
             )}
@@ -112,9 +128,7 @@ export function Pricing() {
 
       <div className="mt-16 max-w-3xl mx-auto text-center">
         <p className="text-sm text-muted-foreground leading-relaxed">
-          No subscriptions. No commitments. Start with 10 FREE videos to test quality. Then pay only when you create
-          more videos with volume discounts. Once your channel is monetized (1000 subscribers + 4000 watch hours), we
-          partner for success with just 10% of your YouTube earnings.
+          Daily & monthly limits apply on all plans. Upgrade anytime to unlock more videos and features.
         </p>
       </div>
     </section>
