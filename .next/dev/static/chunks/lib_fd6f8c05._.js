@@ -467,7 +467,7 @@ function AuthProvider({ children }) {
             }
             return false;
         } catch (error) {
-            console.error("[v0] Login error:", error);
+            console.error("Login error:", error);
             return false;
         }
     };
@@ -493,7 +493,7 @@ function AuthProvider({ children }) {
             localStorage.setItem("currentUser", JSON.stringify(newUser));
             return true;
         } catch (error) {
-            console.error("[v0] Signup error:", error);
+            console.error("Signup error:", error);
             return false;
         }
     };

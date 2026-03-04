@@ -628,59 +628,76 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist
 ;
 const plans = [
     {
-        name: "Free Trial",
+        name: "Free",
         price: "₹0",
-        period: "",
-        description: "Start with 10 completely free videos",
+        period: "/month",
+        description: "Perfect to get started",
         features: [
-            "First 10 videos FREE",
-            "Connect 1 YouTube channel",
-            "All AI voices & features",
-            "HD video quality (1080p)",
-            "Auto-upload to YouTube",
-            "Basic analytics dashboard"
+            "2 videos per month",
+            "720p export quality",
+            "Watermark on videos",
+            "1 YouTube channel",
+            "Basic AI script",
+            "No bulk scheduling"
         ],
         cta: "Start Free",
         href: "/signup",
-        popular: false
+        popular: false,
+        color: "border-border"
     },
     {
-        name: "Pay Per Video",
-        price: "$0.20",
-        period: "/video",
-        description: "Only pay for what you use",
+        name: "Starter",
+        price: "₹499",
+        period: "/month",
+        description: "Perfect for small creators",
         features: [
-            "Videos 11-50: $0.20 each",
-            "Videos 51-100: $0.18 each",
-            "Videos 101+: $0.16 each",
-            "All premium features",
-            "Priority video generation",
-            "Advanced analytics",
-            "Email support",
-            "Cancel anytime"
+            "20 videos per month",
+            "1080p export quality",
+            "No watermark",
+            "Auto post YouTube + Instagram",
+            "Basic AI voice",
+            "1 YouTube + 1 Instagram account"
         ],
         cta: "Get Started",
-        href: "/signup?plan=payperuse",
-        popular: true
+        href: "/signup?plan=starter",
+        popular: false,
+        color: "border-green-500"
     },
     {
-        name: "YouTube Revenue Share",
-        price: "10%",
-        period: "of YouTube earnings",
-        description: "After channel monetization",
+        name: "Pro",
+        price: "₹999",
+        period: "/month",
+        description: "For growing creators",
         features: [
-            "Pay ONLY after monetization",
-            "Keep 90% of all earnings",
-            "Lifetime partnership",
-            "Unlimited videos",
-            "Multiple channels",
-            "Dedicated account manager",
-            "Priority support",
-            "Custom branding options"
+            "60 videos per month",
+            "Premium AI voice",
+            "Bulk scheduling",
+            "Analytics dashboard",
+            "2 YouTube + 2 Instagram accounts",
+            "Priority support"
         ],
-        cta: "Learn More",
-        href: "/signup?plan=revshare",
-        popular: false
+        cta: "Go Pro",
+        href: "/signup?plan=pro",
+        popular: true,
+        color: "border-blue-500"
+    },
+    {
+        name: "Creator",
+        price: "₹1999",
+        period: "/month",
+        description: "For agencies & heavy users",
+        features: [
+            "150 videos per month",
+            "Fast rendering queue",
+            "Priority processing",
+            "5 YouTube + 5 Instagram accounts",
+            "Advanced analytics",
+            "Dedicated account manager"
+        ],
+        cta: "Go Creator",
+        href: "/signup?plan=creator",
+        popular: false,
+        color: "border-red-500"
     }
 ];
 function Pricing() {
@@ -696,34 +713,34 @@ function Pricing() {
                         children: "Simple, Transparent Pricing"
                     }, void 0, false, {
                         fileName: "[project]/components/landing/pricing.tsx",
-                        lineNumber: 68,
+                        lineNumber: 85,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                         className: "text-lg text-muted-foreground leading-relaxed",
-                        children: "Start with 10 free videos. Then pay only for what you use. After monetization, we grow together with 10% revenue share."
+                        children: "Start free. Upgrade anytime. No hidden charges."
                     }, void 0, false, {
                         fileName: "[project]/components/landing/pricing.tsx",
-                        lineNumber: 69,
+                        lineNumber: 86,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/components/landing/pricing.tsx",
-                lineNumber: 67,
+                lineNumber: 84,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "grid gap-8 md:grid-cols-3 max-w-6xl mx-auto",
+                className: "grid gap-8 md:grid-cols-4 max-w-7xl mx-auto",
                 children: plans.map((plan, index)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["Card"], {
-                        className: `relative ${plan.popular ? "border-accent shadow-lg shadow-accent/20" : "border-border"}`,
+                        className: `relative ${plan.popular ? `${plan.color} shadow-lg shadow-blue-500/20` : plan.color}`,
                         children: [
                             plan.popular && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                className: "absolute -top-4 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground px-4 py-1 rounded-full text-sm font-medium",
+                                className: "absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium",
                                 children: "Most Popular"
                             }, void 0, false, {
                                 fileName: "[project]/components/landing/pricing.tsx",
-                                lineNumber: 82,
+                                lineNumber: 98,
                                 columnNumber: 15
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["CardHeader"], {
@@ -734,14 +751,14 @@ function Pricing() {
                                         children: plan.name
                                     }, void 0, false, {
                                         fileName: "[project]/components/landing/pricing.tsx",
-                                        lineNumber: 87,
+                                        lineNumber: 103,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["CardDescription"], {
                                         children: plan.description
                                     }, void 0, false, {
                                         fileName: "[project]/components/landing/pricing.tsx",
-                                        lineNumber: 88,
+                                        lineNumber: 104,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -752,7 +769,7 @@ function Pricing() {
                                                 children: plan.price
                                             }, void 0, false, {
                                                 fileName: "[project]/components/landing/pricing.tsx",
-                                                lineNumber: 90,
+                                                lineNumber: 106,
                                                 columnNumber: 17
                                             }, this),
                                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -760,19 +777,19 @@ function Pricing() {
                                                 children: plan.period
                                             }, void 0, false, {
                                                 fileName: "[project]/components/landing/pricing.tsx",
-                                                lineNumber: 91,
+                                                lineNumber: 107,
                                                 columnNumber: 17
                                             }, this)
                                         ]
                                     }, void 0, true, {
                                         fileName: "[project]/components/landing/pricing.tsx",
-                                        lineNumber: 89,
+                                        lineNumber: 105,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/components/landing/pricing.tsx",
-                                lineNumber: 86,
+                                lineNumber: 102,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["CardContent"], {
@@ -785,7 +802,7 @@ function Pricing() {
                                                     className: "h-5 w-5 text-accent shrink-0 mt-0.5"
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/landing/pricing.tsx",
-                                                    lineNumber: 98,
+                                                    lineNumber: 114,
                                                     columnNumber: 21
                                                 }, this),
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -793,23 +810,23 @@ function Pricing() {
                                                     children: feature
                                                 }, void 0, false, {
                                                     fileName: "[project]/components/landing/pricing.tsx",
-                                                    lineNumber: 99,
+                                                    lineNumber: 115,
                                                     columnNumber: 21
                                                 }, this)
                                             ]
                                         }, featureIndex, true, {
                                             fileName: "[project]/components/landing/pricing.tsx",
-                                            lineNumber: 97,
+                                            lineNumber: 113,
                                             columnNumber: 19
                                         }, this))
                                 }, void 0, false, {
                                     fileName: "[project]/components/landing/pricing.tsx",
-                                    lineNumber: 95,
+                                    lineNumber: 111,
                                     columnNumber: 15
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/components/landing/pricing.tsx",
-                                lineNumber: 94,
+                                lineNumber: 110,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$components$2f$ui$2f$card$2e$tsx__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["CardFooter"], {
@@ -822,49 +839,49 @@ function Pricing() {
                                         children: plan.cta
                                     }, void 0, false, {
                                         fileName: "[project]/components/landing/pricing.tsx",
-                                        lineNumber: 106,
+                                        lineNumber: 122,
                                         columnNumber: 17
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/components/landing/pricing.tsx",
-                                    lineNumber: 105,
+                                    lineNumber: 121,
                                     columnNumber: 15
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/components/landing/pricing.tsx",
-                                lineNumber: 104,
+                                lineNumber: 120,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, index, true, {
                         fileName: "[project]/components/landing/pricing.tsx",
-                        lineNumber: 77,
+                        lineNumber: 93,
                         columnNumber: 11
                     }, this))
             }, void 0, false, {
                 fileName: "[project]/components/landing/pricing.tsx",
-                lineNumber: 75,
+                lineNumber: 91,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "mt-16 max-w-3xl mx-auto text-center",
                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$rsc$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$rsc$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                     className: "text-sm text-muted-foreground leading-relaxed",
-                    children: "No subscriptions. No commitments. Start with 10 FREE videos to test quality. Then pay only when you create more videos with volume discounts. Once your channel is monetized (1000 subscribers + 4000 watch hours), we partner for success with just 10% of your YouTube earnings."
+                    children: "Daily & monthly limits apply on all plans. Upgrade anytime to unlock more videos and features."
                 }, void 0, false, {
                     fileName: "[project]/components/landing/pricing.tsx",
-                    lineNumber: 114,
+                    lineNumber: 130,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/components/landing/pricing.tsx",
-                lineNumber: 113,
+                lineNumber: 129,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/components/landing/pricing.tsx",
-        lineNumber: 66,
+        lineNumber: 83,
         columnNumber: 5
     }, this);
 }
