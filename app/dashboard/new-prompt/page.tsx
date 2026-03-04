@@ -20,7 +20,7 @@ export default function NewPromptPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("[v0] New prompt submitted:", { contentMode, prompt })
+    console.log("New prompt submitted:", { contentMode, prompt })
     // Redirect back to dashboard
     router.push("/dashboard")
   }

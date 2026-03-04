@@ -163,7 +163,7 @@ export default function UpgradePage() {
                 </div>
               </div>
               <p className="text-sm text-muted-foreground mt-4 text-center">
-                Secure payments powered by Stripe & Razorpay
+                Secure payments 
               </p>
             </CardContent>
           </Card>
