@@ -9,6 +9,12 @@ import { ProtectedRoute } from "@/components/auth/protected-route"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 
+declare global {
+  interface Window {
+    Razorpay: any
+  }
+}
+
 const plans = [
   {
     id: "starter",
@@ -75,18 +81,95 @@ export default function UpgradePage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState<string | null>(null)
 
-  const handlePurchase = async (plan: (typeof plans)[0]) => {
+  const loadRazorpay = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) return resolve(true)
+      const script = document.createElement("script")
+      script.src = "https://checkout.razorpay.com/v1/checkout.js"
+      script.onload = () => resolve(true)
+      script.onerror = () => resolve(false)
+      document.body.appendChild(script)
+    })
+  }
+
+  const handlePayment = async (plan: (typeof plans)[0]) => {
     if (!user) return
     setLoading(plan.id)
 
-    setTimeout(() => {
-      toast({
-        title: "Subscription Activated!",
-        description: `You are now on the ${plan.name} plan. Enjoy ${plan.videos} videos/month!`,
+    try {
+      const loaded = await loadRazorpay()
+      if (!loaded) {
+        toast({ title: "Error", description: "Payment gateway load failed!", variant: "destructive" })
+        setLoading(null)
+        return
+      }
+
+      // Create order
+      const orderRes = await fetch("/api/payment/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: plan.price,
+          planId: plan.id,
+          planName: plan.name,
+        }),
       })
-      setLoading(null)
-      router.push("/dashboard")
-    }, 2000)
+
+      const { orderId, amount } = await orderRes.json()
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: amount,
+        currency: "INR",
+        name: "YouTubeAuto.ai",
+        description: `${plan.name} Plan - ${plan.videos} videos/month`,
+        order_id: orderId,
+        handler: async (response: any) => {
+          // Verify payment
+          const verifyRes = await fetch("/api/payment/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              planId: plan.id,
+            }),
+          })
+
+          const result = await verifyRes.json()
+
+          if (result.success) {
+            toast({
+              title: "Payment Successful! 🎉",
+              description: `You are now on ${plan.name} plan!`,
+            })
+            router.push("/dashboard")
+          } else {
+            toast({
+              title: "Payment Failed",
+              description: "Please try again",
+              variant: "destructive",
+            })
+          }
+        },
+        prefill: {
+          email: user.email || "",
+          name: user.name || "",
+        },
+        theme: { color: "#6366f1" },
+        modal: {
+          ondismiss: () => setLoading(null),
+        },
+      }
+
+      const rzp = new window.Razorpay(options)
+      rzp.open()
+    } catch (error) {
+      toast({ title: "Error", description: "Something went wrong!", variant: "destructive" })
+    }
+
+    setLoading(null)
   }
 
   return (
@@ -96,7 +179,7 @@ export default function UpgradePage() {
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
             <p className="text-lg text-muted-foreground">
-              Upgrade to unlock more videos, features and accounts. Cancel anytime.
+              Upgrade to unlock more videos and features. Cancel anytime.
             </p>
           </div>
 
@@ -136,36 +219,20 @@ export default function UpgradePage() {
                   <Button
                     className="w-full"
                     variant={plan.popular ? "default" : "outline"}
-                    onClick={() => handlePurchase(plan)}
+                    onClick={() => handlePayment(plan)}
                     disabled={loading === plan.id}
                   >
                     <CreditCard className="mr-2 h-4 w-4" />
-                    {loading === plan.id ? "Processing..." : `Subscribe ₹${plan.price}/mo`}
+                    {loading === plan.id ? "Processing..." : `Pay ₹${plan.price}/mo`}
                   </Button>
                 </CardFooter>
               </Card>
             ))}
           </div>
 
-          <Card className="max-w-2xl mx-auto">
-            <CardHeader>
-              <CardTitle>Payment Methods Accepted</CardTitle>
-              <CardDescription>Secure payments via Razorpay</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {["Credit/Debit Cards", "UPI", "Net Banking", "International"].map((method) => (
-                  <div key={method} className="flex flex-col items-center gap-2 p-4 border rounded-lg">
-                    <CreditCard className="h-8 w-8" />
-                    <span className="text-sm text-center">{method}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-sm text-muted-foreground mt-4 text-center">
-                🔒 Secure payments via Razorpay
-              </p>
-            </CardContent>
-          </Card>
+          <div className="text-center text-sm text-muted-foreground">
+            🔒 Secure payments via Razorpay • UPI • Cards • Net Banking
+          </div>
         </div>
       </div>
     </ProtectedRoute>
