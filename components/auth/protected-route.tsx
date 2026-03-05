@@ -1,20 +1,30 @@
 "use client"
-
 import type React from "react"
-
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+
+const FREE_ROUTES = ["/dashboard", "/dashboard/settings", "/dashboard/channels", "/upgrade", "/onboarding"]
+const PAID_ONLY_ROUTES = ["/dashboard/new-prompt", "/dashboard/calendar", "/dashboard/billing"]
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login")
+    if (isLoading) return
+    if (!user) { router.push("/login"); return }
+
+    // Free users: freeVideosUsed >= 10 aur no paid credits = upgrade pe bhejo
+    const isPayingUser = user.plan !== "free" || user.paidVideoCredits > 0
+    const hasFreeVideos = user.freeVideosUsed < 10
+    const canAccess = isPayingUser || hasFreeVideos || user.role === "admin"
+
+    if (!canAccess && PAID_ONLY_ROUTES.some(r => pathname.startsWith(r))) {
+      router.push("/upgrade")
     }
-  }, [user, isLoading, router])
+  }, [user, isLoading, router, pathname])
 
   if (isLoading) {
     return (
@@ -27,9 +37,6 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!user) {
-    return null
-  }
-
+  if (!user) return null
   return <>{children}</>
 }

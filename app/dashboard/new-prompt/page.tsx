@@ -1,7 +1,4 @@
 "use client"
-
-import type React from "react"
-
 import { useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,25 +7,69 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Calendar } from "lucide-react"
+import { Calendar, Loader2, CheckCircle, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+import { store } from "@/lib/store"
 
 export default function NewPromptPage() {
   const router = useRouter()
-  const [contentMode, setContentMode] = useState("master-prompt")
+  const { user } = useAuth()
+  const [contentMode, setContentMode] = useState("daily-prompt")
   const [prompt, setPrompt] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<any>(null)
+  const [error, setError] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("New prompt submitted:", { contentMode, prompt })
-    // Redirect back to dashboard
-    router.push("/dashboard")
+    if (!prompt.trim()) return
+    setLoading(true)
+    setError("")
+    setResult(null)
+
+    try {
+      const channels = store?.getChannels(user?.id)
+      const channel = channels?.[0]
+
+      const res = await fetch("/api/videos/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: prompt,
+          language: channel?.language || "Hindi",
+          channelName: channel?.name || "My Channel",
+          category: channel?.category || "Tech"
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Generation failed")
+
+      // Save to store
+      if (channel && user) {
+        store?.createVideo({
+          channelId: channel.id,
+          title: data.title,
+          status: "pending-approval",
+          scheduledDate: new Date().toISOString(),
+          views: 0, likes: 0, comments: 0,
+          thumbnail: data.thumbnailUrl,
+          topic: prompt,
+        })
+      }
+
+      setResult(data)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardHeader selectedChannel="main-channel" onChannelChange={() => {}} />
-
       <main className="mx-auto max-w-4xl px-4 py-8">
         <div className="space-y-6">
           <div>
@@ -47,22 +88,9 @@ export default function NewPromptPage() {
                   <Label>Content Mode</Label>
                   <RadioGroup value={contentMode} onValueChange={setContentMode}>
                     <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                      <RadioGroupItem value="master-prompt" id="master-prompt" />
-                      <div className="space-y-1">
-                        <Label htmlFor="master-prompt" className="cursor-pointer">
-                          Master Prompt (30-Day Calendar)
-                        </Label>
-                        <p className="text-sm text-muted-foreground">
-                          Provide one prompt and generate 30 days of automated content
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
                       <RadioGroupItem value="daily-prompt" id="daily-prompt" />
                       <div className="space-y-1">
-                        <Label htmlFor="daily-prompt" className="cursor-pointer">
-                          Daily Prompt (Single Video)
-                        </Label>
+                        <Label htmlFor="daily-prompt" className="cursor-pointer">Daily Prompt (Single Video)</Label>
                         <p className="text-sm text-muted-foreground">Create one video based on your daily topic</p>
                       </div>
                     </div>
@@ -70,74 +98,61 @@ export default function NewPromptPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="prompt">{contentMode === "master-prompt" ? "Master Prompt" : "Daily Topic"}</Label>
+                  <Label htmlFor="prompt">Video Topic</Label>
                   <Textarea
                     id="prompt"
-                    placeholder={
-                      contentMode === "master-prompt"
-                        ? "Example: Create daily tech news videos covering AI trends, startup news, and gadget reviews. Keep it under 5 minutes, casual but informative tone."
-                        : "Example: Today's topic - OpenAI's latest GPT-5 announcement and its impact on the AI industry"
-                    }
-                    rows={6}
+                    placeholder="Example: Top 5 AI Tools in 2026 that every student should know"
+                    rows={4}
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     required
                   />
-                  <p className="text-sm text-muted-foreground">
-                    {contentMode === "master-prompt"
-                      ? "Describe your content strategy, topics, style, and any specific requirements"
-                      : "Provide the specific topic or idea for today's video"}
-                  </p>
                 </div>
 
-                {contentMode === "master-prompt" && (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="frequency">Video Frequency</Label>
-                      <Select defaultValue="daily">
-                        <SelectTrigger id="frequency">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="daily">Daily (30 videos)</SelectItem>
-                          <SelectItem value="every-2-days">Every 2 Days (15 videos)</SelectItem>
-                          <SelectItem value="weekly">Weekly (4 videos)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                {error && (
+                  <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500">
+                    <AlertCircle className="h-4 w-4" />
+                    <p className="text-sm">{error}</p>
+                  </div>
+                )}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="start-date">Start Date</Label>
-                      <Select defaultValue="today">
-                        <SelectTrigger id="start-date">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="today">Today</SelectItem>
-                          <SelectItem value="tomorrow">Tomorrow</SelectItem>
-                          <SelectItem value="next-week">Next Week</SelectItem>
-                        </SelectContent>
-                      </Select>
+                {result && (
+                  <div className="space-y-4 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <div className="flex items-center gap-2 text-green-500 font-medium">
+                      <CheckCircle className="h-5 w-5" />
+                      Video Generated Successfully!
                     </div>
+                    <div>
+                      <p className="font-semibold text-lg">{result.title}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{result.hook}</p>
+                    </div>
+                    {result.thumbnailUrl && (
+                      <img src={result.thumbnailUrl} alt="Thumbnail" className="rounded-lg w-full max-w-md" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium mb-1">Tags:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {result.tags?.map((tag: string) => (
+                          <span key={tag} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Video sent for admin approval. Check dashboard for status.</p>
                   </div>
                 )}
 
                 <div className="flex items-center gap-2 p-4 bg-primary/5 border border-primary/20 rounded-lg">
                   <Calendar className="h-5 w-5 text-primary" />
-                  <p className="text-sm">
-                    {contentMode === "master-prompt"
-                      ? "Your 30-day content calendar will be generated automatically"
-                      : "This video will be added to your content calendar"}
-                  </p>
+                  <p className="text-sm">Video will be added to your content calendar after approval</p>
                 </div>
               </CardContent>
             </Card>
 
             <div className="flex justify-end gap-3 mt-6">
-              <Button type="button" variant="outline" onClick={() => router.push("/dashboard")}>
-                Cancel
+              <Button type="button" variant="outline" onClick={() => router.push("/dashboard")}>Cancel</Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating...</> : "Generate Video"}
               </Button>
-              <Button type="submit">{contentMode === "master-prompt" ? "Generate Calendar" : "Create Video"}</Button>
             </div>
           </form>
         </div>
