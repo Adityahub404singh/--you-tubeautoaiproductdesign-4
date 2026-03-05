@@ -84,12 +84,12 @@ class Store {
 
   private initializeData() {
     const users = this.getUsers()
-    const adminExists = users.some((u) => u.email === "admin@youtubeauto.ai")
+    const adminExists = users.some((u) => u.email === "singhaditya4560@gmail.com")
 
     if (!adminExists) {
       const adminUser: User = {
         id: "admin-001",
-        email: "admin@youtubeauto.ai",
+        email: "singhaditya4560@gmail.com",
         name: "Aditya Singh",
         phone: "+91 7068003894",
         role: "admin",

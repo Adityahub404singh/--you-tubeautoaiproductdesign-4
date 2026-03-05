@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       passwords[email] = password
       localStorage.setItem("passwords", JSON.stringify(passwords))
 
-      const isAdmin = email === "admin@youtubeauto.ai"
+      const isAdmin = email === "singhaditya4560@gmail.com"
 
       const newUser = store.createUser({
         email,
