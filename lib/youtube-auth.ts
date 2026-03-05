@@ -34,7 +34,7 @@ export class YouTubeAuth {
       redirect_uri: YOUTUBE_CONFIG.redirectUri || `${window.location.origin}/auth/callback`,
       response_type: "token",
       scope: YOUTUBE_CONFIG.scopes.join(" "),
-      access_type: "offline",
+
       prompt: "consent",
     })
 
