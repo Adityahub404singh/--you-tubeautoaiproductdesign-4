@@ -479,7 +479,7 @@ class Store {
   getAdminStats() {
     const users = this.getUsers()
     const videos = this.getVideos()
-    const payments = this.getPayments()
+    const payments: any[] = []
 
     const totalUsers = users.filter((u) => u.role !== "admin").length
     const activeToday = users.filter((u) => {
