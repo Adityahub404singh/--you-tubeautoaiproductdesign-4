@@ -5,12 +5,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Calendar, Loader2, CheckCircle, AlertCircle } from "lucide-react"
+import { Calendar, Loader2, CheckCircle, AlertCircle, Tag } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { store } from "@/lib/store"
+
+function ThumbnailCanvas({ boldText, bgColor, emoji, title }: { boldText: string, bgColor: string, emoji: string, title: string }) {
+  return (
+    <div
+      className="w-full max-w-md rounded-xl overflow-hidden relative"
+      style={{ backgroundColor: bgColor, aspectRatio: "16/9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px" }}
+    >
+      <div style={{ fontSize: "60px", marginBottom: "10px" }}>{emoji}</div>
+      <div style={{ fontSize: "28px", fontWeight: "900", color: "white", textAlign: "center", textShadow: "2px 2px 4px rgba(0,0,0,0.8)", lineHeight: 1.2 }}>
+        {boldText}
+      </div>
+      <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.85)", textAlign: "center", marginTop: "8px", textShadow: "1px 1px 2px rgba(0,0,0,0.8)" }}>
+        {title?.slice(0, 50)}
+      </div>
+      <div style={{ position: "absolute", bottom: "8px", right: "10px", background: "rgba(0,0,0,0.6)", color: "white", fontSize: "11px", padding: "2px 6px", borderRadius: "4px" }}>
+        YouTubeAuto.ai
+      </div>
+    </div>
+  )
+}
 
 export default function NewPromptPage() {
   const router = useRouter()
@@ -46,7 +65,6 @@ export default function NewPromptPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Generation failed")
 
-      // Save to store
       if (channel && user) {
         store?.createVideo({
           channelId: channel.id,
@@ -54,7 +72,7 @@ export default function NewPromptPage() {
           status: "pending-approval",
           scheduledDate: new Date().toISOString(),
           views: 0, likes: 0, comments: 0,
-          thumbnail: data.thumbnailUrl,
+          thumbnail: data.thumbnail?.boldText || "",
           topic: prompt,
         })
       }
@@ -122,22 +140,50 @@ export default function NewPromptPage() {
                       <CheckCircle className="h-5 w-5" />
                       Video Generated Successfully!
                     </div>
+
                     <div>
                       <p className="font-semibold text-lg">{result.title}</p>
-                      <p className="text-sm text-muted-foreground mt-1">{result.hook}</p>
+                      <p className="text-sm text-muted-foreground mt-1 italic">Hook: {result.hook}</p>
                     </div>
-                    {result.thumbnailUrl && (
-                      <img src={result.thumbnailUrl} alt="Thumbnail" className="rounded-lg w-full max-w-md" />
+
+                    {result.thumbnail && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">??? AI Generated Thumbnail (Copyright-Free):</p>
+                        <ThumbnailCanvas
+                          boldText={result.thumbnail.boldText}
+                          bgColor={result.thumbnail.bgColor}
+                          emoji={result.thumbnail.emoji}
+                          title={result.title}
+                        />
+                      </div>
                     )}
+
+                    {result.chapters && result.chapters.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-1">?? Chapters:</p>
+                        <div className="space-y-1">
+                          {result.chapters.map((ch: string, i: number) => (
+                            <p key={i} className="text-xs text-muted-foreground">{ch}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div>
-                      <p className="text-sm font-medium mb-1">Tags:</p>
+                      <p className="text-sm font-medium mb-1">??? SEO Tags:</p>
                       <div className="flex flex-wrap gap-1">
                         {result.tags?.map((tag: string) => (
                           <span key={tag} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">{tag}</span>
                         ))}
                       </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">Video sent for admin approval. Check dashboard for status.</p>
+
+                    <div>
+                      <p className="text-sm font-medium mb-1">?? Description Preview:</p>
+                      <p className="text-xs text-muted-foreground bg-background p-2 rounded border">{result.description?.slice(0, 200)}...</p>
+                    </div>
+
+                    <p className="text-sm text-muted-foreground">? Video sent for admin approval. Check dashboard for status.</p>
                   </div>
                 )}
 
