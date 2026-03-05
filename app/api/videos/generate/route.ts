@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import OpenAI from "openai"
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+import Groq from "groq-sdk"
 
 export async function POST(req: NextRequest) {
   try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
     const { topic, language, channelName, category } = await req.json()
     if (!topic) return NextResponse.json({ error: "Topic required" }, { status: 400 })
 
-    const scriptRes = await openai.chat.completions.create({
-      model: "gpt-4o",
+    const scriptRes = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
       messages: [
         {
           role: "system",
@@ -26,14 +25,6 @@ export async function POST(req: NextRequest) {
     const cleaned = raw.replace(/```json|```/g, "").trim()
     const scriptData = JSON.parse(cleaned)
 
-    const thumbnailRes = await openai.images.generate({
-      model: "dall-e-3",
-      prompt: `YouTube thumbnail for "${scriptData.title}". Bold text, bright colors, eye-catching, professional ${category} channel thumbnail.`,
-      n: 1,
-      size: "1792x1024",
-      quality: "standard"
-    })
-
     return NextResponse.json({
       success: true,
       title: scriptData.title,
@@ -41,9 +32,8 @@ export async function POST(req: NextRequest) {
       description: scriptData.description,
       tags: scriptData.tags,
       hook: scriptData.hook,
-      thumbnailUrl: thumbnailRes.data[0]?.url || ""
+      thumbnailUrl: ""
     })
-
   } catch (error: any) {
     console.error("Video generation error:", error)
     return NextResponse.json({ error: error.message || "Generation failed" }, { status: 500 })
