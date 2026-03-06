@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import ThumbnailPreview from "@/components/dashboard/thumbnail-preview"
+import { ThumbnailPreview } from "@/components/dashboard/thumbnail-preview"
 import { Calendar, Loader2, CheckCircle, AlertCircle, Video, FileText, Presentation } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -166,3 +166,4 @@ export default function NewPromptPage() {
     </div>
   )
 }
+
