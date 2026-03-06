@@ -1,4 +1,5 @@
 ﻿"use client"
+// voiceover player imported below
 import { useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -234,6 +235,7 @@ export default function NewPromptPage() {
                       )}
                     </div>
 
+                    <VoiceoverPlayer script={result.script || ""} title={result.title || ""} />
                     {result.chapters && result.chapters.length > 0 && (
                       <div>
                         <p className="text-sm font-medium mb-1">?? Chapters:</p>
@@ -282,5 +284,9 @@ export default function NewPromptPage() {
     </div>
   )
 }
+
+
+
+
 
 
