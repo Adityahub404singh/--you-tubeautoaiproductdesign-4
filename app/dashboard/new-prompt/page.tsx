@@ -1,181 +1,27 @@
 "use client"
-import { useState, useRef } from "react"
+import { useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import ThumbnailPreview from "@/components/dashboard/thumbnail-preview"
-import { Calendar, Loader2, CheckCircle, AlertCircle, Tag, Upload, X, FileVideo, Play, Trash2 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { ThumbnailPreview } from "@/components/dashboard/thumbnail-preview"
+import { Calendar, Loader2, CheckCircle, AlertCircle, Volume2, Play } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { store, saveVideoToIndexedDB } from "@/lib/store"
-import { youtubeAuth } from "@/lib/youtube-auth"
-
-function ThumbnailCanvas({ boldText, bgColor, emoji, title }: { boldText: string, bgColor: string, emoji: string, title: string }) {
-  return (
-    <div
-      className="w-full max-w-md rounded-xl overflow-hidden relative"
-      style={{ backgroundColor: bgColor, aspectRatio: "16/9", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px" }}
-    >
-      <div style={{ fontSize: "60px", marginBottom: "10px" }}>{emoji}</div>
-      <div style={{ fontSize: "28px", fontWeight: "900", color: "white", textAlign: "center", textShadow: "2px 2px 4px rgba(0,0,0,0.8)", lineHeight: 1.2 }}>
-        {boldText}
-      </div>
-      <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.85)", textAlign: "center", marginTop: "8px", textShadow: "1px 1px 2px rgba(0,0,0,0.8)" }}>
-        {title?.slice(0, 50)}
-      </div>
-      <div style={{ position: "absolute", bottom: "8px", right: "10px", background: "rgba(0,0,0,0.6)", color: "white", fontSize: "11px", padding: "2px 6px", borderRadius: "4px" }}>
-        YouTubeAuto.ai
-      </div>
-    </div>
-  )
-}
+import { store } from "@/lib/store"
 
 export default function NewPromptPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [contentMode, setContentMode] = useState("daily-prompt")
   const [prompt, setPrompt] = useState("")
   const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [voiceLoading, setVoiceLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState("")
-  
-  // Video file state
-  const [videoFile, setVideoFile] = useState<File | null>(null)
-  const [videoPreview, setVideoPreview] = useState<string | null>(null)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadSuccess, setUploadSuccess] = useState(false)
-  const [youtubeUrl, setYoutubeUrl] = useState<string | null>(null)
-
-  // Handle file selection
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file type
-    const validTypes = ["video/mp4", "video/mov", "video/avi", "video/wmv", "video/webm"]
-    if (!validTypes.includes(file.type)) {
-      setError("Please upload a valid video file (MP4, MOV, AVI, WMV, WebM)")
-      return
-    }
-
-    // Validate file size (max 2GB for YouTube)
-    const maxSize = 2 * 1024 * 1024 * 1024 // 2GB
-    if (file.size > maxSize) {
-      setError("Video file must be less than 2GB")
-      return
-    }
-
-    setVideoFile(file)
-    setError("")
-
-    // Create video preview URL
-    const url = URL.createObjectURL(file)
-    setVideoPreview(url)
-    setUploadSuccess(false)
-    setYoutubeUrl(null)
-  }
-
-  // Remove selected video
-  const handleRemoveVideo = () => {
-    if (videoPreview) {
-      URL.revokeObjectURL(videoPreview)
-    }
-    setVideoFile(null)
-    setVideoPreview(null)
-    setUploadSuccess(false)
-    setYoutubeUrl(null)
-    setUploadProgress(0)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
-  }
-
-  // Upload video to YouTube
-  const handleUploadToYouTube = async () => {
-    if (!videoFile || !result) return
-
-    // Check if YouTube is connected
-    if (!youtubeAuth?.isAuthenticated()) {
-      setError("Please connect your YouTube account first in Channels settings")
-      return
-    }
-
-    setUploading(true)
-    setError("")
-    setUploadProgress(10)
-
-    try {
-      // Get YouTube access token
-      const accessToken = localStorage.getItem("youtube_access_token")
-      if (!accessToken) {
-        throw new Error("YouTube not connected. Please reconnect in Channels settings.")
-      }
-
-      setUploadProgress(20)
-
-      // Prepare form data for upload
-      const formData = new FormData()
-      formData.append("video", videoFile)
-      formData.append("title", result.title || "Untitled Video")
-      formData.append("description", result.description || "Generated by YouTubeAuto.ai")
-      formData.append("tags", JSON.stringify(result.tags || []))
-      formData.append("privacyStatus", "public")
-      const channels = store?.getChannels(user?.id)
-      const ch = channels?.[0]
-      formData.append("categoryId", ch?.category || "28")
-
-      setUploadProgress(40)
-
-      // Upload to our API which handles YouTube upload
-      const res = await fetch("/api/videos/upload", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: formData,
-      })
-
-      setUploadProgress(80)
-
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || "Upload failed")
-      }
-
-      setUploadProgress(100)
-      setUploadSuccess(true)
-      setYoutubeUrl(data.url)
-
-      // Update video in store with YouTube info
-      const userChannels = store?.getChannels(user?.id)
-      const channel = userChannels?.[0]
-      if (channel) {
-        const videos = store?.getVideos(channel.id) || []
-        // Find the most recent video we just created
-        const latestVideo = videos
-          .filter(v => v.topic === prompt && v.status === "pending-approval")
-          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
-        
-        if (latestVideo) {
-          store?.updateVideo(latestVideo.id, {
-            status: "live",
-            thumbnail: data.url, // Store YouTube URL as thumbnail reference
-          })
-        }
-      }
-
-    } catch (err: any) {
-      setError(err.message || "Failed to upload video")
-    } finally {
-      setUploading(false)
-    }
-  }
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -183,6 +29,7 @@ export default function NewPromptPage() {
     setLoading(true)
     setError("")
     setResult(null)
+    setAudioUrl(null)
 
     try {
       const channels = store?.getChannels(user?.id)
@@ -203,11 +50,10 @@ export default function NewPromptPage() {
       if (!res.ok) throw new Error(data.error || "Generation failed")
 
       if (channel && user) {
-        const isAdmin = user.role === "admin"
         store?.createVideo({
           channelId: channel.id,
           title: data.title,
-          status: isAdmin ? "approved" : "pending-approval",
+          status: "pending-approval",
           scheduledDate: new Date().toISOString(),
           views: 0, likes: 0, comments: 0,
           thumbnail: data.thumbnail?.boldText || "",
@@ -215,39 +61,36 @@ export default function NewPromptPage() {
         })
       }
 
-      // If video file exists, save it to IndexedDB and link to this video
-      if (videoFile && data) {
-        try {
-          const videoFileId = await saveVideoToIndexedDB(videoFile)
-          const videos = store?.getVideos(channel.id) || []
-          const latestVideo = videos
-            .filter(v => v.topic === prompt && v.status === "pending-approval")
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
-          
-          if (latestVideo) {
-            // Store user's YouTube token with the video for auto-upload
-            const youtubeAccessToken = localStorage.getItem("youtube_access_token")
-            const youtubeRefreshToken = localStorage.getItem("youtube_refresh_token")
-            
-            store?.updateVideo(latestVideo.id, {
-              videoFileId,
-              description: data.description,
-              tags: data.tags,
-              thumbnail: data.thumbnail?.boldText || "",
-              youtubeAccessToken: youtubeAccessToken || undefined,
-              youtubeRefreshToken: youtubeRefreshToken || undefined,
-            })
-          }
-        } catch (err) {
-          console.error("Failed to save video file:", err)
-        }
-      }
-
       setResult(data)
     } catch (err: any) {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleGenerateVoice = async () => {
+    if (!result?.script) return
+    setVoiceLoading(true)
+    try {
+      const res = await fetch("/api/voice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ script: result.script })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Voice generation failed")
+
+      const audioBlob = new Blob(
+        [Uint8Array.from(atob(data.audio), c => c.charCodeAt(0))],
+        { type: "audio/mpeg" }
+      )
+      const url = URL.createObjectURL(audioBlob)
+      setAudioUrl(url)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setVoiceLoading(false)
     }
   }
 
@@ -259,11 +102,6 @@ export default function NewPromptPage() {
           <div>
             <h1 className="text-3xl font-bold">Create New Content</h1>
             <p className="text-muted-foreground mt-1">Generate videos with AI automation</p>
-            {user?.role === "admin" && (
-              <Badge variant="outline" className="mt-2 bg-green-500/10 text-green-500 border-green-500/20">
-                Admin — Unlimited free videos
-              </Badge>
-            )}
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -319,7 +157,7 @@ export default function NewPromptPage() {
 
                     {result.thumbnail && (
                       <div>
-                        <p className="text-sm font-medium mb-2">??? AI Generated Thumbnail (Copyright-Free):</p>
+                        <p className="text-sm font-medium mb-2">??? AI Thumbnail (Copyright-Free):</p>
                         <ThumbnailPreview
                           boldText={result.thumbnail.boldText}
                           bgColor={result.thumbnail.bgColor}
@@ -328,6 +166,36 @@ export default function NewPromptPage() {
                         />
                       </div>
                     )}
+
+                    {/* Voice Section */}
+                    <div className="p-3 bg-background rounded-lg border space-y-3">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <Volume2 className="h-4 w-4 text-primary" />
+                        AI Voiceover (ElevenLabs)
+                      </p>
+                      {!audioUrl ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleGenerateVoice}
+                          disabled={voiceLoading}
+                        >
+                          {voiceLoading ? (
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating Voice...</>
+                          ) : (
+                            <><Volume2 className="h-4 w-4 mr-2" />Generate Voiceover</>
+                          )}
+                        </Button>
+                      ) : (
+                        <div className="space-y-2">
+                          <p className="text-xs text-green-500">? Voice generated!</p>
+                          <audio controls className="w-full" src={audioUrl}>
+                            Your browser does not support audio.
+                          </audio>
+                        </div>
+                      )}
+                    </div>
 
                     {result.chapters && result.chapters.length > 0 && (
                       <div>
@@ -354,12 +222,7 @@ export default function NewPromptPage() {
                       <p className="text-xs text-muted-foreground bg-background p-2 rounded border">{result.description?.slice(0, 200)}...</p>
                     </div>
 
-                    <p className="text-sm text-muted-foreground">
-                      {user?.role === "admin" 
-                        ? "✅ Video auto-approved! You can upload it to YouTube directly."
-                        : "⏳ Video sent for admin approval. Check dashboard for status."
-                      }
-                    </p>
+                    <p className="text-sm text-muted-foreground">? Video sent for admin approval. Check dashboard for status.</p>
                   </div>
                 )}
 
@@ -367,144 +230,6 @@ export default function NewPromptPage() {
                   <Calendar className="h-5 w-5 text-primary" />
                   <p className="text-sm">Video will be added to your content calendar after approval</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Video Upload Section */}
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="h-5 w-5" />
-                  Upload Your Video
-                </CardTitle>
-                <CardDescription>
-                  Upload your video file to publish to YouTube with the AI-generated content
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {!videoFile ? (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
-                  >
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                        <FileVideo className="h-8 w-8 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Click to upload your video</p>
-                        <p className="text-sm text-muted-foreground">MP4, MOV, AVI, WMV, WebM (max 2GB)</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4 p-4 bg-background border rounded-lg">
-                      {videoPreview && (
-                        <video
-                          src={videoPreview}
-                          className="w-32 h-20 object-cover rounded"
-                          controls
-                        />
-                      )}
-                      <div className="flex-1">
-                        <p className="font-medium">{videoFile.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {(videoFile.size / (1024 * 1024)).toFixed(2)} MB
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleRemoveVideo}
-                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {error && (
-                      <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm">
-                        <AlertCircle className="h-4 w-4" />
-                        {error}
-                      </div>
-                    )}
-
-                    {result && (
-                      <div className="space-y-3">
-                        <p className="text-sm font-medium">This video will be uploaded with:</p>
-                        <div className="bg-muted/50 p-3 rounded-lg space-y-2 text-sm">
-                          <p><span className="font-medium">Title:</span> {result.title}</p>
-                          <p><span className="font-medium">Tags:</span> {result.tags?.slice(0, 5).join(", ")}</p>
-                        </div>
-
-                        <Button
-                          onClick={handleUploadToYouTube}
-                          disabled={uploading || !youtubeAuth?.isAuthenticated()}
-                          className="w-full"
-                        >
-                          {uploading ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Uploading... {uploadProgress}%
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="h-4 w-4 mr-2" />
-                              Upload to YouTube
-                            </>
-                          )}
-                        </Button>
-
-                        {!youtubeAuth?.isAuthenticated() && (
-                          <p className="text-sm text-amber-500">
-                            ⚠️ Connect your YouTube account in Channels settings to upload
-                          </p>
-                        )}
-
-                        {uploadProgress > 0 && !uploadSuccess && (
-                          <div className="w-full bg-muted rounded-full h-2">
-                            <div
-                              className="bg-primary h-2 rounded-full transition-all"
-                              style={{ width: `${uploadProgress}%` }}
-                            />
-                          </div>
-                        )}
-
-                        {uploadSuccess && youtubeUrl && (
-                          <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
-                            <div className="flex items-center gap-2 text-green-500 font-medium">
-                              <CheckCircle className="h-5 w-5" />
-                              Video Uploaded Successfully!
-                            </div>
-                            <a
-                              href={youtubeUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline mt-2 block"
-                            >
-                              View on YouTube →
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {!result && (
-                      <p className="text-sm text-amber-500">
-                        ⚠️ Generate video content first, then you can upload your video file
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="video/mp4,video/mov,video/avi,video/wmv,video/webm"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
               </CardContent>
             </Card>
 
