@@ -102,41 +102,116 @@ export class YouTubeAuth {
     }
   }
 
+  /**
+   * Upload video to YouTube using multipart upload
+   * This is the correct implementation for YouTube Data API v3
+   */
   async uploadVideo(
-    videoFile: File,
+    videoBlob: Blob,
     metadata: {
       title: string
       description: string
       tags: string[]
-      categoryId: string
+      categoryId?: string
       privacyStatus: "public" | "private" | "unlisted"
     },
   ): Promise<{ videoId: string; url: string }> {
     if (!this.accessToken) {
-      throw new Error("Not authenticated")
+      throw new Error("Not authenticated. Please connect your YouTube account first.")
     }
 
-    const formData = new FormData()
-    formData.append("video", videoFile)
-    formData.append("metadata", JSON.stringify(metadata))
+    const boundary = '-------314159265358979323846'
+    const delimiter = `\r\n--${boundary}\r\n`
+    const closeDelimiter = `\r\n--${boundary}--`
 
-    const response = await fetch("https://www.googleapis.com/upload/youtube/v3/videos?part=snippet,status", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-      },
-      body: formData,
-    })
+    // Build metadata part
+    const metadataPart = delimiter +
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+      JSON.stringify({
+        snippet: {
+          title: metadata.title,
+          description: metadata.description,
+          tags: metadata.tags,
+          categoryId: metadata.categoryId || "22", // People & Blogs default
+        },
+        status: {
+          privacyStatus: metadata.privacyStatus,
+          selfDeclaredMadeForKids: false,
+        },
+      })
+
+    // Get video array buffer
+    const videoArrayBuffer = await videoBlob.arrayBuffer()
+    const videoBytes = new Uint8Array(videoArrayBuffer)
+
+    // Build the multipart request body
+    const videoPart = delimiter +
+      'Content-Type: video/*\r\n\r\n'
+
+    // Combine all parts
+    const requestBody = new Blob([
+      metadataPart,
+      videoPart,
+      videoBytes,
+      closeDelimiter
+    ])
+
+    // Make the multipart upload request
+    const response = await fetch(
+      `https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          "Content-Type": `multipart/related; boundary="${boundary}"`,
+        },
+        body: requestBody,
+      }
+    )
 
     if (!response.ok) {
-      throw new Error("Failed to upload video")
+      const errorData = await response.json().catch(() => ({}))
+      console.error("YouTube upload error:", errorData)
+      
+      if (response.status === 401) {
+        this.logout()
+        throw new Error("Session expired. Please reconnect your YouTube account.")
+      }
+      if (response.status === 403) {
+        throw new Error("Upload quota exceeded or permission denied. Check your YouTube API quotas.")
+      }
+      throw new Error(errorData.error?.message || `Failed to upload video (${response.status})`)
     }
 
     const data = await response.json()
+    
+    if (!data.id) {
+      throw new Error("No video ID returned from YouTube")
+    }
+
     return {
       videoId: data.id,
       url: `https://www.youtube.com/watch?v=${data.id}`,
     }
+  }
+
+  /**
+   * Upload video from a local file path (for server-side uploads)
+   * This would be used with fs.createReadStream in Node.js environment
+   */
+  async uploadVideoFromPath(
+    filePath: string,
+    metadata: {
+      title: string
+      description: string
+      tags: string[]
+      categoryId?: string
+      privacyStatus: "public" | "private" | "unlisted"
+    },
+  ): Promise<{ videoId: string; url: string }> {
+    // This would be implemented server-side with fs and googleapis
+    // For now, this is a placeholder for server-side upload
+    throw new Error("Server-side upload not implemented. Use uploadVideo with Blob.")
   }
 
   isAuthenticated(): boolean {

@@ -22,7 +22,7 @@ import { Switch } from "@/components/ui/switch"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import { useAuth } from "@/lib/auth-context"
 import { youtubeAuth, type YouTubeChannel } from "@/lib/youtube-auth"
-import { store } from "@/lib/store"
+import { store, getFreeVideosRemaining } from "@/lib/store"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function ChannelsPage() {
@@ -145,12 +145,12 @@ export default function ChannelsPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">Free Videos Remaining</span>
-                      <span className="text-sm text-muted-foreground">{user?.freeVideosRemaining || 0} / 10</span>
+                      <span className="text-sm text-muted-foreground">{user ? getFreeVideosRemaining(user) : 0} / 10</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
                         className="h-full bg-primary"
-                        style={{ width: `${((user?.freeVideosRemaining || 0) / 10) * 100}%` }}
+                        style={{ width: `${user ? (getFreeVideosRemaining(user) / 10) * 100 : 0}%` }}
                       />
                     </div>
                   </div>
@@ -265,6 +265,35 @@ export default function ChannelsPage() {
   )
 }
 
+// Available categories for YouTube videos
+const YOUTUBE_CATEGORIES = [
+  { id: "1", name: "Film & Animation" },
+  { id: "2", name: "Autos & Vehicles" },
+  { id: "10", name: "Music" },
+  { id: "15", name: "Pets & Animals" },
+  { id: "17", name: "Sports" },
+  { id: "18", name: "Shorts" },
+  { id: "19", name: "Travel & Events" },
+  { id: "20", name: "Gaming" },
+  { id: "21", name: "Videoblogging" },
+  { id: "22", name: "People & Blogs" },
+  { id: "23", name: "Comedy" },
+  { id: "24", name: "Entertainment" },
+  { id: "25", name: "News & Politics" },
+  { id: "26", name: "Howto & Style" },
+  { id: "27", name: "Education" },
+  { id: "28", name: "Science & Technology" },
+]
+
+const LANGUAGES = [
+  { id: "en", name: "English" },
+  { id: "hi", name: "Hindi" },
+  { id: "es", name: "Spanish" },
+  { id: "pt", name: "Portuguese" },
+  { id: "fr", name: "French" },
+  { id: "de", name: "German" },
+]
+
 function AddChannelForm({
   onConnect,
   isConnecting,
@@ -279,6 +308,8 @@ function AddChannelForm({
   const [loading, setLoading] = useState(false)
   const [ytChannels, setYtChannels] = useState<YouTubeChannel[]>([])
   const [selectedChannel, setSelectedChannel] = useState<string>("")
+  const [selectedCategory, setSelectedCategory] = useState<string>("28")
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("en")
   const [error, setError] = useState<string | null>(null)
 
   const fetchChannels = async () => {
@@ -307,12 +338,15 @@ function AddChannelForm({
     const channel = ytChannels.find((c) => c.id === selectedChannel)
     if (!channel) return
 
+    const category = YOUTUBE_CATEGORIES.find(c => c.id === selectedCategory)
+    const language = LANGUAGES.find(l => l.id === selectedLanguage)
+
     store?.createChannel({
       userId,
       name: channel.title,
       subscribers: Number.parseInt(channel.subscriberCount) || 0,
-      category: "Technology",
-      language: "English",
+      category: category?.name || "Science & Technology",
+      language: language?.name || "English",
       voice: "Male",
       defaultTags: "",
       privacy: "public",
@@ -327,8 +361,7 @@ function AddChannelForm({
   }
 
   return (
-    <div className="space-y-4">
-      {ytChannels.length === 0 ? (
+    <div className="space-y-4">          {ytChannels.length === 0 ? (
         <>
           <div className="p-4 bg-muted rounded-lg">
             <h4 className="font-medium mb-2">Connect with YouTube OAuth</h4>
@@ -370,6 +403,40 @@ function AddChannelForm({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Video Category</Label>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {YOUTUBE_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Video Language</Label>
+              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.id} value={lang.id}>
+                      {lang.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {error && (

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
-import { store, type Channel } from "@/lib/store"
+import { store, type Channel, getNotifications, getUnreadNotificationCount, markNotificationRead, markAllNotificationsRead, requestBrowserNotificationPermission } from "@/lib/store"
 
 interface DashboardHeaderProps {
   selectedChannel: string
@@ -26,6 +26,36 @@ export function DashboardHeader({ selectedChannel, onChannelChange }: DashboardH
   const { user, logout } = useAuth()
   const router = useRouter()
   const [channels, setChannels] = useState<Channel[]>([])
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    // Request browser notification permission on first load
+    requestBrowserNotificationPermission()
+  }, [])
+
+  useEffect(() => {
+    if (user) {
+      const notifs = getNotifications(user.id)
+      setNotifications(notifs.slice(0, 10)) // Show last 10
+      setUnreadCount(getUnreadNotificationCount(user.id))
+    }
+  }, [user])
+
+  const handleNotificationClick = (notif: any) => {
+    if (user) {
+      markNotificationRead(user.id, notif.id)
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    }
+  }
+
+  const handleMarkAllRead = () => {
+    if (user) {
+      markAllNotificationsRead(user.id)
+      setUnreadCount(0)
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    }
+  }
 
   useEffect(() => {
     if (user && store) {
@@ -57,8 +87,14 @@ export function DashboardHeader({ selectedChannel, onChannelChange }: DashboardH
                 </Link>
               </Button>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/dashboard/channels">
+                <Link href="/dashboard/my-videos">
                   <Video className="h-4 w-4 mr-2" />
+                  My Videos
+                </Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/dashboard/channels">
+                  <Youtube className="h-4 w-4 mr-2" />
                   Channels
                 </Link>
               </Button>
@@ -89,9 +125,59 @@ export function DashboardHeader({ selectedChannel, onChannelChange }: DashboardH
               </Select>
             )}
 
-            <Button variant="ghost" size="icon">
-              <Bell className="h-5 w-5" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                <DropdownMenuLabel className="flex items-center justify-between">
+                  <span>Notifications</span>
+                  {unreadCount > 0 && (
+                    <button onClick={handleMarkAllRead} className="text-xs text-primary hover:underline">
+                      Mark all read
+                    </button>
+                  )}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground text-sm">
+                    No notifications yet
+                  </div>
+                ) : (
+                  notifications.map((notif) => (
+                    <DropdownMenuItem 
+                      key={notif.id} 
+                      className={`flex flex-col items-start gap-1 p-3 ${!notif.read ? 'bg-primary/5' : ''}`}
+                      onClick={() => handleNotificationClick(notif)}
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <span className="font-medium text-sm">{notif.title}</span>
+                        {!notif.read && <span className="h-2 w-2 rounded-full bg-primary ml-auto" />}
+                      </div>
+                      <span className="text-xs text-muted-foreground line-clamp-2">{notif.message}</span>
+                      {notif.youtubeUrl && (
+                        <a 
+                          href={notif.youtubeUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline mt-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          View on YouTube →
+                        </a>
+                      )}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
