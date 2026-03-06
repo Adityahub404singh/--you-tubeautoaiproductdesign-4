@@ -77,11 +77,11 @@ export function ThumbnailPreview({ boldText, bgColor, emoji, title, channelName 
 
     ctx.font = "bold 90px Arial Black, Arial"
     ctx.fillStyle = "#FFFFFF"
-    ctx.fillText(line1.trim(), 60, H * 0.42)
+    ctx.fillText(line1.trim().slice(0,14), 60, H * 0.42)
 
     ctx.font = "bold 90px Arial Black, Arial"
     ctx.fillStyle = "#FFD700"
-    ctx.fillText(line2.trim(), 60, H * 0.58)
+    ctx.fillText(line2.trim().slice(0,14), 60, H * 0.58)
 
     // Subtitle
     const shortTitle = (title || "").slice(0, 45)
