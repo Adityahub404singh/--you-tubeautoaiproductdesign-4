@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Check, CreditCard } from "lucide-react"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import { useAuth } from "@/lib/auth-context"
+import { store } from "@/lib/store"
 import { useToast } from "@/hooks/use-toast"
 
 declare global {
@@ -104,18 +105,23 @@ export default function UpgradePage() {
         return
       }
 
-      // Create order
-      const orderRes = await fetch("/api/payment/create-order", {
+      // Create order - using the correct Razorpay create order endpoint
+      const orderRes = await fetch("/api/payments/razorpay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: plan.price,
-          planId: plan.id,
-          planName: plan.name,
+          plan: plan.name,
+          userId: user.id,
         }),
       })
 
-      const { orderId, amount } = await orderRes.json()
+      const orderData = await orderRes.json()
+      if (!orderData.success) {
+        throw new Error(orderData.error || "Failed to create order")
+      }
+
+      const { orderId, amount } = orderData
 
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -126,23 +132,44 @@ export default function UpgradePage() {
         order_id: orderId,
         handler: async (response: any) => {
           // Verify payment
-          const verifyRes = await fetch("/api/payment/verify", {
+          const verifyRes = await fetch("/api/payments/razorpay/verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              planId: plan.id,
+              userId: user.id,
+              plan: plan.name,
+              credits: plan.videos,
             }),
           })
 
           const result = await verifyRes.json()
 
           if (result.success) {
+            // Update user plan and credits in localStorage
+            if (store) {
+              const planToCredits: Record<string, number> = {
+                "Starter": 20,
+                "Pro": 60,
+                "Creator": 150,
+              }
+              const planMap: Record<string, "free" | "pro" | "agency"> = {
+                "starter": "pro",
+                "pro": "pro",
+                "creator": "agency",
+              }
+              const newCredits = planToCredits[plan.name] || plan.videos
+              store.updateUser(user.id, {
+                plan: planMap[plan.id] || "pro",
+                paidVideoCredits: (user.paidVideoCredits || 0) + newCredits,
+                totalSpent: user.totalSpent + plan.price,
+              })
+            }
             toast({
               title: "Payment Successful! 🎉",
-              description: `You are now on ${plan.name} plan!`,
+              description: `You are now on ${plan.name} plan with ${plan.videos} video credits!`,
             })
             router.push("/dashboard")
           } else {

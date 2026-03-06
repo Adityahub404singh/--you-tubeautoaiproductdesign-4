@@ -18,6 +18,15 @@ export interface User {
   lastActive: string
 }
 
+// Helper getters for computed properties
+export function getFreeVideosRemaining(user: User): number {
+  return Math.max(0, 10 - user.freeVideosUsed)
+}
+
+export function getVideosUsed(user: User): number {
+  return user.freeVideosUsed
+}
+
 export interface Channel {
   id: string
   userId: string
@@ -37,7 +46,7 @@ export interface Video {
   id: string
   channelId: string
   title: string
-  status: "pending-approval" | "approved" | "rejected" | "user-approved" | "live" | "failed"
+  status: "pending-approval" | "approved" | "rejected" | "user-approved" | "uploading" | "live" | "failed"
   riskLevel: "low" | "high" // Added risk level for queue sorting
   scheduledDate: string
   views: number
@@ -45,6 +54,8 @@ export interface Video {
   comments: number
   thumbnail: string
   topic: string
+  description?: string // AI generated description
+  tags?: string[] // AI generated tags
   aiScore: number
   adminApproved: boolean // Admin approval status
   adminApprovedBy?: string
@@ -53,6 +64,13 @@ export interface Video {
   userApprovedAt?: string
   cost: number
   isFree: boolean // Track if this was a free video
+  videoFileId?: string // IndexedDB key for stored video file
+  youtubeAccessToken?: string // User's YouTube access token (stored encrypted in real app)
+  youtubeRefreshToken?: string // User's YouTube refresh token
+  youtubeVideoId?: string // YouTube video ID after upload
+  youtubeUrl?: string // YouTube URL after upload
+  uploadedAt?: string // When video was uploaded to YouTube
+  uploadError?: string // Error message if upload failed
   createdAt: string
 }
 
@@ -247,7 +265,8 @@ class Store {
       throw new Error(canCreate.reason)
     }
 
-    const isFree = user.freeVideosUsed < 10
+    const isAdmin = user.role === "admin"
+    const isFree = isAdmin || user.freeVideosUsed < 10
     const cost = isFree ? 0 : 0.16
 
     const riskLevel = this.calculateRiskLevel(channel.category)
@@ -256,7 +275,9 @@ class Store {
       ...video,
       id: `video-${Date.now()}`,
       aiScore: Math.floor(Math.random() * 30) + 70,
-      adminApproved: false,
+      adminApproved: isAdmin, // Auto-approve admin's own videos
+      adminApprovedBy: isAdmin ? user.id : undefined,
+      adminApprovedAt: isAdmin ? new Date().toISOString() : undefined,
       userApproved: false,
       cost,
       isFree,
@@ -266,15 +287,18 @@ class Store {
     videos.push(newVideo)
     localStorage.setItem("videos", JSON.stringify(videos))
 
-    if (isFree) {
-      this.updateUser(user.id, {
-        freeVideosUsed: user.freeVideosUsed + 1,
-      })
-    } else {
-      this.updateUser(user.id, {
-        paidVideoCredits: user.paidVideoCredits - 1,
-        totalSpent: user.totalSpent + 0.2,
-      })
+    // Admin videos are free, don't deduct
+    if (!isAdmin) {
+      if (isFree) {
+        this.updateUser(user.id, {
+          freeVideosUsed: user.freeVideosUsed + 1,
+        })
+      } else {
+        this.updateUser(user.id, {
+          paidVideoCredits: user.paidVideoCredits - 1,
+          totalSpent: user.totalSpent + 0.2,
+        })
+      }
     }
 
     return newVideo
@@ -336,10 +360,11 @@ class Store {
     localStorage.setItem("videos", JSON.stringify([...existingVideos, ...videos]))
 
     // Update user video count
-    const freeVideosUsed = Math.min(30, user.freeVideosRemaining)
-    const paidVideos = 30 - freeVideosUsed
+    const freeVideosRemaining = Math.max(0, 10 - user.freeVideosUsed)
+    const freeVideosToUse = Math.min(30, freeVideosRemaining)
+    const paidVideos = 30 - freeVideosToUse
     this.updateUser(user.id, {
-      freeVideosUsed: user.freeVideosUsed + freeVideosUsed,
+      freeVideosUsed: user.freeVideosUsed + freeVideosToUse,
       paidVideoCredits: user.paidVideoCredits - paidVideos,
       totalSpent: user.totalSpent + paidVideos * 0.2,
     })
@@ -510,4 +535,156 @@ class Store {
   }
 }
 
+// IndexedDB helpers for storing video files
+export async function saveVideoToIndexedDB(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      if (!db.objectStoreNames.contains("videos")) {
+        db.createObjectStore("videos", { keyPath: "id" })
+      }
+    }
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const videoId = `video-file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const transaction = db.transaction(["videos"], "readwrite")
+      const store = transaction.objectStore("videos")
+      
+      const videoData = {
+        id: videoId,
+        file: file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        createdAt: new Date().toISOString()
+      }
+      
+      const putRequest = store.put(videoData)
+      putRequest.onsuccess = () => resolve(videoId)
+      putRequest.onerror = () => reject(putRequest.error)
+    }
+  })
+}
+
+export async function getVideoFromIndexedDB(videoFileId: string): Promise<File | null> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const transaction = db.transaction(["videos"], "readonly")
+      const store = transaction.objectStore("videos")
+      
+      const getRequest = store.get(videoFileId)
+      getRequest.onsuccess = () => {
+        const data = getRequest.result
+        if (data) {
+          resolve(new File([data.file], data.name, { type: data.type }))
+        } else {
+          resolve(null)
+        }
+      }
+      getRequest.onerror = () => reject(getRequest.error)
+    }
+  })
+}
+
+export async function deleteVideoFromIndexedDB(videoFileId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const transaction = db.transaction(["videos"], "readwrite")
+      const store = transaction.objectStore("videos")
+      
+      const deleteRequest = store.delete(videoFileId)
+      deleteRequest.onsuccess = () => resolve()
+      deleteRequest.onerror = () => reject(deleteRequest.error)
+    }
+  })
+}
+
 export const store = typeof window !== "undefined" ? Store.getInstance() : null
+
+// Notification system for video updates
+export interface Notification {
+  id: string
+  userId: string
+  type: "video-live" | "video-failed" | "video-approved" | "video-rejected"
+  title: string
+  message: string
+  videoId?: string
+  youtubeUrl?: string
+  read: boolean
+  createdAt: string
+}
+
+export function addNotification(notification: Omit<Notification, "id" | "read" | "createdAt">): void {
+  if (typeof window === "undefined") return
+  
+  const notifications = getNotifications(notification.userId)
+  const newNotification: Notification = {
+    ...notification,
+    id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    read: false,
+    createdAt: new Date().toISOString(),
+  }
+  
+  notifications.unshift(newNotification) // Add to beginning
+  localStorage.setItem(`notifications_${notification.userId}`, JSON.stringify(notifications.slice(0, 50))) // Keep last 50
+  
+  // Show browser notification if permitted (with proper type check)
+  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+    try {
+      new Notification("YouTubeAuto.ai", {
+        body: newNotification.message,
+        icon: "/favicon.ico",
+      })
+    } catch (e) {
+      console.warn("Browser notification failed:", e)
+    }
+  }
+}
+
+export function getNotifications(userId: string): Notification[] {
+  if (typeof window === "undefined") return []
+  const data = localStorage.getItem(`notifications_${userId}`)
+  return data ? JSON.parse(data) : []
+}
+
+export function markNotificationRead(userId: string, notificationId: string): void {
+  if (typeof window === "undefined") return
+  const notifications = getNotifications(userId)
+  const index = notifications.findIndex(n => n.id === notificationId)
+  if (index !== -1) {
+    notifications[index].read = true
+    localStorage.setItem(`notifications_${userId}`, JSON.stringify(notifications))
+  }
+}
+
+export function markAllNotificationsRead(userId: string): void {
+  if (typeof window === "undefined") return
+  const notifications = getNotifications(userId)
+  notifications.forEach(n => n.read = true)
+  localStorage.setItem(`notifications_${userId}`, JSON.stringify(notifications))
+}
+
+export function getUnreadNotificationCount(userId: string): number {
+  return getNotifications(userId).filter(n => !n.read).length
+}
+
+export function requestBrowserNotificationPermission(): void {
+  if (typeof window !== "undefined" && typeof Notification !== "undefined" && Notification.permission === "default") {
+    Notification.requestPermission()
+  }
+}

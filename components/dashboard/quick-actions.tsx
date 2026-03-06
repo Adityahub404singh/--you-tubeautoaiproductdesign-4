@@ -1,7 +1,7 @@
 ﻿"use client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, RefreshCw, Settings, Calendar, Lock } from "lucide-react"
+import { Plus, RefreshCw, Settings, Calendar, Lock, Video } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -52,6 +52,12 @@ export function QuickActions() {
             <Link href="/dashboard/calendar">
               <Calendar className="h-4 w-4 mr-2" />
               View Full Calendar
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/my-videos">
+              <Video className="h-4 w-4 mr-2" />
+              My Videos
             </Link>
           </Button>
           <Button variant="outline" asChild>

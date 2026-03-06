@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Youtube, Settings, LogOut, LayoutDashboard, CheckCircle } from "lucide-react"
+import { Youtube, Settings, LogOut, LayoutDashboard, CheckCircle, Mail } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
@@ -54,6 +54,12 @@ export function AdminHeader() {
                       {pendingCount}
                     </Badge>
                   )}
+                </Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/admin/email-test">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email Test
                 </Link>
               </Button>
               <Button variant="ghost" size="sm" asChild>

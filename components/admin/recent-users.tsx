@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { MoreVertical } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useEffect, useState } from "react"
-import { store, type User } from "@/lib/store"
+import { store, type User, getFreeVideosRemaining, getVideosUsed } from "@/lib/store"
 
 export function RecentUsers() {
   const [users, setUsers] = useState<User[]>([])
@@ -63,10 +63,10 @@ export function RecentUsers() {
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span>{user.email}</span>
-                    <span>{user.videosUsed} videos</span>
+                    <span>{getVideosUsed(user)} videos</span>
                     <span>Joined {getTimeSince(user.createdAt)}</span>
-                    {user.freeVideosRemaining > 0 && (
-                      <span className="text-accent">{user.freeVideosRemaining} free remaining</span>
+                    {getFreeVideosRemaining(user) > 0 && (
+                      <span className="text-accent">{getFreeVideosRemaining(user)} free remaining</span>
                     )}
                   </div>
                 </div>

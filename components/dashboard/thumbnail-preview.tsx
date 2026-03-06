@@ -6,13 +6,24 @@ interface ThumbnailPreviewProps {
   title?: string;
   subtitle?: string;
   imageUrl?: string;
+  // New props for AI-generated thumbnails
+  boldText?: string;
+  bgColor?: string;
+  emoji?: string;
 }
 
 export default function ThumbnailPreview({
   title = "Your Title Here",
   subtitle = "Amazing Content",
   imageUrl,
+  boldText,
+  bgColor = "#1a1a2e",
+  emoji = "🎬",
 }: ThumbnailPreviewProps) {
+  // Use AI-generated props if available, otherwise use defaults
+  const displayTitle = title || "Your Title Here"
+  const displaySubtitle = subtitle || (boldText ? `${emoji} ${boldText}` : "Amazing Content")
+  const displayBgColor = bgColor || "#1a1a2e"
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -112,7 +123,7 @@ export default function ThumbnailPreview({
       };
 
       const titleY = wrapText(
-        title.toUpperCase(),
+        displayTitle.toUpperCase(),
         boxX + 20,
         boxY + 90,
         boxW - 40,
@@ -137,11 +148,11 @@ export default function ThumbnailPreview({
 
       // Truncate subtitle if too long
       const maxSubW = boxW - 40;
-      let sub = subtitle;
+      let sub = displaySubtitle;
       while (ctx.measureText(sub).width > maxSubW && sub.length > 0) {
         sub = sub.slice(0, -1);
       }
-      if (sub !== subtitle) sub += "…";
+      if (sub !== displaySubtitle) sub += "…";
       ctx.fillText(sub, boxX + 20, titleY + 62);
       ctx.shadowBlur = 0;
 
@@ -184,7 +195,7 @@ export default function ThumbnailPreview({
       ctx.fillRect(W * 0.4, 0, W * 0.6, H);
       drawOverlays();
     }
-  }, [title, subtitle, imageUrl]);
+  }, [displayTitle, displaySubtitle, displayBgColor, imageUrl]);
 
   return (
     <div className="flex flex-col items-center gap-4">
