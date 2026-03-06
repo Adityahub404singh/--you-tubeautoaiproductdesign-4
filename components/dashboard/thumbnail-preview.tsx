@@ -12,7 +12,7 @@ interface ThumbnailPreviewProps {
   emoji?: string;
 }
 
-export default function ThumbnailPreview({
+export function ThumbnailPreview({
   title = "Your Title Here",
   subtitle = "Amazing Content",
   imageUrl,
