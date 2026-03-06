@@ -1,14 +1,12 @@
 # youtubeautoaiproductdesign4
 
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/bmadityas-7561s-projects/-youtubeautoaiproductdesign5)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/lyBSMTvNZVf)
+[![Deployed on Vercel](https://youtubeautoaiproductdesign5.vercel.app/)
 
-## Overview
 
 Your project is live at:
 
-**[https://vercel.com/bmadityas-7561s-projects/v0-youtubeautoaiproductdesign5](https://vercel.com/bmadityas-7561s-projects/youtubeautoaiproductdesign5)**
+**[https://vercel.com/bmadityas-7561s-projects/v0-youtubeautoaiproductdesign5](https://youtubeautoaiproductdesign5.vercel.app/)**
 
 ## Build your app
 
