@@ -121,7 +121,7 @@ function generateThumbnailDataURL(title: string): string {
 
 // â”€â”€â”€ Thumbnail component with canvas fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function VideoThumbnail({ video }: { video: Video }) {
-  const [src, setSrc] = useState<string>("")
+  const [src, setSrc] = useState<string | null>(null)
 
   
 
@@ -339,6 +339,8 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
     </>
   )
 }
+
+
 
 
 
