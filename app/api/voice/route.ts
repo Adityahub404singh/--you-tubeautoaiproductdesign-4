@@ -5,15 +5,17 @@ export async function POST(req: NextRequest) {
     const { script, voice_id } = await req.json()
     if (!script) return NextResponse.json({ error: "Script required" }, { status: 400 })
 
-    // Script ko 500 chars tak limit karo (ElevenLabs free limit)
-    const shortScript = script.slice(0, 500)
+    const apiKey = process.env.ELEVENLABS_API_KEY
+    if (!apiKey) throw new Error("ElevenLabs API key not configured")
+
+    const shortScript = script.slice(0, 2500)
 
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice_id || "pNInz6obpgDQGcFmaJgB"}`, {
       method: "POST",
       headers: {
         "Accept": "audio/mpeg",
         "Content-Type": "application/json",
-        "xi-api-key": process.env.ELEVENLABS_API_KEY!,
+        "xi-api-key": apiKey,
       },
       body: JSON.stringify({
         text: shortScript,
@@ -29,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const err = await response.text()
-      throw new Error(`ElevenLabs error: ${err}`)
+      throw new Error(`ElevenLabs: ${err}`)
     }
 
     const audioBuffer = await response.arrayBuffer()
@@ -39,10 +41,9 @@ export async function POST(req: NextRequest) {
       success: true,
       audio: base64Audio,
       format: "mp3",
-      duration_estimate: Math.ceil(shortScript.length / 15),
     })
   } catch (error: any) {
-    console.error("Voice generation error:", error)
+    console.error("Voice error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
