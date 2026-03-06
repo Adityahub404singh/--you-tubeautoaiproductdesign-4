@@ -62,7 +62,7 @@ export function ThumbnailPreview({ boldText, bgColor, emoji, title, channelName 
     // Text background
     ctx.globalAlpha = 0.3
     ctx.fillStyle = "#000000"
-    ctx.roundRect(40, H * 0.15, W * 0.62, H * 0.55, 20)
+    ctx.roundRect(40, H * 0.25, W * 0.62, H * 0.45, 20)
     ctx.fill()
     ctx.globalAlpha = 1
 
