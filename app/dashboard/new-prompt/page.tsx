@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { ThumbnailPreview } from "@/components/dashboard/thumbnail-preview"
 import { Calendar, Loader2, CheckCircle, AlertCircle, Tag } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -149,7 +150,7 @@ export default function NewPromptPage() {
                     {result.thumbnail && (
                       <div>
                         <p className="text-sm font-medium mb-2">??? AI Generated Thumbnail (Copyright-Free):</p>
-                        <ThumbnailCanvas
+                        <ThumbnailPreview
                           boldText={result.thumbnail.boldText}
                           bgColor={result.thumbnail.bgColor}
                           emoji={result.thumbnail.emoji}

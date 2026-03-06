@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       hook: scriptData.hook || "",
       chapters: scriptData.chapters || [],
       thumbnail: {
-        boldText: thumbData.boldText,
+        boldText: (thumbData.boldText || "").replace(/\*\*/g, ""),
         bgColor: thumbData.bgColor,
         emoji: thumbData.emoji,
       }
