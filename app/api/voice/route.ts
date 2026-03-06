@@ -2,44 +2,32 @@ import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(req: NextRequest) {
   try {
-    const { script, voice_id } = await req.json()
+    const { script } = await req.json()
     if (!script) return NextResponse.json({ error: "Script required" }, { status: 400 })
 
-    const apiKey = process.env.ELEVENLABS_API_KEY
-    if (!apiKey) throw new Error("ElevenLabs API key not configured")
+    const shortScript = script.slice(0, 2000)
 
-    const shortScript = script.slice(0, 2500)
-
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice_id || "pNInz6obpgDQGcFmaJgB"}`, {
+    // Google Text-to-Speech API (free)
+    const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${process.env.GOOGLE_TTS_API_KEY}`, {
       method: "POST",
-      headers: {
-        "Accept": "audio/mpeg",
-        "Content-Type": "application/json",
-        "xi-api-key": apiKey,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        text: shortScript,
-        model_id: "eleven_multilingual_v2",
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.8,
-          style: 0.2,
-          use_speaker_boost: true
-        }
+        input: { text: shortScript },
+        voice: { languageCode: "hi-IN", name: "hi-IN-Wavenet-B", ssmlGender: "MALE" },
+        audioConfig: { audioEncoding: "MP3", speakingRate: 1.0, pitch: 0 }
       })
     })
 
     if (!response.ok) {
       const err = await response.text()
-      throw new Error(`ElevenLabs: ${err}`)
+      throw new Error(`Google TTS: ${err}`)
     }
 
-    const audioBuffer = await response.arrayBuffer()
-    const base64Audio = Buffer.from(audioBuffer).toString("base64")
-
+    const data = await response.json()
+    
     return NextResponse.json({
       success: true,
-      audio: base64Audio,
+      audio: data.audioContent,
       format: "mp3",
     })
   } catch (error: any) {
