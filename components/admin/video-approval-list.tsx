@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 import { useEffect, useState, useRef } from "react"
 import { store, type Video } from "@/lib/store"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,7 +11,7 @@ interface VideoApprovalListProps {
   filter: "pending" | "approved" | "rejected"
 }
 
-// ─── Canvas Thumbnail Generator ───────────────────────────────────────────────
+// â”€â”€â”€ Canvas Thumbnail Generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function generateThumbnailDataURL(title: string): string {
   const canvas = document.createElement("canvas")
   canvas.width = 1280
@@ -69,7 +69,7 @@ function generateThumbnailDataURL(title: string): string {
   ctx.fillStyle = "#FFFFFF"
   ctx.font = "bold 20px Arial Black, Arial"
   ctx.textAlign = "left"
-  ctx.fillText("▶ VIRAL", bx + 18, by + 40)
+  ctx.fillText("â–¶ VIRAL", bx + 18, by + 40)
 
   // Title word wrap
   ctx.fillStyle = "#FFFFFF"
@@ -114,28 +114,16 @@ function generateThumbnailDataURL(title: string): string {
   ctx.fillStyle = "#FFFFFF"
   ctx.font = "bold 18px Arial Black, Arial"
   ctx.textAlign = "center"
-  ctx.fillText("▶ YouTube", W - 95, H - 30)
+  ctx.fillText("â–¶ YouTube", W - 95, H - 30)
 
   return canvas.toDataURL("image/jpeg", 0.85)
 }
 
-// ─── Thumbnail component with canvas fallback ─────────────────────────────────
+// â”€â”€â”€ Thumbnail component with canvas fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function VideoThumbnail({ video }: { video: Video }) {
-  const [src, setSrc] = useState<string>(video.thumbnail || "/placeholder.svg")
+  const [src, setSrc] = useState<string>("")
 
-  useEffect(() => {
-    // If thumbnail is placeholder or missing, generate from canvas
-    if (!video.thumbnail || video.thumbnail === "/placeholder.svg" || video.thumbnail === "/ai-tools-thumbnail.png") {
-      try {
-        const dataUrl = generateThumbnailDataURL(video.title)
-        setSrc(dataUrl)
-        // Save back to store
-        store?.updateVideo(video.id, { thumbnail: dataUrl })
-      } catch (e) {
-        setSrc("/placeholder.svg")
-      }
-    }
-  }, [video.id, video.title, video.thumbnail])
+  
 
   return (
     <img
@@ -147,7 +135,7 @@ function VideoThumbnail({ video }: { video: Video }) {
   )
 }
 
-// ─── Approve Success Toast ────────────────────────────────────────────────────
+// â”€â”€â”€ Approve Success Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function ApproveToast({ title, onClose }: { title: string; onClose: () => void }) {
   useEffect(() => {
     const t = setTimeout(onClose, 3500)
@@ -158,7 +146,7 @@ function ApproveToast({ title, onClose }: { title: string; onClose: () => void }
     <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-green-600 text-white px-5 py-3 rounded-xl shadow-2xl animate-in slide-in-from-bottom-4">
       <CheckCircle2 className="h-5 w-5" />
       <div>
-        <p className="font-semibold text-sm">Video Approved! ✅</p>
+        <p className="font-semibold text-sm">Video Approved! âœ…</p>
         <p className="text-xs opacity-80 line-clamp-1">{title}</p>
         <p className="text-xs opacity-70 mt-0.5">User ko dashboard mein dikh jayega</p>
       </div>
@@ -166,7 +154,7 @@ function ApproveToast({ title, onClose }: { title: string; onClose: () => void }
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function VideoApprovalList({ filter }: VideoApprovalListProps) {
   const [videos, setVideos] = useState<Video[]>([])
   const [toast, setToast] = useState<{ id: string; title: string } | null>(null)
@@ -238,8 +226,8 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
         {filter === "pending" && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              {videos.length} videos pending •{" "}
-              {videos.filter(v => v.riskLevel === "low").length} low risk •{" "}
+              {videos.length} videos pending â€¢{" "}
+              {videos.filter(v => v.riskLevel === "low").length} low risk â€¢{" "}
               {videos.filter(v => v.riskLevel === "high").length} high risk
             </p>
             <Button size="sm" variant="outline" onClick={handleBulkApproveLowRisk}>
@@ -267,7 +255,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{channelUser?.name || "Unknown"}</span>
-                    <span>•</span>
+                    <span>â€¢</span>
                     <span>{channel?.name || "Unknown"}</span>
                     {video.riskLevel === "high" && (
                       <Badge variant="destructive" className="text-xs py-0">
@@ -278,7 +266,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
                 </CardHeader>
 
                 <CardContent className="space-y-3">
-                  {/* ── Thumbnail (canvas generated) ── */}
+                  {/* â”€â”€ Thumbnail (canvas generated) â”€â”€ */}
                   <div className="aspect-video bg-secondary rounded-md overflow-hidden relative">
                     <VideoThumbnail video={video} />
                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
@@ -311,7 +299,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
                   {filter === "approved" && (
                     <div className="flex items-center gap-2 p-2 bg-green-500/10 rounded-md text-xs text-green-500">
                       <CheckCircle2 className="h-3 w-3" />
-                      User dashboard mein dikh raha hai — YouTube upload ready
+                      User dashboard mein dikh raha hai â€” YouTube upload ready
                     </div>
                   )}
 
@@ -351,3 +339,4 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
     </>
   )
 }
+
