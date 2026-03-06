@@ -105,7 +105,7 @@ export default function NewPromptPage() {
       const res = await fetch("/api/voiceover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ script: result.script })
+        body: JSON.stringify({ text: result.script, title: result.title })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Voice generation failed")
@@ -282,4 +282,5 @@ export default function NewPromptPage() {
     </div>
   )
 }
+
 
