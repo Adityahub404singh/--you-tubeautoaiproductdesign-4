@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { ThumbnailPreview } from "@/components/dashboard/thumbnail-preview"
-import { Calendar, Loader2, CheckCircle, AlertCircle, Volume2, Play } from "lucide-react"
+import { Calendar, Loader2, CheckCircle, AlertCircle, Volume2, Video, FileText, Presentation } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { store } from "@/lib/store"
@@ -22,6 +22,33 @@ export default function NewPromptPage() {
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState("")
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
+
+  const contentModes = [
+    {
+      id: "daily-prompt",
+      icon: <FileText className="h-5 w-5" />,
+      title: "Daily Prompt (Single Video)",
+      desc: "Create one video based on your daily topic"
+    },
+    {
+      id: "slide-video",
+      icon: <Presentation className="h-5 w-5" />,
+      title: "Slide Video",
+      desc: "Create a video with slides and voiceover"
+    },
+    {
+      id: "shorts",
+      icon: <Video className="h-5 w-5" />,
+      title: "YouTube Shorts",
+      desc: "Create a 60-second short video script"
+    },
+    {
+      id: "series",
+      icon: <Calendar className="h-5 w-5" />,
+      title: "Video Series (5 Videos)",
+      desc: "Create a 5-part video series on a topic"
+    },
+  ]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,6 +67,7 @@ export default function NewPromptPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic: prompt,
+          mode: contentMode,
           language: channel?.language || "Hindi",
           channelName: channel?.name || "My Channel",
           category: channel?.category || "Tech"
@@ -72,6 +100,7 @@ export default function NewPromptPage() {
   const handleGenerateVoice = async () => {
     if (!result?.script) return
     setVoiceLoading(true)
+    setError("")
     try {
       const res = await fetch("/api/voice", {
         method: "POST",
@@ -111,17 +140,31 @@ export default function NewPromptPage() {
                 <CardDescription>Choose your content creation mode and provide instructions</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+
+                {/* Content Mode Selection */}
                 <div className="space-y-3">
                   <Label>Content Mode</Label>
-                  <RadioGroup value={contentMode} onValueChange={setContentMode}>
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                      <RadioGroupItem value="daily-prompt" id="daily-prompt" />
-                      <div className="space-y-1">
-                        <Label htmlFor="daily-prompt" className="cursor-pointer">Daily Prompt (Single Video)</Label>
-                        <p className="text-sm text-muted-foreground">Create one video based on your daily topic</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {contentModes.map((mode) => (
+                      <div
+                        key={mode.id}
+                        onClick={() => setContentMode(mode.id)}
+                        className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-all ${
+                          contentMode === mode.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <div className={contentMode === mode.id ? "text-primary" : "text-muted-foreground"}>
+                          {mode.icon}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium leading-none">{mode.title}</p>
+                          <p className="text-xs text-muted-foreground">{mode.desc}</p>
+                        </div>
                       </div>
-                    </div>
-                  </RadioGroup>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -174,13 +217,7 @@ export default function NewPromptPage() {
                         AI Voiceover (ElevenLabs)
                       </p>
                       {!audioUrl ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleGenerateVoice}
-                          disabled={voiceLoading}
-                        >
+                        <Button type="button" variant="outline" size="sm" onClick={handleGenerateVoice} disabled={voiceLoading}>
                           {voiceLoading ? (
                             <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating Voice...</>
                           ) : (
