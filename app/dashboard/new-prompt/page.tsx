@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 import { useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -102,7 +102,7 @@ export default function NewPromptPage() {
     setVoiceLoading(true)
     setError("")
     try {
-      const res = await fetch("/api/voice", {
+      const res = await fetch("/api/voiceover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ script: result.script })
@@ -282,3 +282,4 @@ export default function NewPromptPage() {
     </div>
   )
 }
+
