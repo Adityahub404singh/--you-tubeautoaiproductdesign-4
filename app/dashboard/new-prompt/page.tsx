@@ -1,5 +1,5 @@
 ﻿"use client"
-// voiceover player imported below
+import VoiceoverPlayer from "@/components/dashboard/voiceover-player"
 import { useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -284,6 +284,8 @@ export default function NewPromptPage() {
     </div>
   )
 }
+
+
 
 
 
