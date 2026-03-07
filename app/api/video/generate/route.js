@@ -73,8 +73,8 @@ export async function POST(request) {
       await execAsync(`ffmpeg -y -f lavfi -i color=black:size=1280x720:rate=1 -frames:v 1 "${thumbPath}"`);
     }
 
-    const ffmpegCmd = `ffmpeg -y -loop 1 -i "${thumbPath}" -i "${audioPath}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1" "${outputPath}"`;
-    await execAsync(ffmpegCmd, { timeout: 120000 });
+    const ffmpegCmd = `ffmpeg -y -loop 1 -i "${thumbPath}" -i "${audioPath}" -c:v libx264 -preset ultrafast -tune stillimage -c:a aac -b:a 128k -pix_fmt yuv420p -shortest -vf "scale=1280:720,setsar=1" "${outputPath}"`;
+    await execAsync(ffmpegCmd, { timeout: 300000 });
 
     return NextResponse.json({
       success: true,
