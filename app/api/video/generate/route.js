@@ -10,7 +10,7 @@ const execAsync = promisify(exec);
 export async function POST(request) {
   try {
     let { audioUrl, thumbnailUrl, title, duration = 60 } = await request.json();
-    if (!audioUrl || !thumbnailUrl) return NextResponse.json({ error: "audioUrl aur thumbnailUrl required hain" }, { status: 400 });
+    if (!audioUrl) return NextResponse.json({ error: "audioUrl aur thumbnailUrl required hain" }, { status: 400 });
     // Relative URL ko absolute banao
     const baseUrl = "http://localhost:3000";
     if (audioUrl.startsWith("/")) audioUrl = baseUrl + audioUrl;
@@ -80,6 +80,7 @@ export async function POST(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
 
 
 
