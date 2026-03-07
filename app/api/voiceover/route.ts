@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { writeFile, mkdir } from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
         const res = await fetch("https://api.groq.com/openai/v1/audio/speech", {
           method: "POST",
           headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "playai-tts", voice: "Arjun-PlayAI", input: text.slice(0, 800), response_format: "mp3" })
+          body: JSON.stringify({ model: "playai-tts-arabic", voice: "Fritz-PlayAI", input: text.slice(0, 800), response_format: "mp3" })
         })
         if (res.ok) {
           const buffer = await res.arrayBuffer()
