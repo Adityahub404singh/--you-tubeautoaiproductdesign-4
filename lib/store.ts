@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 export interface User {
   id: string
@@ -65,6 +65,8 @@ export interface Video {
   cost: number
   isFree: boolean // Track if this was a free video
   videoFileId?: string // IndexedDB key for stored video file
+  audioUrl?: string // ElevenLabs/TTS generated audio URL
+  thumbnailUrl?: string // Generated thumbnail URL
   youtubeAccessToken?: string // User's YouTube access token (stored encrypted in real app)
   youtubeRefreshToken?: string // User's YouTube refresh token
   youtubeVideoId?: string // YouTube video ID after upload
@@ -688,3 +690,4 @@ export function requestBrowserNotificationPermission(): void {
     Notification.requestPermission()
   }
 }
+
