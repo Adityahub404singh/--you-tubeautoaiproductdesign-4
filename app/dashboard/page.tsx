@@ -11,6 +11,8 @@ import { store } from "@/lib/store"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { AlertCircle, Zap } from "lucide-react"
+import YouTubeConnect from "@/components/YouTubeConnect"
+import VideoGenerateUpload from "@/components/VideoGenerateUpload"
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -69,6 +71,8 @@ useEffect(() => {
                 </p>
               </div>
             )}
+            <YouTubeConnect />
+            <VideoGenerateUpload />
             <StatsOverview channelId={selectedChannel} />
             <QuickActions />
             <div className="grid gap-6 lg:grid-cols-3">
@@ -85,3 +89,5 @@ useEffect(() => {
     </ProtectedRoute>
   )
 }
+
+

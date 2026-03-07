@@ -1,12 +1,14 @@
-/** @type {import('next').NextConfig} */
+﻿/** @type {import("next").NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
+  async headers() {
+    return [
+      { source: "/storage/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000" }] }
+    ];
   },
-  images: {
-    unoptimized: true,
+  async rewrites() {
+    return [
+      { source: "/storage/:path*", destination: "/api/storage/:path*" }
+    ];
   },
- 
-}
-
-export default nextConfig
+};
+export default nextConfig;

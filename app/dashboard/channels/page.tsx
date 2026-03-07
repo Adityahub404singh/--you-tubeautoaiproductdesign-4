@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
@@ -313,6 +313,10 @@ function AddChannelForm({
   const [error, setError] = useState<string | null>(null)
 
   const fetchChannels = async () => {
+    // Pehle OAuth connect karo
+    window.location.href = "/api/auth/youtube?action=connect"
+    return
+    // Below code runs after reconnect (kept for reference)
     setLoading(true)
     setError(null)
     try {
@@ -602,3 +606,5 @@ function ChannelSettingsForm({ channel }: { channel: any }) {
     </div>
   )
 }
+
+

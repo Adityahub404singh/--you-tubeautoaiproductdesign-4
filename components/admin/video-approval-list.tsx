@@ -412,9 +412,33 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
       }
     }
     
-    // Auto-upload to YouTube after approval
-    setTimeout(() => {
-      autoUploadVideo(video)
+    // Auto-upload using server API
+    setTimeout(async () => {
+      setUploadingVideos(prev => new Set(prev).add(video.id))
+      try {
+        const genRes = await fetch("/api/video/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ audioUrl: video.audioUrl || "", thumbnailUrl: video.thumbnailUrl || video.thumbnail || "", title: video.title }),
+        })
+        const genData = await genRes.json()
+        if (!genData.success) throw new Error(genData.error || "Video generation failed")
+        const upRes = await fetch("/api/youtube/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ videoUrl: `http://localhost:3000${genData.videoUrl}`, title: video.title, description: video.description || "", tags: video.tags || [], privacyStatus: "public", language: "hi" }),
+        })
+        const upData = await upRes.json()
+        if (!upData.success) throw new Error(upData.error || "YouTube upload failed")
+        store?.updateVideo(video.id, { status: "live", youtubeVideoId: upData.videoId, youtubeUrl: upData.youtubeUrl, uploadedAt: new Date().toISOString() })
+        setToast({ id: video.id, title: video.title, type: "upload-success", message: `Live: ${upData.youtubeUrl}` })
+        loadVideos()
+      } catch (err: any) {
+        store?.updateVideo(video.id, { status: "failed", uploadError: err.message })
+        setToast({ id: video.id, title: video.title, type: "upload-error", message: err.message })
+      } finally {
+        setUploadingVideos(prev => { const n = new Set(prev); n.delete(video.id); return n })
+      }
     }, 500)
   }
 
@@ -553,3 +577,6 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
     </>
   )
 }
+
+
+
