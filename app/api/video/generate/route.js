@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { writeFile, mkdir } from "fs/promises";
@@ -10,13 +10,12 @@ const execAsync = promisify(exec);
 export async function POST(request) {
   try {
     let { audioUrl, thumbnailUrl, title, duration = 60 } = await request.json();
-    if (!audioUrl) return NextResponse.json({ error: "audioUrl aur thumbnailUrl required hain" }, { status: 400 });
-    // Relative URL ko absolute banao
+    if (!audioUrl) return NextResponse.json({ error: "audioUrl required hai" }, { status: 400 });
+
     const baseUrl = "http://localhost:3000";
     if (audioUrl.startsWith("/")) audioUrl = baseUrl + audioUrl;
-    if (thumbnailUrl.startsWith("/")) thumbnailUrl = baseUrl + thumbnailUrl;
+    if (thumbnailUrl && thumbnailUrl.startsWith("/")) thumbnailUrl = baseUrl + thumbnailUrl;
 
-    // Storage folders banao
     const storageDir = path.join(process.cwd(), "storage");
     const videosDir = path.join(storageDir, "videos");
     const tempDir = path.join(storageDir, "temp");
@@ -30,49 +29,59 @@ export async function POST(request) {
     const outputPath = path.join(videosDir, `${videoId}.mp4`);
     const publicVideoPath = `/storage/videos/${videoId}.mp4`;
 
-    // Audio download karo - direct file read ya HTTP fetch
-    if (audioUrl.startsWith("http://localhost") || audioUrl.startsWith("/storage/")) {
-      // Local file - seedha read karo
-      const localPath = audioUrl.startsWith("http://localhost:3000")
-        ? audioUrl.replace("http://localhost:3000", "")
-        : audioUrl
-      const localFilePath = path.join(process.cwd(), "storage", localPath.replace("/storage/", ""))
-      if (existsSync(localFilePath)) {
-        const { copyFile } = await import("fs/promises")
-        await copyFile(localFilePath, audioPath)
+    // Audio download
+    if (audioUrl.startsWith("http://localhost")) {
+      const localPath = audioUrl.replace("http://localhost:3000", "");
+      const localFilePath = path.join(process.cwd(), "storage", localPath.replace("/storage/", ""));
+      if (existsSync(localFilePath) && !existsSync(localFilePath) === false) {
+        const { copyFile } = await import("fs/promises");
+        const stat = await import("fs/promises").then(m => m.stat(localFilePath));
+        if (stat.isFile()) {
+          await copyFile(localFilePath, audioPath);
+        } else {
+          await execAsync(`ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 60 -q:a 9 -acodec libmp3lame "${audioPath}"`);
+        }
       } else {
-        // File nahi hai - silent audio banao
-        await execAsync(`ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 60 -q:a 9 -acodec libmp3lame "${audioPath}"`)
+        await execAsync(`ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 60 -q:a 9 -acodec libmp3lame "${audioPath}"`);
       }
     } else {
-      const audioRes = await fetch(audioUrl)
-      if (!audioRes.ok) throw new Error("Audio download failed")
-      const audioBuffer = await audioRes.arrayBuffer()
-      await writeFile(audioPath, Buffer.from(audioBuffer))
+      const audioRes = await fetch(audioUrl);
+      if (!audioRes.ok) throw new Error("Audio download failed");
+      await writeFile(audioPath, Buffer.from(await audioRes.arrayBuffer()));
     }
 
-    // Thumbnail - direct file read
-    const thumbLocalPath = path.join(process.cwd(), "storage", thumbnailUrl.replace("http://localhost:3000/storage/", "").replace("/storage/", ""))
-    if (existsSync(thumbLocalPath)) {
-      const { copyFile } = await import("fs/promises")
-      await copyFile(thumbLocalPath, thumbPath)
-    } else {
-      await execAsync(`ffmpeg -y -f lavfi -i color=black:size=1280x720:rate=1 -frames:v 1 "${thumbPath}"`)
+    // Thumbnail - FIXED: check karo ki file actually exist karti hai aur directory nahi
+    let thumbCopied = false;
+    if (thumbnailUrl) {
+      try {
+        const thumbRelative = thumbnailUrl
+          .replace("http://localhost:3000/storage/", "")
+          .replace("/storage/", "");
+        const thumbLocalPath = path.join(process.cwd(), "storage", thumbRelative);
+        const { stat } = await import("fs/promises");
+        const s = await stat(thumbLocalPath);
+        if (s.isFile()) {
+          const { copyFile } = await import("fs/promises");
+          await copyFile(thumbLocalPath, thumbPath);
+          thumbCopied = true;
+        }
+      } catch (e) {
+        console.log("Thumbnail file nahi mili, black frame use karenge:", e.message);
+      }
+    }
+    if (!thumbCopied) {
+      await execAsync(`ffmpeg -y -f lavfi -i color=black:size=1280x720:rate=1 -frames:v 1 "${thumbPath}"`);
     }
 
-    // FFmpeg se video banao: image + audio = MP4
     const ffmpegCmd = `ffmpeg -y -loop 1 -i "${thumbPath}" -i "${audioPath}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1" "${outputPath}"`;
-
-    console.log("FFmpeg chal raha hai...");
-    const { stdout, stderr } = await execAsync(ffmpegCmd, { timeout: 120000 });
-    console.log("FFmpeg done!");
+    await execAsync(ffmpegCmd, { timeout: 120000 });
 
     return NextResponse.json({
       success: true,
       videoId,
       videoPath: outputPath,
       videoUrl: publicVideoPath,
-      message: "Video ban gayi! Ab YouTube pe upload kar sakte ho.",
+      message: "Video ban gayi!",
     });
 
   } catch (error) {
@@ -80,7 +89,3 @@ export async function POST(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-
-
-
-
