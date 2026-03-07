@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 import VoiceoverPlayer from "@/components/dashboard/voiceover-player"
 import { useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
@@ -87,8 +87,7 @@ export default function NewPromptPage() {
           topic: prompt,
           description: data.description || "",
           tags: data.tags || [],
-          aiScore: Math.floor(Math.random() * 20) + 80,
-          riskLevel: "low",
+                    
         })
       }
       setResult(data)
@@ -196,6 +195,5 @@ export default function NewPromptPage() {
     </div>
   )
 }
-
 
 

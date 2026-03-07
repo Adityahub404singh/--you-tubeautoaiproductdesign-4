@@ -13,7 +13,7 @@ interface StepOneProps {
 
 export function StepOne({ formData, updateFormData }: StepOneProps) {
   const { data: session } = useSession()
-  const isConnected = !!session?.accessToken
+  const isConnected = !!(session as any)?.accessToken
 
   return (
     <div className="space-y-6">

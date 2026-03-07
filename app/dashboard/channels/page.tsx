@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
@@ -321,8 +321,8 @@ function AddChannelForm({
     setError(null)
     try {
       const channels = await youtubeAuth?.getUserChannels()
-      if (channels && channels.length > 0) {
-        setYtChannels(channels)
+      if (channels != null && (channels as any[]).length > 0) {
+        setYtChannels(channels as any)
       } else {
         setError("No YouTube channels found. Please make sure you have a YouTube channel.")
       }
@@ -606,5 +606,3 @@ function ChannelSettingsForm({ channel }: { channel: any }) {
     </div>
   )
 }
-
-
