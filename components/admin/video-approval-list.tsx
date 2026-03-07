@@ -295,7 +295,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
         addNotification({
           userId: channelUser.id,
           type: "video-live",
-          title: "ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Â° Video Published!",
+          title: "Video Published!",
           message: `Your video "${video.title}" is now live on YouTube!`,
           videoId: video.id,
           youtubeUrl: youtubeUrl,
@@ -309,7 +309,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
             body: JSON.stringify({
               to: channelUser.email,
               type: "video-live",
-              subject: `ÃƒÂ°Ã…Â¸Ã…Â½Ã¢â‚¬Â° Your video "${video.title}" is now live on YouTube!`,
+              subject: `Your video "${video.title}" is now live on YouTube!`,
               html: `
                 <!DOCTYPE html>
                 <html>
@@ -358,7 +358,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
         addNotification({
           userId: channelUser.id,
           type: "video-failed",
-          title: "ÃƒÂ¢Ã‚ÂÃ…â€™ Upload Failed",
+          title: "Video Published!",
           message: `Your video "${video.title}" failed to upload: ${err.message}`,
           videoId: video.id,
         })
@@ -371,7 +371,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
             body: JSON.stringify({
               to: channelUser.email,
               type: "video-failed",
-              subject: `ÃƒÂ¢Ã‚ÂÃ…â€™ Video Upload Failed: ${video.title}`,
+              subject: `Your video "${video.title}" is now live on YouTube!`,
               html: `
                 <!DOCTYPE html>
                 <html>
@@ -435,7 +435,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
       addNotification({
         userId: channelUser.id,
         type: "video-approved",
-        title: "ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Video Approved!",
+        title: "Video Published!",
         message: `Your video "${video.title}" has been approved and is being processed for upload!`,
         videoId: video.id,
       })
@@ -448,7 +448,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
           body: JSON.stringify({
             to: channelUser.email,
             type: "video-approved",
-            subject: `ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Your video "${video.title}" has been approved!`,
+            subject: `Your video "${video.title}" is now live on YouTube!`,
             html: `
               <!DOCTYPE html>
               <html>
