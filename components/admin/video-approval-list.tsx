@@ -97,7 +97,7 @@ function Toast({ title, type, message, onClose }: { title: string; type?: string
       {isError ? <AlertTriangle className="h-5 w-5 flex-shrink-0" /> : <CheckCircle2 className="h-5 w-5 flex-shrink-0" />}
       <div className="min-w-0">
         <p className="font-semibold text-sm">
-          {isError ? "❌ Upload Failed" : "✅ Success"}
+          {isError ? "âŒ Upload Failed" : "âœ… Success"}
         </p>
         <p className="text-xs opacity-80 line-clamp-1">{title}</p>
         {message && <p className="text-xs opacity-70 mt-0.5 line-clamp-2">{message}</p>}
@@ -123,6 +123,15 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
   useEffect(() => { loadVideos() }, [filter])
 
 
+  const saveThumbnail = async (videoId: string, dataUrl: string): Promise<string> => {
+    const res = await fetch("/api/thumbnail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ videoId, dataUrl })
+    })
+    const data = await res.json()
+    return data.url || ""
+  }
   // Auto generate video + upload to YouTube on approval
   const autoGenerateAndUpload = async (video: Video) => {
     setUploadingVideos(prev => new Set(prev).add(video.id))
@@ -133,7 +142,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           audioUrl: "/storage/audio/silence.mp3",
-          thumbnailUrl: video.thumbnail || "",
+          thumbnailUrl: video.thumbnail?.startsWith("data:") ? await saveThumbnail(video.id, video.thumbnail) : (video.thumbnail || ""),
           title: video.title,
           duration: 60
         })
@@ -280,7 +289,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
         addNotification({
           userId: channelUser.id,
           type: "video-live",
-          title: "🎉 Video Published!",
+          title: "ðŸŽ‰ Video Published!",
           message: `Your video "${video.title}" is now live on YouTube!`,
           videoId: video.id,
           youtubeUrl: youtubeUrl,
@@ -294,7 +303,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
             body: JSON.stringify({
               to: channelUser.email,
               type: "video-live",
-              subject: `🎉 Your video "${video.title}" is now live on YouTube!`,
+              subject: `ðŸŽ‰ Your video "${video.title}" is now live on YouTube!`,
               html: `
                 <!DOCTYPE html>
                 <html>
@@ -304,7 +313,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
                 </head>
                 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                   <div style="background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-                    <h1 style="color: white; margin: 0;">🎉 Video Published!</h1>
+                    <h1 style="color: white; margin: 0;">ðŸŽ‰ Video Published!</h1>
                   </div>
                   <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 12px 12px;">
                     <p style="font-size: 16px; color: #333;">Great news, ${channelUser.name}!</p>
@@ -343,7 +352,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
         addNotification({
           userId: channelUser.id,
           type: "video-failed",
-          title: "❌ Upload Failed",
+          title: "âŒ Upload Failed",
           message: `Your video "${video.title}" failed to upload: ${err.message}`,
           videoId: video.id,
         })
@@ -356,7 +365,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
             body: JSON.stringify({
               to: channelUser.email,
               type: "video-failed",
-              subject: `❌ Video Upload Failed: ${video.title}`,
+              subject: `âŒ Video Upload Failed: ${video.title}`,
               html: `
                 <!DOCTYPE html>
                 <html>
@@ -366,7 +375,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
                 </head>
                 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                   <div style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-                    <h1 style="color: white; margin: 0;">⚠️ Upload Failed</h1>
+                    <h1 style="color: white; margin: 0;">âš ï¸ Upload Failed</h1>
                   </div>
                   <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 12px 12px;">
                     <p style="font-size: 16px; color: #333;">Hi ${channelUser.name},</p>
@@ -420,7 +429,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
       addNotification({
         userId: channelUser.id,
         type: "video-approved",
-        title: "✅ Video Approved!",
+        title: "âœ… Video Approved!",
         message: `Your video "${video.title}" has been approved and is being processed for upload!`,
         videoId: video.id,
       })
@@ -433,7 +442,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
           body: JSON.stringify({
             to: channelUser.email,
             type: "video-approved",
-            subject: `✅ Your video "${video.title}" has been approved!`,
+            subject: `âœ… Your video "${video.title}" has been approved!`,
             html: `
               <!DOCTYPE html>
               <html>
@@ -443,7 +452,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
               </head>
               <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <div style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-                  <h1 style="color: white; margin: 0;">✅ Video Approved!</h1>
+                  <h1 style="color: white; margin: 0;">âœ… Video Approved!</h1>
                 </div>
                 <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 12px 12px;">
                   <p style="font-size: 16px; color: #333;">Hi ${channelUser.name},</p>
@@ -452,7 +461,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
                     <p style="margin: 0; color: #666;">We'll send you another email once your video is live on YouTube!</p>
                   </div>
                   <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard" style="display: inline-block; background: #4a5568; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 10px;">View Dashboard</a>
-                  <p style="margin-top: 20px; font-size: 14px; color: #999;">Stay tuned! 🚀</p>
+                  <p style="margin-top: 20px; font-size: 14px; color: #999;">Stay tuned! ðŸš€</p>
                   <p style="margin-top: 30px; font-size: 14px; color: #999;">Thank you for using YouTubeAuto.ai!</p>
                 </div>
               </body>
@@ -519,7 +528,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
       <div className="space-y-4">
         {filter === "pending" && (
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{videos.length} videos pending • {videos.filter(v=>v.riskLevel==="low").length} low risk • {videos.filter(v=>v.riskLevel==="high").length} high risk</p>
+            <p className="text-sm text-muted-foreground">{videos.length} videos pending â€¢ {videos.filter(v=>v.riskLevel==="low").length} low risk â€¢ {videos.filter(v=>v.riskLevel==="high").length} high risk</p>
             <Button size="sm" variant="outline" onClick={handleBulk}><Check className="h-4 w-4 mr-2" />Bulk Approve Low Risk</Button>
           </div>
         )}
@@ -535,7 +544,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
                     <Badge variant="outline" className={scoreColor(video.aiScore)}>{video.aiScore}/100</Badge>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{channelUser?.name || "Unknown"}</span><span>•</span><span>{channel?.name || "Unknown"}</span>
+                    <span>{channelUser?.name || "Unknown"}</span><span>â€¢</span><span>{channel?.name || "Unknown"}</span>
                     {video.riskLevel === "high" && <Badge variant="destructive" className="text-xs py-0"><AlertTriangle className="h-3 w-3 mr-1" />High Risk</Badge>}
                   </div>
                 </CardHeader>
@@ -628,6 +637,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
     </>
   )
 }
+
 
 
 
