@@ -1,9 +1,4 @@
-﻿(Get-Content "app\api\video\generate\route.js" -Raw) -replace 'if \(!audioUrl \|\| !thumbnailUrl\)', 'if (!audioUrl)' | Set-Content "app\api\video\generate\route.js" -Encoding UTF8
-
-git add .
-git commit -m "fix: thumbnailUrl optional in video generate"
-git push origin main --force
-"use client"
+﻿"use client"
 import { useEffect, useState } from "react"
 import { store, type Video, getVideoFromIndexedDB, deleteVideoFromIndexedDB, addNotification } from "@/lib/store"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
