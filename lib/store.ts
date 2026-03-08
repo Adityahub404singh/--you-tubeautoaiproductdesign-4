@@ -67,6 +67,14 @@ export interface Video {
   videoFileId?: string // IndexedDB key for stored video file
   audioUrl?: string // ElevenLabs/TTS generated audio URL
   thumbnailUrl?: string // Generated thumbnail URL
+  script?: string // AI generated script
+  hook?: string // Video hook
+  videoType?: "shorts" | "long" | "slide" // Video type
+  scheduledTime?: string // YouTube scheduled upload time
+  youtubeUrl?: string // YouTube video URL after upload
+  youtubeVideoId?: string // YouTube video ID
+  uploadedAt?: string // Upload timestamp
+  uploadError?: string // Upload error message
   youtubeAccessToken?: string // User's YouTube access token (stored encrypted in real app)
   youtubeRefreshToken?: string // User's YouTube refresh token
   youtubeVideoId?: string // YouTube video ID after upload
@@ -690,4 +698,5 @@ export function requestBrowserNotificationPermission(): void {
     Notification.requestPermission()
   }
 }
+
 
