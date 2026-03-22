@@ -34,9 +34,7 @@ useEffect(() => {
 
   const freeUsed = user.freeVideosUsed || 0;
 
-  if (user.plan === "free" && freeUsed >= 10) {
-    router.replace("/upgrade");
-  }
+  // upgrade check disabled
 
 }, [user, router]);
   return (
@@ -89,5 +87,6 @@ useEffect(() => {
     </ProtectedRoute>
   )
 }
+
 
 

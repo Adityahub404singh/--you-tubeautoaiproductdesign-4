@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { writeFile, mkdir, copyFile, readdir, unlink } from "fs/promises";
@@ -134,42 +134,12 @@ export async function POST(request) {
     const colors = CATEGORY_COLORS[catKey] || CATEGORY_COLORS.general
     const subColor = colors.sub
 
-    // === PROFESSIONAL SUBTITLE FILTERS ===
+    // === SIMPLE FILTERS (no fonts needed) ===
     let drawF = []
-
-    // 1. Semi-transparent top bar for title
     drawF.push(`drawbox=x=0:y=0:w=iw:h=${isShorts?115:95}:color=black@0.65:t=fill`)
-
-    // 2. Title with glow effect
-    drawF.push(`drawtext=text='${safeTitle}':fontsize=${isShorts?46:42}:fontcolor=white:x=(w-text_w)/2:y=${isShorts?28:22}:enable='between(t,0,${audioDuration})':shadowx=2:shadowy=2:shadowcolor=black@0.9`)
-
-    // 3. Accent line under title
     drawF.push(`drawbox=x=0:y=${isShorts?108:88}:w=iw:h=${isShorts?4:3}:color=0x${subColor}@0.9:t=fill`)
-
-    // 4. Subtitles - karaoke style bottom
-    points.forEach((point, i) => {
-      const safe = safeT(point)
-      if (!safe) return
-      const st = i * segDur
-      const et = Math.min(st + segDur, audioDuration)
-      const y = isShorts ? "h*0.84" : "h*0.82"
-
-      // Shadow text (depth effect)
-      drawF.push(`drawtext=text='${safe}':fontsize=${isShorts?38:32}:fontcolor=black@0.8:x=(w-text_w)/2+2:y=${y}+2:enable='between(t,${st},${et})'`)
-      // Main colored subtitle
-      drawF.push(`drawtext=text='${safe}':fontsize=${isShorts?38:32}:fontcolor=0x${subColor}:x=(w-text_w)/2:y=${y}:enable='between(t,${st},${et})':box=1:boxcolor=black@0.75:boxborderw=${isShorts?14:11}`)
-    })
-
-    // 5. Category badge top-left
-    drawF.push(`drawbox=x=isShorts?60:48:y=${isShorts?130:108}:w=${isShorts?190:145}:h=${isShorts?54:42}:color=red@0.92:t=fill:x=${isShorts?60:48}`)
-    drawF.push(`drawtext=text='${catKey.toUpperCase()}':fontsize=${isShorts?26:20}:fontcolor=white:x=${isShorts?76:58}:y=${isShorts?148:120}:fontweight=bold`)
-
-    // 6. Progress bar at bottom
     drawF.push(`drawbox=x=0:y=h-${isShorts?8:6}:w=iw:h=${isShorts?8:6}:color=black@0.5:t=fill`)
     drawF.push(`drawbox=x=0:y=h-${isShorts?8:6}:w=iw*t/${audioDuration}:h=${isShorts?8:6}:color=0x${subColor}@0.9:t=fill`)
-
-    // 7. Copyright watermark
-    drawF.push(`drawtext=text='Pexels CC0 | AI Generated | Copyright Safe':fontsize=${isShorts?16:12}:fontcolor=white@0.4:x=(w-text_w)/2:y=h-${isShorts?30:22}`)
 
     const scaleVf = `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,setsar=1`
 
@@ -233,3 +203,5 @@ export async function POST(request) {
     return NextResponse.json({ error: error.message }, {status:500})
   }
 }
+
+
