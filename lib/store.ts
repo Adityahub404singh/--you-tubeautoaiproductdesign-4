@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 export interface User {
   id: string
@@ -243,7 +243,7 @@ class Store {
     if (user.role === "admin") return { allowed: true }
 
     // Check if user has free videos remaining
-    if (user.freeVideosUsed < 10) return { allowed: true }
+    if (user.freeVideosUsed < 99999) return { allowed: true }
 
     // Check if user has paid credits
     if (user.paidVideoCredits > 0) return { allowed: true }
@@ -276,7 +276,7 @@ class Store {
     }
 
     const isAdmin = user.role === "admin"
-    const isFree = isAdmin || user.freeVideosUsed < 10
+    const isFree = isAdmin || user.freeVideosUsed < 99999
     const cost = isFree ? 0 : 0.16
 
     const riskLevel = this.calculateRiskLevel(channel.category)
@@ -341,7 +341,7 @@ class Store {
     const riskLevel = this.calculateRiskLevel(channel.category)
 
     for (let i = 0; i < 30; i++) {
-      const isFree = user.freeVideosUsed < 10
+      const isFree = user.freeVideosUsed < 99999
       const cost = isFree ? 0 : 0.16
 
       const video: Video = {
@@ -698,5 +698,6 @@ export function requestBrowserNotificationPermission(): void {
     Notification.requestPermission()
   }
 }
+
 
 

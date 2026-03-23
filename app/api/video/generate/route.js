@@ -5,6 +5,8 @@ import { writeFile, mkdir, copyFile, readdir, unlink } from "fs/promises";
 import { existsSync, statSync } from "fs";
 import path from "path";
 const execAsync = promisify(exec);
+const FFMPEG = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe";
+const FFPROBE = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffprobe.exe";
 
 const CATEGORY_QUERIES = {
   facts:      ["space galaxy cosmos", "science laboratory research", "nature wildlife animals", "history ancient civilization", "human body medical"],
@@ -69,7 +71,7 @@ export async function POST(request) {
     // Audio
     const audioLocal = path.join(storageDir, "audio", audioUrl.split("/").pop())
     if (existsSync(audioLocal)) await copyFile(audioLocal, audioPath)
-    else await execAsync(`ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 60 -q:a 9 -acodec libmp3lame "${audioPath}"`)
+    else await execAsync(`${FFMPEG} -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 60 -q:a 9 -acodec libmp3lame "${audioPath}"`)
 
     // Thumbnail
     const thumbLocal = path.join(thumbsDir, thumbnailUrl.split("/").pop())
@@ -77,13 +79,13 @@ export async function POST(request) {
     else {
       const jpgs = (await readdir(thumbsDir).catch(()=>[])).filter(f=>f.endsWith(".jpg")).sort().reverse()
       if (jpgs.length > 0) await copyFile(path.join(thumbsDir, jpgs[0]), thumbPath)
-      else await execAsync(`ffmpeg -y -f lavfi -i color=black:size=${W}x${H}:rate=1 -frames:v 1 "${thumbPath}"`)
+      else await execAsync(`${FFMPEG} -y -f lavfi -i color=black:size=${W}x${H}:rate=1 -frames:v 1 "${thumbPath}"`)
     }
 
     // Audio duration
     let audioDuration = 60
     try {
-      const { stdout } = await execAsync(`ffprobe -v quiet -print_format json -show_streams "${audioPath}"`)
+      const { stdout } = await execAsync(`${FFPROBE} -v quiet -print_format json -show_streams "${audioPath}"`)
       audioDuration = Math.ceil(parseFloat(JSON.parse(stdout).streams[0]?.duration || "60"))
     } catch(e) {}
 
@@ -92,7 +94,7 @@ export async function POST(request) {
     if (!existsSync(musicPath)) {
       const freq = CATEGORY_MUSIC_FREQ[catKey] || 432
       try {
-        await execAsync(`ffmpeg -y -f lavfi -i "sine=frequency=${freq}:duration=${audioDuration+15}" -af "volume=0.1,afade=t=in:st=0:d=4,afade=t=out:st=${audioDuration+8}:d=5,equalizer=f=100:width_type=o:width=2:g=3" -acodec libmp3lame -q:a 4 "${musicPath}"`)
+        await execAsync(`${FFMPEG} -y -f lavfi -i "sine=frequency=${freq}:duration=${audioDuration+15}" -af "volume=0.1,afade=t=in:st=0:d=4,afade=t=out:st=${audioDuration+8}:d=5,equalizer=f=100:width_type=o:width=2:g=3" -acodec libmp3lame -q:a 4 "${musicPath}"`)
         console.log("✅ BG Music:", catKey, freq+"Hz")
       } catch(e) {}
     }
@@ -147,7 +149,7 @@ export async function POST(request) {
     const mixedAudio = path.join(tempDir, `${videoId}_mix.mp3`)
     if (existsSync(musicPath)) {
       try {
-        await execAsync(`ffmpeg -y -i "${audioPath}" -i "${musicPath}" -filter_complex "[0:a]volume=1.0[v];[1:a]volume=0.1,afade=t=in:st=0:d=3,afade=t=out:st=${Math.max(audioDuration-4,1)}:d=4[m];[v][m]amix=inputs=2:duration=first[out]" -map "[out]" -t ${audioDuration} "${mixedAudio}"`, {timeout:60000})
+        await execAsync(`${FFMPEG} -y -i "${audioPath}" -i "${musicPath}" -filter_complex "[0:a]volume=1.0[v];[1:a]volume=0.1,afade=t=in:st=0:d=3,afade=t=out:st=${Math.max(audioDuration-4,1)}:d=4[m];[v][m]amix=inputs=2:duration=first[out]" -map "[out]" -t ${audioDuration} "${mixedAudio}"`, {timeout:60000})
       } catch(e) { await copyFile(audioPath, mixedAudio) }
     } else await copyFile(audioPath, mixedAudio)
 
@@ -164,7 +166,7 @@ export async function POST(request) {
         try {
           // Each clip: scale + slight zoom effect
           const zoom = i % 2 === 0 ? `zoompan=z='min(zoom+0.0008,1.05)':d=${segLen*25}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)',` : ""
-          await execAsync(`ffmpeg -y -i "${clips[i].path}" -t ${segLen} -vf "${zoom}${scaleVf},fps=25" -c:v libx264 -preset fast -crf 23 -an "${proc}"`, {timeout:120000})
+          await execAsync(`${FFMPEG} -y -i "${clips[i].path}" -t ${segLen} -vf "${zoom}${scaleVf},fps=25" -c:v libx264 -preset fast -crf 23 -an "${proc}"`, {timeout:120000})
           if (existsSync(proc) && statSync(proc).size > 5000) {
             processed.push(proc)
             concatTxt += `file '${proc.replace(/\\/g,"/")}'\n`
@@ -175,12 +177,12 @@ export async function POST(request) {
       if (processed.length >= 2) {
         const concatF = path.join(tempDir, `${videoId}_list.txt`)
         await writeFile(concatF, concatTxt)
-        ffmpegCmd = `ffmpeg -y -f concat -safe 0 -i "${concatF}" -i "${mixedAudio}" -c:v libx264 -preset fast -crf 22 -c:a aac -b:a 192k -pix_fmt yuv420p -t ${audioDuration} -vf "${drawF.join(",")}" -movflags +faststart "${outputPath}"`
+        ffmpegCmd = `${FFMPEG} -y -f concat -safe 0 -i "${concatF}" -i "${mixedAudio}" -c:v libx264 -preset fast -crf 22 -c:a aac -b:a 192k -pix_fmt yuv420p -t ${audioDuration} -vf "${drawF.join(",")}" -movflags +faststart "${outputPath}"`
       } else {
-        ffmpegCmd = `ffmpeg -y -loop 1 -i "${thumbPath}" -i "${mixedAudio}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -t ${audioDuration} -vf "${scaleVf},${drawF.join(",")}" -movflags +faststart "${outputPath}"`
+        ffmpegCmd = `${FFMPEG} -y -loop 1 -i "${thumbPath}" -i "${mixedAudio}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -t ${audioDuration} -vf "${scaleVf},${drawF.join(",")}" -movflags +faststart "${outputPath}"`
       }
     } else {
-      ffmpegCmd = `ffmpeg -y -loop 1 -i "${thumbPath}" -i "${mixedAudio}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -t ${audioDuration} -vf "${scaleVf},${drawF.join(",")}" -movflags +faststart "${outputPath}"`
+      ffmpegCmd = `${FFMPEG} -y -loop 1 -i "${thumbPath}" -i "${mixedAudio}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -t ${audioDuration} -vf "${scaleVf},${drawF.join(",")}" -movflags +faststart "${outputPath}"`
     }
 
     console.log(`🎬 FFmpeg: ${isShorts?"Shorts 9:16":"Long 16:9"} | ${audioDuration}s | Clips:${clips.length}`)
@@ -203,5 +205,6 @@ export async function POST(request) {
     return NextResponse.json({ error: error.message }, {status:500})
   }
 }
+
 
 

@@ -8,3 +8,5 @@ node_modules/
 .env.local
 
 storage/
+
+/lib/generated/prisma

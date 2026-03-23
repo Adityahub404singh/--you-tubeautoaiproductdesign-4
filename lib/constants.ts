@@ -8,7 +8,7 @@ export const CONTACT = {
 }
 
 export const PRICING = {
-  freeVideos: 10,
+  freeVideos: 99999,
   pricePerVideo: 0.2,
   volumePricing: {
     tier1: { min: 11, max: 50, price: 0.2 },
@@ -31,3 +31,4 @@ export const YOUTUBE_CONFIG = {
 export const STRIPE_CONFIG = {
   publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
 }
+

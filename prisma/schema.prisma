@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String
+  phone             String    @default("")
+  role              String    @default("user")
+  plan              String    @default("free")
+  hasCompletedSetup Boolean   @default(false)
+  freeVideosUsed    Int       @default(0)
+  paidVideoCredits  Int       @default(0)
+  totalSpent        Float     @default(0)
+  youtubeMonetized  Boolean   @default(false)
+  youtubeEarnings   Float     @default(0)
+  youtubeShareOwed  Float     @default(0)
+  lastActive        DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  channels          Channel[]
+  videos            Video[]
+  payments          Payment[]
+}
+
+model Channel {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  subscribers     Int      @default(0)
+  category        String   @default("tech")
+  language        String   @default("hi")
+  voice           String   @default("hi-IN-Wavenet-B")
+  defaultTags     String   @default("")
+  privacy         String   @default("public")
+  uploadTime      String   @default("10:00")
+  contentStrategy String   @default("")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id])
+  videos          Video[]
+}
+
+model Video {
+  id              String    @id @default(cuid())
+  channelId       String
+  userId          String
+  title           String
+  status          String    @default("pending-approval")
+  riskLevel       String    @default("low")
+  scheduledDate   DateTime  @default(now())
+  views           Int       @default(0)
+  likes           Int       @default(0)
+  comments        Int       @default(0)
+  thumbnail       String    @default("")
+  topic           String
+  description     String    @default("")
+  tags            String    @default("[]")
+  aiScore         Int       @default(75)
+  adminApproved   Boolean   @default(false)
+  adminApprovedBy String?
+  adminApprovedAt DateTime?
+  userApproved    Boolean   @default(false)
+  userApprovedAt  DateTime?
+  cost            Float     @default(0)
+  isFree          Boolean   @default(true)
+  audioUrl        String    @default("")
+  thumbnailUrl    String    @default("")
+  script          String    @default("")
+  hook            String    @default("")
+  videoType       String    @default("long")
+  scheduledTime   String?
+  youtubeUrl      String?
+  youtubeVideoId  String?
+  uploadedAt      DateTime?
+  uploadError     String?
+  videoFileUrl    String?
+  createdAt       DateTime  @default(now())
+  channel         Channel   @relation(fields: [channelId], references: [id])
+  user            User      @relation(fields: [userId], references: [id])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  amount    Float
+  videoId   String?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
