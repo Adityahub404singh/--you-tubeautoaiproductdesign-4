@@ -1,65 +1,25 @@
 ﻿import { NextRequest, NextResponse } from "next/server"
-import { writeFile, mkdir, readFile } from "fs/promises"
+import { writeFile, mkdir } from "fs/promises"
 import { existsSync, statSync } from "fs"
 import { exec } from "child_process"
 import { promisify } from "util"
 import path from "path"
 const execAsync = promisify(exec)
 
-function processScriptForVoice(text: string, isShorts: boolean): string {
-  let processed = text
-    .replace(/\[PAUSE\]/g, ". ")
-    .replace(/\[EMPHASIS\]/g, "")
-    .replace(/\[SPEED_UP\]/g, "")
-    .replace(/\[SLOW_DOWN\]/g, ". ")
-    .replace(/\*\*/g, "")
-    .replace(/#{1,6}\s/g, "")
-    .replace(/\n+/g, ". ")
-    .replace(/[।!]{2,}/g, "! ")
-    .replace(/\s+/g, " ")
-    .trim()
-
-  // Shorts ke liye short karo
-  if (isShorts) return processed.slice(0, 250)
-  return processed.slice(0, 450)
-}
-
-async function googleTTS(text: string, lang: string, filePath: string): Promise<boolean> {
-  const speeds = [0.85, 0.9, 0.8]
-  
-  for (const speed of speeds) {
-    try {
-      const encoded = encodeURIComponent(text.slice(0, 200))
-      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=${lang}&client=tw-ob&ttsspeed=${speed}`
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
-          "Referer": "https://translate.google.com/",
-          "Accept": "audio/mpeg, audio/*, */*",
-          "Accept-Language": "hi-IN,hi;q=0.9,en;q=0.8"
-        },
-        signal: AbortSignal.timeout(15000)
-      })
-      if (res.ok) {
-        const buffer = await res.arrayBuffer()
-        if (buffer.byteLength > 3000) {
-          await writeFile(filePath, Buffer.from(buffer))
-          console.log(`✅ Google TTS! Lang:${lang} Speed:${speed} Size:${buffer.byteLength}`)
-          return true
-        }
-      }
-    } catch(e) { continue }
-  }
-  return false
-}
-
-async function generateSilentAudio(filePath: string, duration: number = 60): Promise<void> {
-  await execAsync(`ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo -t ${duration} -q:a 9 -acodec libmp3lame "${filePath}"`)
+const VOICES: Record<string, any> = {
+  facts:      { voice: "hi-IN-MadhurNeural", rate: "+10%", pitch: "+0Hz"  },
+  motivation: { voice: "hi-IN-MadhurNeural", rate: "+5%",  pitch: "-3Hz"  },
+  tech:       { voice: "hi-IN-MadhurNeural", rate: "+8%",  pitch: "+0Hz"  },
+  story:      { voice: "hi-IN-SwaraNeural",  rate: "-20%", pitch: "-8Hz"  },
+  top10:      { voice: "hi-IN-MadhurNeural", rate: "+15%", pitch: "+2Hz"  },
+  shorts:     { voice: "hi-IN-SwaraNeural",  rate: "+18%", pitch: "+3Hz"  },
+  horror:     { voice: "hi-IN-SwaraNeural",  rate: "-25%", pitch: "-15Hz" },
+  general:    { voice: "hi-IN-MadhurNeural", rate: "+5%",  pitch: "+0Hz"  },
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, title, isShorts = false } = await req.json()
+    const { text, category = "general", isShorts = false } = await req.json()
     if (!text) return NextResponse.json({ error: "Text required" }, { status: 400 })
 
     const audioDir = path.join(process.cwd(), "storage", "audio")
@@ -67,74 +27,61 @@ export async function POST(req: NextRequest) {
     const fileName = `audio_${Date.now()}.mp3`
     const filePath = path.join(audioDir, fileName)
 
-    const processedText = processScriptForVoice(text, isShorts)
-    console.log("Processing voice for:", processedText.slice(0, 80) + "...")
+    const catKey = (category || "general").toLowerCase()
+    const vc = VOICES[catKey] || VOICES.general
 
-    // 1. Hindi TTS try karo
-    const hiSuccess = await googleTTS(processedText, "hi", filePath)
-    if (hiSuccess) {
-      return NextResponse.json({ 
-        success: true, 
-        audioUrl: `/storage/audio/${fileName}`, 
-        provider: "google-hi",
-        size: statSync(filePath).size
+    const cleanedText = text
+      .replace(/\[HOOK\]/gi,"").replace(/\[SETUP\]/gi,"").replace(/\[BUILDUP\]/gi,"")
+      .replace(/\[PEAK\]/gi,"").replace(/\[ENDING\]/gi,"").replace(/\[CTA\]/gi,"")
+      .replace(/\[PAUSE\]/gi,". ").replace(/\[EMPHASIS\]/gi,"")
+      .replace(/\*\*/g,"").replace(/#{1,6}\s/g,"")
+      .replace(/\n+/g,". ").replace(/\s+/g," ").trim()
+      .slice(0, isShorts ? 200 : 400)
+
+    console.log("Voice:", catKey, vc.voice, vc.rate)
+
+    try {
+      const safeText = cleanedText.replace(/"/g,"'").replace(/\\/g,"").replace(/\n/g," ")
+      const pyFile = path.join(audioDir, `tts_${Date.now()}.py`)
+      const outPath = filePath.replace(/\\/g,"\\\\")
+      const py = [
+        "import asyncio, edge_tts",
+        "async def go():",
+        `    c = edge_tts.Communicate(text="${safeText}", voice="${vc.voice}", rate="${vc.rate}", pitch="${vc.pitch}")`,
+        `    await c.save(r"${outPath}")`,
+        '    import os',
+        `    print("Done! Size:", os.path.getsize(r"${outPath}"), "bytes")`,
+        "asyncio.run(go())"
+      ].join("\n")
+      await writeFile(pyFile, py)
+      const { stdout } = await execAsync(`python "${pyFile}"`, { timeout: 60000 })
+      try { const fs = await import("fs/promises"); await fs.unlink(pyFile) } catch {}
+      if (stdout.includes("Done!") && existsSync(filePath) && statSync(filePath).size > 1000) {
+        console.log("Edge TTS OK!", stdout.trim())
+        return NextResponse.json({ success: true, audioUrl: `/storage/audio/${fileName}`, provider: "edge-tts" })
+      }
+    } catch(e: any) { console.log("Edge TTS err:", e.message?.slice(0,80)) }
+
+    try {
+      const encoded = encodeURIComponent(cleanedText.slice(0, 200))
+      const res = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=hi&client=tw-ob&ttsspeed=0.85`, {
+        headers: { "User-Agent": "Mozilla/5.0", "Referer": "https://translate.google.com/" },
+        signal: AbortSignal.timeout(15000)
       })
-    }
-
-    // 2. Hindi-India try karo
-    const hiInSuccess = await googleTTS(processedText, "hi-IN", filePath)
-    if (hiInSuccess) {
-      return NextResponse.json({ 
-        success: true, 
-        audioUrl: `/storage/audio/${fileName}`, 
-        provider: "google-hi-IN",
-        size: statSync(filePath).size
-      })
-    }
-
-    // 3. OpenAI TTS fallback
-    const openaiKey = process.env.OPENAI_API_KEY
-    if (openaiKey) {
-      try {
-        const res = await fetch("https://api.openai.com/v1/audio/speech", {
-          method: "POST",
-          headers: { 
-            "Authorization": `Bearer ${openaiKey}`, 
-            "Content-Type": "application/json" 
-          },
-          body: JSON.stringify({ 
-            model: "tts-1", 
-            voice: "onyx",
-            input: processedText.slice(0, 4096), 
-            speed: isShorts ? 1.1 : 0.9
-          }),
-          signal: AbortSignal.timeout(30000)
-        })
-        if (res.ok) {
-          const buffer = await res.arrayBuffer()
-          await writeFile(filePath, Buffer.from(buffer))
-          console.log("✅ OpenAI TTS success!")
-          return NextResponse.json({ 
-            success: true, 
-            audioUrl: `/storage/audio/${fileName}`, 
-            provider: "openai",
-            size: buffer.byteLength
-          })
+      if (res.ok) {
+        const buf = await res.arrayBuffer()
+        if (buf.byteLength > 3000) {
+          await writeFile(filePath, Buffer.from(buf))
+          console.log("Google TTS OK!", buf.byteLength)
+          return NextResponse.json({ success: true, audioUrl: `/storage/audio/${fileName}`, provider: "google" })
         }
-      } catch(e) { console.log("OpenAI TTS failed") }
-    }
+      }
+    } catch {}
 
-    // 4. Silent fallback
-    await generateSilentAudio(filePath, isShorts ? 60 : 180)
-    console.log("⚠️ Silent fallback used")
-    return NextResponse.json({ 
-      success: true, 
-      audioUrl: `/storage/audio/${fileName}`, 
-      provider: "silent" 
-    })
+    await execAsync(`ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 60 -q:a 9 -acodec libmp3lame "${filePath}"`)
+    return NextResponse.json({ success: true, audioUrl: `/storage/audio/${fileName}`, provider: "silent" })
 
   } catch (error: any) {
-    console.error("Voiceover error:", error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

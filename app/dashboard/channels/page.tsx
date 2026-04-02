@@ -1,608 +1,82 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Plus, Settings, Trash2, Youtube, Users, Video, TrendingUp, AlertCircle, CheckCircle2 } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import { ProtectedRoute } from "@/components/auth/protected-route"
-import { useAuth } from "@/lib/auth-context"
-import { youtubeAuth, type YouTubeChannel } from "@/lib/youtube-auth"
-import { store, getFreeVideosRemaining } from "@/lib/store"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+﻿"use client";
+import { useState, useEffect } from "react";
+import { Instagram, Link2 } from "lucide-react";
 
 export default function ChannelsPage() {
-  const { user } = useAuth()
-  const searchParams = useSearchParams()
-  const [channels, setChannels] = useState(store?.getChannels(user?.id) || [])
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [channels, setChannels] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (searchParams.get("connected") === "true") {
-      setSuccess("YouTube account connected successfully!")
-      setTimeout(() => setSuccess(null), 5000)
-    }
-    if (searchParams.get("error")) {
-      setError("Failed to connect YouTube account. Please try again.")
-      setTimeout(() => setError(null), 5000)
-    }
-  }, [searchParams])
+    const saved = JSON.parse(localStorage.getItem("channels") || "[]");
+    setChannels(saved);
+    setLoading(false);
 
-  useEffect(() => {
-    if (user?.id) {
-      setChannels(store?.getChannels(user.id) || [])
+    // Check for Instagram connection
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("instagram_connected")) {
+      alert("Instagram connected successfully!");
     }
-  }, [user?.id])
+  }, []);
 
-  const handleConnectYouTube = () => {
-    setIsConnecting(true)
-    youtubeAuth?.initiateAuth()
-  }
+  const connectInstagram = () => {
+    window.location.href = "/api/auth/instagram?action=connect";
+  };
 
-  const planLimits =
-    user?.role === "admin"
-      ? { channels: "Unlimited", videos: "Unlimited", plan: "Admin" }
-      : user?.plan === "agency"
-        ? { channels: "Unlimited", videos: "Unlimited", plan: "Agency" }
-        : user?.plan === "pro"
-          ? { channels: 5, videos: 300, plan: "Pro" }
-          : { channels: 1, videos: 30, plan: "Free" }
+  const disconnectInstagram = () => {
+    const updated = channels.filter(c => c.platform !== "instagram");
+    localStorage.setItem("channels", JSON.stringify(updated));
+    setChannels(updated);
+  };
+
+  const igChannel = channels.find(c => c.platform === "instagram");
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-background">
-        <DashboardHeader selectedChannel="main-channel" onChannelChange={() => {}} />
-
-        <main className="mx-auto max-w-7xl px-4 py-8">
-          <div className="space-y-6">
-            {success && (
-              <Alert className="border-green-500/50 bg-green-500/10">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                <AlertDescription className="text-green-500">{success}</AlertDescription>
-              </Alert>
-            )}
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold">Channel Management</h1>
-                <p className="text-muted-foreground mt-1">Manage your connected YouTube channels</p>
-              </div>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Channel
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Connect New YouTube Channel</DialogTitle>
-                    <DialogDescription>Add another channel to automate content creation</DialogDescription>
-                  </DialogHeader>
-                  <AddChannelForm
-                    onConnect={handleConnectYouTube}
-                    isConnecting={isConnecting}
-                    userId={user?.id || ""}
-                    onChannelAdded={() => {
-                      if (user?.id) {
-                        setChannels(store?.getChannels(user.id) || [])
-                      }
-                    }}
-                  />
-                </DialogContent>
-              </Dialog>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Connected Platforms</h1>
+      
+      {/* YouTube Channel */}
+      <div className="border rounded-lg p-4 mb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center">
+              <span className="text-white font-bold">YT</span>
             </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Plan Usage</CardTitle>
-                <CardDescription>Your current subscription limits</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Channels</span>
-                      <span className="text-sm text-muted-foreground">
-                        {channels.length} / {planLimits.channels}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary"
-                        style={{
-                          width:
-                            planLimits.channels === "Unlimited"
-                              ? "100%"
-                              : `${(channels.length / Number(planLimits.channels)) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Free Videos Remaining</span>
-                      <span className="text-sm text-muted-foreground">{user ? getFreeVideosRemaining(user) : 0} / 10</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary"
-                        style={{ width: `${user ? (getFreeVideosRemaining(user) / 10) * 100 : 0}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Current Plan</span>
-                      <Badge>{planLimits.plan}</Badge>
-                    </div>
-                    {!user?.role && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        After 10 free videos: $0.20/video (11-50), $0.18 (51-100), $0.16 (101+)
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid gap-4">
-              {channels.length === 0 ? (
-                <Card>
-                  <CardContent className="p-12 text-center">
-                    <Youtube className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                    <h3 className="text-lg font-semibold mb-2">No channels connected</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Connect your YouTube channel to start automating content creation
-                    </p>
-                    <Button onClick={handleConnectYouTube} disabled={isConnecting}>
-                      <Youtube className="h-4 w-4 mr-2" />
-                      {isConnecting ? "Connecting..." : "Connect YouTube Channel"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                channels.map((channel) => (
-                  <Card key={channel.id}>
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-4 flex-1">
-                          <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Youtube className="h-8 w-8 text-primary" />
-                          </div>
-                          <div className="flex-1 space-y-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h3 className="text-lg font-semibold">{channel.name}</h3>
-                                <Badge variant={channel.isActive ? "default" : "secondary"}>
-                                  {channel.isActive ? "active" : "paused"}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground">{channel.category}</p>
-                            </div>
-
-                            <div className="flex items-center gap-6 text-sm">
-                              <div className="flex items-center gap-2">
-                                <Users className="h-4 w-4 text-muted-foreground" />
-                                <span>{channel.subscribers} subscribers</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Video className="h-4 w-4 text-muted-foreground" />
-                                <span>{channel.language}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-green-500">Active</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Settings className="h-4 w-4 mr-2" />
-                                Settings
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
-                              <DialogHeader>
-                                <DialogTitle>Channel Settings</DialogTitle>
-                                <DialogDescription>Configure automation settings for {channel.name}</DialogDescription>
-                              </DialogHeader>
-                              <ChannelSettingsForm channel={channel} />
-                            </DialogContent>
-                          </Dialog>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              if (confirm("Are you sure you want to delete this channel?")) {
-                                store?.deleteChannel(channel.id)
-                                if (user?.id) {
-                                  setChannels(store?.getChannels(user.id) || [])
-                                }
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+            <div>
+              <h3 className="font-semibold">YouTube</h3>
+              <p className="text-sm text-gray-500">Connected</p>
             </div>
           </div>
-        </main>
+          <a href="/api/auth/youtube?action=connect" className="text-red-600 hover:underline">
+            Manage
+          </a>
+        </div>
       </div>
-    </ProtectedRoute>
-  )
-}
 
-// Available categories for YouTube videos
-const YOUTUBE_CATEGORIES = [
-  { id: "1", name: "Film & Animation" },
-  { id: "2", name: "Autos & Vehicles" },
-  { id: "10", name: "Music" },
-  { id: "15", name: "Pets & Animals" },
-  { id: "17", name: "Sports" },
-  { id: "18", name: "Shorts" },
-  { id: "19", name: "Travel & Events" },
-  { id: "20", name: "Gaming" },
-  { id: "21", name: "Videoblogging" },
-  { id: "22", name: "People & Blogs" },
-  { id: "23", name: "Comedy" },
-  { id: "24", name: "Entertainment" },
-  { id: "25", name: "News & Politics" },
-  { id: "26", name: "Howto & Style" },
-  { id: "27", name: "Education" },
-  { id: "28", name: "Science & Technology" },
-]
-
-const LANGUAGES = [
-  { id: "en", name: "English" },
-  { id: "hi", name: "Hindi" },
-  { id: "es", name: "Spanish" },
-  { id: "pt", name: "Portuguese" },
-  { id: "fr", name: "French" },
-  { id: "de", name: "German" },
-]
-
-function AddChannelForm({
-  onConnect,
-  isConnecting,
-  userId,
-  onChannelAdded,
-}: {
-  onConnect: () => void
-  isConnecting: boolean
-  userId: string
-  onChannelAdded: () => void
-}) {
-  const [loading, setLoading] = useState(false)
-  const [ytChannels, setYtChannels] = useState<YouTubeChannel[]>([])
-  const [selectedChannel, setSelectedChannel] = useState<string>("")
-  const [selectedCategory, setSelectedCategory] = useState<string>("28")
-  const [selectedLanguage, setSelectedLanguage] = useState<string>("en")
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchChannels = async () => {
-    // Pehle OAuth connect karo
-    window.location.href = "/api/auth/youtube?action=connect"
-    return
-    // Below code runs after reconnect (kept for reference)
-    setLoading(true)
-    setError(null)
-    try {
-      const channels = await youtubeAuth?.getUserChannels()
-      if (channels != null && (channels as any[]).length > 0) {
-        setYtChannels(channels as any)
-      } else {
-        setError("No YouTube channels found. Please make sure you have a YouTube channel.")
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch channels")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleAddChannel = () => {
-    if (!selectedChannel) {
-      setError("Please select a channel")
-      return
-    }
-
-    const channel = ytChannels.find((c) => c.id === selectedChannel)
-    if (!channel) return
-
-    const category = YOUTUBE_CATEGORIES.find(c => c.id === selectedCategory)
-    const language = LANGUAGES.find(l => l.id === selectedLanguage)
-
-    store?.createChannel({
-      userId,
-      name: channel.title,
-      subscribers: Number.parseInt(channel.subscriberCount) || 0,
-      category: category?.name || "Science & Technology",
-      language: language?.name || "English",
-      voice: "Male",
-      defaultTags: "",
-      privacy: "public",
-      uploadTime: "14:00",
-      contentStrategy: "",
-      isActive: true,
-    })
-
-    onChannelAdded()
-    setYtChannels([])
-    setSelectedChannel("")
-  }
-
-  return (
-    <div className="space-y-4">          {ytChannels.length === 0 ? (
-        <>
-          <div className="p-4 bg-muted rounded-lg">
-            <h4 className="font-medium mb-2">Connect with YouTube OAuth</h4>
-            <p className="text-sm text-muted-foreground mb-4">
-              Click below to securely connect your YouTube account. We'll fetch your channel details automatically.
-            </p>
-            {youtubeAuth?.isAuthenticated() ? (
-              <Button onClick={fetchChannels} disabled={loading} className="w-full">
-                {loading ? "Fetching Channels..." : "Fetch My Channels"}
-              </Button>
-            ) : (
-              <Button onClick={onConnect} disabled={isConnecting} className="w-full">
-                <Youtube className="h-4 w-4 mr-2" />
-                {isConnecting ? "Connecting..." : "Connect with YouTube"}
-              </Button>
-            )}
+      {/* Instagram Channel */}
+      <div className="border rounded-lg p-4 mb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 rounded-full flex items-center justify-center">
+              <Instagram className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold">Instagram</h3>
+              <p className="text-sm text-gray-500">
+                {igChannel ? "Connected" : "Not connected"}
+              </p>
+            </div>
           </div>
-
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+          {igChannel ? (
+            <button onClick={disconnectInstagram} className="text-red-600 hover:underline">
+              Disconnect
+            </button>
+          ) : (
+            <button onClick={connectInstagram} className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg hover:opacity-90">
+              Connect Instagram
+            </button>
           )}
-        </>
-      ) : (
-        <>
-          <div className="space-y-2">
-            <Label>Select Channel</Label>
-            <Select value={selectedChannel} onValueChange={setSelectedChannel}>
-              <SelectTrigger>
-                <SelectValue placeholder="Choose a channel" />
-              </SelectTrigger>
-              <SelectContent>
-                {ytChannels.map((channel) => (
-                  <SelectItem key={channel.id} value={channel.id}>
-                    {channel.title} ({channel.subscriberCount} subscribers)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Video Category</Label>
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {YOUTUBE_CATEGORIES.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Video Language</Label>
-              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LANGUAGES.map((lang) => (
-                    <SelectItem key={lang.id} value={lang.id}>
-                      {lang.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex justify-end gap-2 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setYtChannels([])
-                setSelectedChannel("")
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleAddChannel}>Add Channel</Button>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-function ChannelSettingsForm({ channel }: { channel: any }) {
-  return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="content-mode">Content Mode</Label>
-          <Select defaultValue="master-prompt">
-            <SelectTrigger id="content-mode">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="master-prompt">Master Prompt</SelectItem>
-              <SelectItem value="daily-prompt">Daily Prompt</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="master-prompt">Master Prompt</Label>
-          <Textarea
-            id="master-prompt"
-            placeholder="Describe your content strategy..."
-            rows={4}
-            defaultValue={
-              channel.contentStrategy || "Create daily tech news videos covering AI, startups, and gadgets."
-            }
-          />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="frequency">Video Frequency</Label>
-            <Select defaultValue={channel.uploadTime || "daily"}>
-              <SelectTrigger id="frequency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="every-2-days">Every 2 Days</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="posting-time">Posting Time</Label>
-            <Select defaultValue={channel.uploadTime || "14:00"}>
-              <SelectTrigger id="posting-time">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10:00">10:00 AM</SelectItem>
-                <SelectItem value="14:00">2:00 PM</SelectItem>
-                <SelectItem value="18:00">6:00 PM</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="voice-language">Voice Language</Label>
-            <Select defaultValue={channel.language || "en"}>
-              <SelectTrigger id="voice-language">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en">English</SelectItem>
-                <SelectItem value="hi">Hindi</SelectItem>
-                <SelectItem value="es">Spanish</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="voice-gender">Voice Gender</Label>
-            <Select defaultValue={channel.voice || "male"}>
-              <SelectTrigger id="voice-gender">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="male">Male</SelectItem>
-                <SelectItem value="female">Female</SelectItem>
-                <SelectItem value="neutral">Neutral</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="voice-accent">Voice Accent</Label>
-            <Select defaultValue="us">
-              <SelectTrigger id="voice-accent">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="us">US</SelectItem>
-                <SelectItem value="uk">UK</SelectItem>
-                <SelectItem value="in">Indian</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4 pt-4 border-t">
-        <h4 className="font-medium">Automation Settings</h4>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Enable Subtitles</Label>
-              <p className="text-sm text-muted-foreground">Auto-generate subtitles</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Auto-Upload</Label>
-              <p className="text-sm text-muted-foreground">Automatically publish videos</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label>Require Approval</Label>
-              <p className="text-sm text-muted-foreground">Review before publishing</p>
-            </div>
-            <Switch />
-          </div>
-        </div>
-      </div>
-
-      <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline">Cancel</Button>
-        <Button>Save Changes</Button>
       </div>
     </div>
-  )
+  );
 }

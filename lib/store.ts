@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 export interface User {
   id: string
@@ -67,6 +67,7 @@ export interface Video {
   videoFileId?: string // IndexedDB key for stored video file
   audioUrl?: string // ElevenLabs/TTS generated audio URL
   thumbnailUrl?: string // Generated thumbnail URL
+  videoUrl?: string // Assembled video file URL
   script?: string // AI generated script
   hook?: string // Video hook
   videoType?: "shorts" | "long" | "slide" // Video type
@@ -698,6 +699,7 @@ export function requestBrowserNotificationPermission(): void {
     Notification.requestPermission()
   }
 }
+
 
 
 

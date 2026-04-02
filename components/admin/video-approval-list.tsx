@@ -1,172 +1,189 @@
 ﻿"use client"
-import { useEffect, useState } from "react"
-import { store, type Video, getVideoFromIndexedDB, deleteVideoFromIndexedDB, addNotification } from "@/lib/store"
+// components/admin/video-approval-list.tsx
+// PRO APPROVAL SYSTEM - Generate → Upload → YouTube auto flow
+import { useEffect, useState, useCallback } from "react"
+import { store, type Video, addNotification } from "@/lib/store"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, X, Eye, TrendingUp, AlertTriangle, CheckCircle2, Upload, Loader2 } from "lucide-react"
+import {
+  Check, X, Eye, TrendingUp, AlertTriangle, CheckCircle2,
+  Upload, Loader2, Play, ExternalLink, Clock, Zap
+} from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
 interface VideoApprovalListProps {
   filter: "pending" | "approved" | "rejected"
 }
 
-function generateThumb(title: string): string {
-  try {
-    const canvas = document.createElement("canvas")
-    canvas.width = 1280
-    canvas.height = 720
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return ""
-    const W = 1280, H = 720
-    ctx.fillStyle = "#0f0f0f"
-    ctx.fillRect(0, 0, W, H)
-    const rg = ctx.createLinearGradient(W*0.4,0,W,H)
-    rg.addColorStop(0,"#1a1a2e")
-    rg.addColorStop(1,"#16213e")
-    ctx.fillStyle = rg
-    ctx.fillRect(W*0.4,0,W*0.6,H)
-    const g = ctx.createLinearGradient(0,0,W*0.75,0)
-    g.addColorStop(0,"rgba(0,0,0,0.92)")
-    g.addColorStop(0.6,"rgba(0,0,0,0.55)")
-    g.addColorStop(1,"rgba(0,0,0,0)")
-    ctx.fillStyle = g
-    ctx.fillRect(0,0,W,H)
-    ctx.fillStyle = "#FF0000"
-    ctx.fillRect(0,0,14,H)
-    ctx.fillStyle = "rgba(255,0,0,0.18)"
-    ctx.fillRect(40, H*0.18, W*0.58, H*0.58)
-    ctx.fillStyle = "#FF0000"
-    ctx.fillRect(48, H*0.18+14, 110, 38)
-    ctx.fillStyle = "#FFFFFF"
-    ctx.font = "bold 20px Arial"
-    ctx.textAlign = "left"
-    ctx.fillText("VIRAL", 62, H*0.18+40)
-    ctx.fillStyle = "#FFFFFF"
-    ctx.shadowColor = "rgba(0,0,0,0.9)"
-    ctx.shadowBlur = 10
-    ctx.font = "bold 58px Arial"
-    const words = title.toUpperCase().split(" ")
-    let line = "", y = H*0.18+95
-    for(let i=0;i<words.length;i++){
-      const t = line+words[i]+" "
-      if(ctx.measureText(t).width > W*0.58-40 && i>0){
-        ctx.fillText(line.trim(),60,y)
-        line=words[i]+" "
-        y+=70
-        if(y>H*0.76-80) break
-      } else { line=t }
-    }
-    ctx.fillText(line.trim(),60,y)
-    ctx.shadowBlur=0
-    ctx.strokeStyle="#FF0000"
-    ctx.lineWidth=3
-    ctx.beginPath()
-    ctx.moveTo(60,y+22)
-    ctx.lineTo(W*0.58,y+22)
-    ctx.stroke()
-    ctx.fillStyle="#FF0000"
-    ctx.fillRect(W-160,H-58,130,40)
-    ctx.fillStyle="#FFFFFF"
-    ctx.font="bold 18px Arial"
-    ctx.textAlign="center"
-    ctx.fillText("YouTube",W-95,H-30)
-    return canvas.toDataURL("image/jpeg",0.85)
-  } catch(e){ return "" }
-}
-
-function VideoThumb({ video }: { video: Video }) {
-  const [src, setSrc] = useState<string>("")
-  useEffect(() => {
-    const url = generateThumb(video.title)
-    setSrc(url)
-    if(url) store?.updateVideo(video.id, { thumbnail: url })
-  }, [video.id, video.title])
-  if (!src) return <div className="w-full h-full bg-gray-900 flex items-center justify-center"><span className="text-white text-xs">Loading...</span></div>
-  return <img src={src} alt={video.title} className="w-full h-full object-cover" />
-}
-
-function Toast({ title, type, message, onClose }: { title: string; type?: string; message?: string; onClose: () => void }) {
-  useEffect(() => { const t = setTimeout(onClose,5000); return ()=>clearTimeout(t) },[onClose])
+// ── Toast ──
+function Toast({ title, type, message, onClose }: {
+  title: string; type?: string; message?: string; onClose: () => void
+}) {
+  useEffect(() => { const t = setTimeout(onClose, 6000); return () => clearTimeout(t) }, [onClose])
   const isError = type === "upload-error"
-  
   return (
-    <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-2xl ${
-      isError ? "bg-red-600" : "bg-green-600"
-    } text-white max-w-sm`}>
-      {isError ? <AlertTriangle className="h-5 w-5 flex-shrink-0" /> : <CheckCircle2 className="h-5 w-5 flex-shrink-0" />}
-      <div className="min-w-0">
-        <p className="font-semibold text-sm">
-          {isError ? "ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Upload Failed" : "ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Success"}
-        </p>
-        <p className="text-xs opacity-80 line-clamp-1">{title}</p>
-        {message && <p className="text-xs opacity-70 mt-0.5 line-clamp-2">{message}</p>}
+    <div className={`fixed bottom-6 right-6 z-50 flex items-start gap-3 px-5 py-4 rounded-xl shadow-2xl max-w-sm ${isError ? "bg-red-600" : "bg-green-600"} text-white`}>
+      {isError ? <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5"/> : <CheckCircle2 className="h-5 w-5 flex-shrink-0 mt-0.5"/>}
+      <div>
+        <p className="font-semibold text-sm">{title}</p>
+        {message && <p className="text-xs opacity-80 mt-0.5 line-clamp-2">{message}</p>}
       </div>
     </div>
   )
 }
 
-export function VideoApprovalList({ filter }: VideoApprovalListProps) {
-  const [videos, setVideos] = useState<Video[]>([])
-  const [toast, setToast] = useState<{ id: string; title: string; type?: "upload-success" | "upload-error"; message?: string } | null>(null)
-  const [uploadingVideos, setUploadingVideos] = useState<Set<string>>(new Set())
-  const { user } = useAuth()
+// ── Thumbnail ──
+function VideoThumbnail({ video }: { video: Video }) {
+  const [src, setSrc] = useState(video.thumbnailUrl || video.thumbnail || "")
 
-  const loadVideos = () => {
+  useEffect(() => {
+    if (src) return
+    // Generate canvas thumbnail as fallback
+    try {
+      const canvas = document.createElement("canvas")
+      canvas.width = 1280; canvas.height = 720
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      const g = ctx.createLinearGradient(0, 0, 1280, 720)
+      g.addColorStop(0, "#0f0f1a"); g.addColorStop(1, "#1a0a2e")
+      ctx.fillStyle = g; ctx.fillRect(0, 0, 1280, 720)
+      ctx.fillStyle = "#FF4081"; ctx.fillRect(0, 0, 12, 720)
+      ctx.fillStyle = "#FFFFFF"; ctx.font = "bold 52px sans-serif"
+      ctx.textAlign = "left"
+      const words = (video.title || "").toUpperCase().split(" ")
+      let line = "", y = 280
+      for (const w of words) {
+        const t = line + w + " "
+        if (ctx.measureText(t).width > 900 && line) { ctx.fillText(line.trim(), 60, y); line = w + " "; y += 68 }
+        else line = t
+      }
+      ctx.fillText(line.trim(), 60, y)
+      ctx.fillStyle = "#FF4081"; ctx.fillRect(60, y + 16, 400, 4)
+      const url = canvas.toDataURL("image/jpeg", 0.85)
+      setSrc(url)
+    } catch {}
+  }, [video.title, src])
+
+  if (!src) return (
+    <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+      <span className="text-white/40 text-xs">No Preview</span>
+    </div>
+  )
+  return <img src={src} alt={video.title} className="w-full h-full object-cover"/>
+}
+
+// ── Status Badge ──
+function StatusBadge({ video, uploading }: { video: Video; uploading: boolean }) {
+  if (uploading) return (
+    <div className="flex items-center gap-2 p-2 bg-blue-500/10 rounded-md text-xs text-blue-400">
+      <Loader2 className="h-3 w-3 animate-spin"/> Uploading to YouTube...
+    </div>
+  )
+  if (video.status === "live" && video.youtubeUrl) return (
+    <a href={video.youtubeUrl} target="_blank" rel="noopener noreferrer"
+      className="flex items-center gap-2 p-2 bg-green-500/10 rounded-md text-xs text-green-400 hover:bg-green-500/20">
+      <CheckCircle2 className="h-3 w-3"/> LIVE on YouTube
+      <ExternalLink className="h-3 w-3 ml-auto"/>
+    </a>
+  )
+  if (video.status === "failed") return (
+    <div className="flex items-center gap-2 p-2 bg-red-500/10 rounded-md text-xs text-red-400">
+      <AlertTriangle className="h-3 w-3"/>
+      <span className="line-clamp-1">{video.uploadError || "Upload failed"}</span>
+    </div>
+  )
+  if (video.status === "uploading") return (
+    <div className="flex items-center gap-2 p-2 bg-yellow-500/10 rounded-md text-xs text-yellow-400">
+      <Clock className="h-3 w-3"/> Processing...
+    </div>
+  )
+  if (video.videoUrl) return (
+    <div className="flex items-center gap-2 p-2 bg-purple-500/10 rounded-md text-xs text-purple-400">
+      <Play className="h-3 w-3"/> Video Ready
+    </div>
+  )
+  return null
+}
+
+// ── Main Component ──
+export function VideoApprovalList({ filter }: VideoApprovalListProps) {
+  const { user } = useAuth()
+  const [videos, setVideos]               = useState<Video[]>([])
+  const [uploadingVideos, setUploadingVideos] = useState<Set<string>>(new Set())
+  const [toast, setToast]                 = useState<{ id: string; title: string; type?: string; message?: string } | null>(null)
+  const [previewVideo, setPreviewVideo]   = useState<Video | null>(null)
+
+  const loadVideos = useCallback(() => {
     if (!store) return
     const all = store.getVideos()
-    if (filter === "pending") setVideos(all.filter(v => v.status === "pending-approval"))
-    else if (filter === "approved") setVideos(all.filter(v => v.adminApproved === true))
-    else setVideos(all.filter(v => v.status === "rejected"))
+    const filtered = filter === "pending"
+      ? all.filter(v => v.status === "pending-approval")
+      : filter === "approved"
+        ? all.filter(v => ["approved","user-approved","uploading","live","failed"].includes(v.status))
+        : all.filter(v => v.status === "rejected")
+    setVideos(filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+  }, [filter])
+
+  useEffect(() => { loadVideos() }, [loadVideos])
+
+  // ── Send notification + email ──
+  const notify = (video: Video, type: "video-live" | "video-failed" | "video-approved" | "video-rejected", msg: string, url?: string) => {
+    const channel = store?.getChannels().find(c => c.id === video.channelId)
+    const cu = store?.getUserById(channel?.userId || "")
+    if (!cu) return
+    addNotification({ userId: cu.id, type, title: type === "video-live" ? "Video Live! 🎉" : type === "video-approved" ? "Video Approved!" : "Upload Failed", message: msg, videoId: video.id, youtubeUrl: url })
   }
 
-  useEffect(() => { loadVideos() }, [filter])
-
-
-  const saveThumbnail = async (videoId: string, dataUrl: string): Promise<string> => {
-    const res = await fetch("/api/thumbnail", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ videoId, dataUrl })
-    })
-    const data = await res.json()
-    return data.url || ""
-  }
-  // Auto generate video + upload to YouTube on approval
-  const autoGenerateAndUpload = async (video: Video) => {
+  // ── Generate + Upload to YouTube ──
+  const generateAndUpload = async (video: Video) => {
     setUploadingVideos(prev => new Set(prev).add(video.id))
-    try {
-      // Step 1: Thumbnail save karo
-      let thumbnailUrl = ""
-      if (video.thumbnail?.startsWith("data:")) {
-        thumbnailUrl = await saveThumbnail(video.id, video.thumbnail)
-      }
-      
-      // Step 2: FFmpeg se MP4 banao
-      const genRes = await fetch("/api/video/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          audioUrl: video.audioUrl || "/storage/audio/silence.mp3",
-          thumbnailUrl: thumbnailUrl || video.thumbnailUrl || video.thumbnail || "",
-          title: video.title,
-          duration: 60
-        })
-      })
-      const genData = await genRes.json()
-      if (!genData.success) throw new Error(genData.error || "Video generation failed")
+    store?.updateVideo(video.id, { status: "uploading" })
+    loadVideos()
 
-      // Step 2: YouTube pe upload
+    try {
+      // Step 1: Generate video file (if not already)
+      let videoUrl = video.videoUrl || ""
+      if (!videoUrl) {
+        console.log("🎬 Generating video...")
+        const catMap: Record<string, string> = { fact: "facts", motiv: "motivation", tech: "tech", ai: "tech", story: "story", top: "top10", short: "shorts" }
+        const topicLow = (video.topic || "").toLowerCase()
+        const catKey = Object.keys(catMap).find(k => topicLow.includes(k)) ? catMap[Object.keys(catMap).find(k => topicLow.includes(k))!] : "general"
+
+        const genRes = await fetch("/api/video/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            audioUrl: video.audioUrl || "",
+            thumbnailUrl: video.thumbnailUrl || video.thumbnail || "",
+            title: video.title,
+            script: video.script || video.description || video.title,
+            hook: video.hook || "",
+            videoType: video.videoType || "long",
+            category: catKey,
+          })
+        })
+        const genData = await genRes.json()
+        if (!genData.success) throw new Error(genData.error || "Video generation failed")
+        videoUrl = genData.videoUrl
+        store?.updateVideo(video.id, { videoUrl })
+        console.log("✅ Video generated:", videoUrl)
+      }
+
+      // Step 2: Upload to YouTube
+      console.log("📤 Uploading to YouTube...")
       const upRes = await fetch("/api/youtube/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          videoUrl: `http://localhost:3000${genData.videoUrl}`,
+          videoUrl: `http://localhost:3000${videoUrl}`,
           title: video.title,
-          description: video.description || "Generated by YouTubeAuto.ai",
-          tags: video.tags?.slice(0, 15) || [],
-          privacyStatus: "private",
-          language: "hi"
+          description: video.description || "AI Generated by YouTubeAuto.ai\n\n#viral #trending #hindi #india",
+          tags: video.tags || [],
+          privacyStatus: "public",
+          language: "hi",
+          videoType: video.videoType || "long",
+          scheduledTime: video.scheduledTime || null,
         })
       })
       const upData = await upRes.json()
@@ -178,334 +195,29 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
         youtubeUrl: upData.youtubeUrl,
         uploadedAt: new Date().toISOString(),
       })
-      setToast({ id: video.id, title: video.title, type: "upload-success", message: `YouTube pe live: ${upData.youtubeUrl}` })
+      notify(video, "video-live", `"${video.title}" is now LIVE on YouTube!`, upData.youtubeUrl)
+      setToast({ id: video.id, title: "🎉 Video Live!", type: "upload-success", message: upData.youtubeUrl })
       loadVideos()
+
     } catch (err: any) {
+      console.error("Upload error:", err.message)
       store?.updateVideo(video.id, { status: "failed", uploadError: err.message })
-      setToast({ id: video.id, title: video.title, type: "upload-error", message: err.message })
+      notify(video, "video-failed", `Upload failed: ${err.message}`)
+      setToast({ id: video.id, title: "Upload Failed", type: "upload-error", message: err.message })
       loadVideos()
     } finally {
       setUploadingVideos(prev => { const n = new Set(prev); n.delete(video.id); return n })
-    }
-  }
-  // Auto-upload video to YouTube after admin approval (client-side to access IndexedDB)
-  const autoUploadVideo = async (video: Video) => {
-    // Check if video has a file stored in IndexedDB
-    if (!video.videoFileId) {
-      setToast({ 
-        id: video.id, 
-        title: video.title, 
-        type: "upload-error",
-        message: "No video file uploaded by user. User must upload a video file first." 
-      })
-      return
-    }
-
-    // Get the ORIGINAL USER's YouTube token (stored with the video)
-    const userAccessToken = video.youtubeAccessToken
-    if (!userAccessToken) {
-      setToast({ 
-        id: video.id, 
-        title: video.title, 
-        type: "upload-error",
-        message: "YouTube not connected. User must connect YouTube in Channels settings." 
-      })
-      return
-    }
-
-    // Get channel info for category
-    const channel = store?.getChannels().find(c => c.id === video.channelId)
-    
-    setUploadingVideos(prev => new Set(prev).add(video.id))
-
-    try {
-      // Get video file from IndexedDB (client-side access)
-      const videoFile = await getVideoFromIndexedDB(video.videoFileId)
-      if (!videoFile) {
-        throw new Error("Video file not found. Please re-upload.")
-      }
-
-      // Prepare metadata
-      const title = video.title?.slice(0, 100) || "Untitled Video"
-      const description = video.description || "Generated by YouTubeAuto.ai"
-      const tags = video.tags?.slice(0, 15) || []
-      const categoryId = channel?.category || "28"
-
-      // Create multipart upload request for YouTube Data API v3
-      const boundary = `boundary_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      
-      const metadata = {
-        snippet: { title, description, tags, categoryId },
-        status: { privacyStatus: "public", selfDeclaredMadeForKids: false },
-      }
-
-      const metadataString = JSON.stringify(metadata)
-      const videoBuffer = await videoFile.arrayBuffer()
-      
-      const parts: string[] = []
-      parts.push(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadataString}\r\n`)
-      parts.push(`--${boundary}\r\nContent-Type: ${videoFile.type || "video/mp4"}\r\n\r\n`)
-      
-      const metadataPart = new TextEncoder().encode(parts[0])
-      const videoPart = new Uint8Array(videoBuffer)
-      const endingPart = new TextEncoder().encode(`\r\n--${boundary}--\r\n`)
-      const body = new Blob([metadataPart, videoPart, endingPart], { type: `multipart/related; boundary=${boundary}` })
-
-      // Upload to YouTube using ORIGINAL USER's token
-      const youtubeResponse = await fetch(
-        "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${userAccessToken}`,
-            "Content-Type": `multipart/related; boundary=${boundary}`,
-          },
-          body: body,
-        }
-      )
-
-      if (!youtubeResponse.ok) {
-        const errorText = await youtubeResponse.text()
-        console.error("YouTube API error:", errorText)
-        if (youtubeResponse.status === 401) throw new Error("YouTube authentication expired. Please reconnect in Channels settings.")
-        if (youtubeResponse.status === 403) throw new Error("YouTube upload permission denied. Check channel permissions.")
-        throw new Error(`YouTube upload failed: ${youtubeResponse.status}`)
-      }
-
-      const youtubeData = await youtubeResponse.json()
-      
-      // Clean up IndexedDB after successful upload
-      await deleteVideoFromIndexedDB(video.videoFileId)
-
-      const youtubeVideoId = youtubeData.id
-      const youtubeUrl = `https://www.youtube.com/watch?v=${youtubeVideoId}`
-
-      // Update video with YouTube info
-      store?.updateVideo(video.id, {
-        status: "live",
-        youtubeVideoId,
-        youtubeUrl,
-        uploadedAt: new Date().toISOString(),
-      })
-
-
-      // Send notification to user
-      const channelUser = store?.getUserById(channel?.userId || "")
-      if (channelUser) {
-        addNotification({
-          userId: channelUser.id,
-          type: "video-live",
-          title: "Video Published!",
-          message: `Your video "${video.title}" is now live on YouTube!`,
-          videoId: video.id,
-          youtubeUrl: youtubeUrl,
-        })
-        
-        // Send email notification to user
-        if (channelUser.email) {
-          fetch("/api/email/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              to: channelUser.email,
-              type: "video-live",
-              subject: `Your video "${video.title}" is now live on YouTube!`,
-              html: `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <meta charset="utf-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                </head>
-                <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <div style="background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-                    <h1 style="color: white; margin: 0;">ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â½ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â° Video Published!</h1>
-                  </div>
-                  <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 12px 12px;">
-                    <p style="font-size: 16px; color: #333;">Great news, ${channelUser.name}!</p>
-                    <p style="font-size: 16px; color: #333;">Your video <strong>"${video.title}"</strong> has been successfully uploaded to YouTube!</p>
-                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e0e0e0; text-align: center;">
-                      <p style="margin: 0; color: #666; margin-bottom: 15px;">Check out your video on YouTube:</p>
-                      <a href="${youtubeUrl}" style="display: inline-block; background: #ff0000; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold;">View on YouTube</a>
-                    </div>
-                    <p style="margin-top: 30px; font-size: 14px; color: #999;">Thank you for using YouTubeAuto.ai!</p>
-                  </div>
-                </body>
-                </html>
-              `
-            })
-          }).catch(err => console.error("Email send failed:", err))
-        }
-      }
-
-      setToast({ 
-        id: video.id, 
-        title: video.title, 
-        type: "upload-success",
-        message: `Uploaded to YouTube: ${youtubeUrl}`
-      })
-      loadVideos()
-    } catch (err: any) {
-      store?.updateVideo(video.id, {
-        status: "failed",
-        uploadError: err.message,
-      })
-
-      // Send failure notification to user
-      const channel = store?.getChannels().find(c => c.id === video.channelId)
-      const channelUser = store?.getUserById(channel?.userId || "")
-      if (channelUser) {
-        addNotification({
-          userId: channelUser.id,
-          type: "video-failed",
-          title: "Video Published!",
-          message: `Your video "${video.title}" failed to upload: ${err.message}`,
-          videoId: video.id,
-        })
-        
-        // Send email notification for failure
-        if (channelUser.email) {
-          fetch("/api/email/send", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              to: channelUser.email,
-              type: "video-failed",
-              subject: `Your video "${video.title}" is now live on YouTube!`,
-              html: `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <meta charset="utf-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                </head>
-                <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                  <div style="background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-                    <h1 style="color: white; margin: 0;">ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Upload Failed</h1>
-                  </div>
-                  <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 12px 12px;">
-                    <p style="font-size: 16px; color: #333;">Hi ${channelUser.name},</p>
-                    <p style="font-size: 16px; color: #333;">Unfortunately, your video <strong>"${video.title}"</strong> failed to upload to YouTube.</p>
-                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e0e0e0;">
-                      <p style="margin: 0; color: #666;"><strong>Error:</strong> ${err.message}</p>
-                    </div>
-                    <p style="margin: 20px 0; color: #666;">Please check the following and try again:</p>
-                    <ul style="color: #666; text-align: left; margin: 20px 0;">
-                      <li>Make sure your YouTube account is connected</li>
-                      <li>Check that your video file is valid (MP4, MOV, AVI, WMV, WebM)</li>
-                      <li>Ensure video is under 2GB</li>
-                    </ul>
-                    <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/channels" style="display: inline-block; background: #4a5568; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold;">Go to Channels Settings</a>
-                    <p style="margin-top: 30px; font-size: 14px; color: #999;">Need help? Contact support@youtubeauto.ai</p>
-                  </div>
-                </body>
-                </html>
-              `
-            })
-          }).catch(emailErr => console.error("Email send failed:", emailErr))
-        }
-      }
-
-      setToast({ 
-        id: video.id, 
-        title: video.title, 
-        type: "upload-error",
-        message: err.message || "Upload failed" 
-      })
-    } finally {
-      setUploadingVideos(prev => {
-        const next = new Set(prev)
-        next.delete(video.id)
-        return next
-      })
     }
   }
 
   const handleApprove = async (video: Video) => {
     if (!store || !user) return
     store.adminApproveVideo(video.id, user.id)
-    setToast({ id: video.id, title: video.title, type: "upload-success", message: "Video approved!" })
+    notify(video, "video-approved", `"${video.title}" has been approved!`)
+    setToast({ id: video.id, title: "✅ Approved!", message: "Generating & uploading..." })
     loadVideos()
-    
-    // Send notification and email to user that video is being processed
-    const channel = store.getChannels().find(c => c.id === video.channelId)
-    const channelUser = store.getUserById(channel?.userId || "")
-    if (channelUser) {
-      // In-app notification for approval
-      addNotification({
-        userId: channelUser.id,
-        type: "video-approved",
-        title: "Video Published!",
-        message: `Your video "${video.title}" has been approved and is being processed for upload!`,
-        videoId: video.id,
-      })
-      
-      // Email notification for approval
-      if (channelUser.email) {
-        fetch("/api/email/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to: channelUser.email,
-            type: "video-approved",
-            subject: `Your video "${video.title}" is now live on YouTube!`,
-            html: `
-              <!DOCTYPE html>
-              <html>
-              <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              </head>
-              <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-                  <h1 style="color: white; margin: 0;">ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ Video Approved!</h1>
-                </div>
-                <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 12px 12px;">
-                  <p style="font-size: 16px; color: #333;">Hi ${channelUser.name},</p>
-                  <p style="font-size: 16px; color: #333;">Great news! Your video <strong>"${video.title}"</strong> has been approved and is now being processed for upload to YouTube.</p>
-                  <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e0e0e0;">
-                    <p style="margin: 0; color: #666;">We'll send you another email once your video is live on YouTube!</p>
-                  </div>
-                  <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard" style="display: inline-block; background: #4a5568; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-top: 10px;">View Dashboard</a>
-                  <p style="margin-top: 20px; font-size: 14px; color: #999;">Stay tuned! ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬</p>
-                  <p style="margin-top: 30px; font-size: 14px; color: #999;">Thank you for using YouTubeAuto.ai!</p>
-                </div>
-              </body>
-              </html>
-            `
-          })
-        }).catch(err => console.error("Approval email failed:", err))
-      }
-    }
-    
-    // Auto-upload using server API
-    setTimeout(async () => {
-      setUploadingVideos(prev => new Set(prev).add(video.id))
-      try {
-        const genRes = await fetch("/api/video/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audioUrl: video.audioUrl || "/storage/audio/silence.mp3", thumbnailUrl: video.thumbnailUrl || video.thumbnail || "/storage/thumbnails/default.jpg", title: video.title, script: video.script || video.description || video.title, hook: video.hook || "", videoType: video.videoType || "long", category: video.topic?.toLowerCase().includes("fact") ? "facts" : video.topic?.toLowerCase().includes("motiv") ? "motivation" : video.topic?.toLowerCase().includes("tech") || video.topic?.toLowerCase().includes("ai") ? "tech" : video.topic?.toLowerCase().includes("story") ? "story" : video.topic?.toLowerCase().includes("top") ? "top10" : "general", scheduledTime: video.scheduledTime || null }),
-        })
-        const genData = await genRes.json()
-        if (!genData.success) throw new Error(genData.error || "Video generation failed")
-        const upRes = await fetch("/api/youtube/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoUrl: `http://localhost:3000${genData.videoUrl}`, title: video.title, description: video.description || "", tags: video.tags || [], privacyStatus: "public", language: "hi" }),
-        })
-        const upData = await upRes.json()
-        if (!upData.success) throw new Error(upData.error || "YouTube upload failed")
-        store?.updateVideo(video.id, { status: "live", youtubeVideoId: upData.videoId, youtubeUrl: upData.youtubeUrl, uploadedAt: new Date().toISOString() })
-        setToast({ id: video.id, title: video.title, type: "upload-success", message: `Live: ${upData.youtubeUrl}` })
-        loadVideos()
-      } catch (err: any) {
-        store?.updateVideo(video.id, { status: "failed", uploadError: err.message })
-        setToast({ id: video.id, title: video.title, type: "upload-error", message: err.message })
-      } finally {
-        setUploadingVideos(prev => { const n = new Set(prev); n.delete(video.id); return n })
-      }
-    }, 500)
+    // Auto generate + upload
+    setTimeout(() => generateAndUpload(video), 500)
   }
 
   const handleReject = (videoId: string) => {
@@ -514,125 +226,189 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
     loadVideos()
   }
 
-  const handleBulk = () => {
+  const handleBulkApprove = () => {
     if (!store || !user) return
-    const ids = videos.filter(v => v.riskLevel === "low").map(v => v.id)
-    store.bulkApproveVideos(ids, user.id)
-    setToast({ id: "bulk", title: `${ids.length} videos approved!` })
+    const lowRisk = videos.filter(v => v.riskLevel === "low" && v.status === "pending-approval")
+    store.bulkApproveVideos(lowRisk.map(v => v.id), user.id)
+    setToast({ id: "bulk", title: `✅ ${lowRisk.length} videos approved!` })
     loadVideos()
+    // Upload all
+    lowRisk.forEach((v, i) => setTimeout(() => generateAndUpload(v), i * 2000))
   }
 
-  const scoreColor = (s: number) => s >= 85 ? "text-green-500" : s >= 70 ? "text-yellow-500" : "text-red-500"
+  const scoreColor = (s: number) => s >= 85 ? "text-green-400" : s >= 70 ? "text-yellow-400" : "text-red-400"
 
   if (videos.length === 0) return (
-    <Card><CardContent className="py-12 text-center"><p className="text-muted-foreground">No videos in this category</p></CardContent></Card>
+    <Card>
+      <CardContent className="py-16 text-center">
+        <p className="text-muted-foreground text-lg">No videos here</p>
+        <p className="text-muted-foreground text-sm mt-1">
+          {filter === "pending" ? "Generate new videos from the dashboard!" : `No ${filter} videos yet`}
+        </p>
+      </CardContent>
+    </Card>
   )
 
   return (
     <>
-      {toast && <Toast title={toast.title} onClose={() => setToast(null)} />}
+      {toast && <Toast title={toast.title} type={toast.type} message={toast.message} onClose={() => setToast(null)}/>}
+
+      {/* Preview Modal */}
+      {previewVideo && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewVideo(null)}>
+          <div className="bg-background rounded-xl max-w-2xl w-full p-4 space-y-3" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold line-clamp-1">{previewVideo.title}</h3>
+              <Button variant="ghost" size="sm" onClick={() => setPreviewVideo(null)}>✕</Button>
+            </div>
+            {previewVideo.videoUrl ? (
+              <video controls src={previewVideo.videoUrl} className="w-full rounded-lg" autoPlay/>
+            ) : previewVideo.audioUrl ? (
+              <div className="space-y-2">
+                <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                  <VideoThumbnail video={previewVideo}/>
+                </div>
+                <audio controls src={previewVideo.audioUrl} className="w-full"/>
+              </div>
+            ) : (
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <VideoThumbnail video={previewVideo}/>
+              </div>
+            )}
+            {previewVideo.hook && (
+              <p className="text-sm text-muted-foreground italic">Hook: "{previewVideo.hook}"</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
-        {filter === "pending" && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">{videos.length} videos pending ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ {videos.filter(v=>v.riskLevel==="low").length} low risk ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ {videos.filter(v=>v.riskLevel==="high").length} high risk</p>
-            <Button size="sm" variant="outline" onClick={handleBulk}><Check className="h-4 w-4 mr-2" />Bulk Approve Low Risk</Button>
+        {/* Bulk actions */}
+        {filter === "pending" && videos.length > 0 && (
+          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+            <p className="text-sm text-muted-foreground">
+              {videos.length} pending •{" "}
+              <span className="text-green-400">{videos.filter(v=>v.riskLevel==="low").length} low risk</span>{" "}•{" "}
+              <span className="text-red-400">{videos.filter(v=>v.riskLevel==="high").length} high risk</span>
+            </p>
+            <Button size="sm" onClick={handleBulkApprove} className="gap-2">
+              <Zap className="h-4 w-4"/>
+              Bulk Approve Low Risk
+            </Button>
           </div>
         )}
+
+        {/* Video Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {videos.map(video => {
-            const channel = store?.getChannels().find(c => c.id === video.channelId)
+            const channel     = store?.getChannels().find(c => c.id === video.channelId)
             const channelUser = store?.getUserById(channel?.userId || "")
+            const isUploading = uploadingVideos.has(video.id)
+
             return (
-              <Card key={video.id} className={`overflow-hidden ${video.riskLevel === "high" ? "border-red-500/50" : ""}`}>
-                <CardHeader className="pb-3">
+              <Card key={video.id} className={`overflow-hidden transition-all ${video.riskLevel === "high" ? "border-red-500/40" : ""}`}>
+                <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base line-clamp-2">{video.title}</CardTitle>
-                    <Badge variant="outline" className={scoreColor(video.aiScore)}>{video.aiScore}/100</Badge>
+                    <CardTitle className="text-sm font-semibold line-clamp-2 flex-1">{video.title}</CardTitle>
+                    <Badge variant="outline" className={`text-xs flex-shrink-0 ${scoreColor(video.aiScore)}`}>
+                      {video.aiScore}/100
+                    </Badge>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{channelUser?.name || "Unknown"}</span><span>ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢</span><span>{channel?.name || "Unknown"}</span>
-                    {video.riskLevel === "high" && <Badge variant="destructive" className="text-xs py-0"><AlertTriangle className="h-3 w-3 mr-1" />High Risk</Badge>}
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                    <span>{channelUser?.name || "Unknown"}</span>
+                    <span>•</span>
+                    <span>{channel?.name || "Unknown"}</span>
+                    {video.videoType === "shorts" && <Badge className="bg-red-600 text-white text-xs py-0">⚡ Shorts</Badge>}
+                    {video.riskLevel === "high" && (
+                      <Badge variant="destructive" className="text-xs py-0">
+                        <AlertTriangle className="h-3 w-3 mr-1"/>High Risk
+                      </Badge>
+                    )}
                   </div>
                 </CardHeader>
+
                 <CardContent className="space-y-3">
-                  <div className="aspect-video bg-secondary rounded-md overflow-hidden relative">
-                    <VideoThumb video={video} />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                      <Button variant="secondary" size="sm"><Eye className="h-4 w-4 mr-2" />Preview</Button>
-                    </div>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Cost:</span><span className="font-medium">{video.isFree ? "Free" : "Rs."+(video.cost*83).toFixed(0)}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Scheduled:</span><span className="font-medium">{new Date(video.scheduledDate).toLocaleDateString()}</span></div>
-                  </div>
-                  {/* Video Status - Live on YouTube */}
-                  {video.status === "live" && video.youtubeUrl && (
-                    <a 
-                      href={video.youtubeUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 p-2 bg-green-500/10 rounded-md text-xs text-green-500 hover:bg-green-500/20"
+                  {/* Thumbnail */}
+                  <div className="aspect-video bg-secondary rounded-md overflow-hidden relative group">
+                    <VideoThumbnail video={video}/>
+                    <div
+                      className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      onClick={() => setPreviewVideo(video)}
                     >
-                      <CheckCircle2 className="h-3 w-3" />
-                      <span className="line-clamp-1">LIVE on YouTube</span>
-                    </a>
-                  )}
-
-                  {/* Video Status - Upload Failed with Retry Button */}
-                  {video.status === "failed" && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 p-2 bg-red-500/10 rounded-md text-xs text-red-500">
-                        <AlertTriangle className="h-3 w-3" />
-                        <span className="line-clamp-1">Upload Failed: {video.uploadError || "Unknown error"}</span>
+                      <div className="bg-white/20 backdrop-blur rounded-full p-3">
+                        <Play className="h-5 w-5 text-white"/>
                       </div>
-                      {video.videoFileId && video.youtubeAccessToken && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-full text-xs"
-                          onClick={() => autoUploadVideo(video)}
-                          disabled={uploadingVideos.has(video.id)}
-                        >
-                          {uploadingVideos.has(video.id) ? (
-                            <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Retrying...</>
-                          ) : (
-                            <><Upload className="h-3 w-3 mr-1" /> Retry Upload</>
-                          )}
-                        </Button>
-                      )}
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Scheduled:</span>
+                      <span className="font-medium text-foreground">
+                        {new Date(video.scheduledDate).toLocaleDateString("en-IN")}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Cost:</span>
+                      <span className="font-medium text-foreground">{video.isFree ? "Free" : `₹${(video.cost * 83).toFixed(0)}`}</span>
+                    </div>
+                    {video.hook && (
+                      <p className="text-muted-foreground italic line-clamp-1">"{video.hook}"</p>
+                    )}
+                  </div>
+
+                  {/* Status */}
+                  <StatusBadge video={video} uploading={isUploading}/>
+
+                  {/* High viral score */}
+                  {video.aiScore >= 85 && video.status !== "live" && !isUploading && (
+                    <div className="flex items-center gap-2 p-2 bg-green-500/10 rounded-md text-xs text-green-400">
+                      <TrendingUp className="h-3 w-3"/> High viral potential
                     </div>
                   )}
 
-                  {/* Video Status - Currently Uploading */}
-                  {uploadingVideos.has(video.id) && (
-                    <div className="flex items-center gap-2 p-2 bg-blue-500/10 rounded-md text-xs text-blue-500">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      <span>Uploading to YouTube...</span>
-                    </div>
+                  {/* Retry button */}
+                  {video.status === "failed" && !isUploading && (
+                    <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => generateAndUpload(video)}>
+                      <Upload className="h-3 w-3 mr-1"/> Retry Upload
+                    </Button>
                   )}
-
-                  {/* Video Status - Ready to Upload */}
-                  {video.status === "approved" && video.videoFileId && !video.youtubeUrl && !uploadingVideos.has(video.id) && (
-                    <div className="flex items-center gap-2 p-2 bg-yellow-500/10 rounded-md text-xs text-yellow-500">
-                      <Upload className="h-3 w-3" />
-                      <span>Ready to upload</span>
-                    </div>
-                  )}
-
-                  {/* Video Status - No Video File */}
-                  {video.status === "approved" && !video.videoFileId && (
-                    <div className="flex items-center gap-2 p-2 bg-orange-500/10 rounded-md text-xs text-orange-500">
-                      <AlertTriangle className="h-3 w-3" />
-                      <span>No video file - user must upload</span>
-                    </div>
-                  )}
-
-                  {video.aiScore >= 85 && video.status !== "live" && <div className="flex items-center gap-2 p-2 bg-green-500/10 rounded-md text-xs text-green-500"><TrendingUp className="h-3 w-3" />High viral potential</div>}
                 </CardContent>
+
+                {/* Footer */}
                 {filter === "pending" && (
-                  <CardFooter className="gap-2 pt-3">
-                    <Button variant="default" size="sm" className="flex-1" onClick={() => handleApprove(video)}><Check className="h-4 w-4 mr-2" />Approve</Button>
-                    <Button variant="destructive" size="sm" className="flex-1" onClick={() => handleReject(video.id)}><X className="h-4 w-4 mr-2" />Reject</Button>
+                  <CardFooter className="gap-2 pt-0">
+                    <Button
+                      variant="default" size="sm" className="flex-1"
+                      onClick={() => handleApprove(video)}
+                      disabled={isUploading}
+                    >
+                      {isUploading
+                        ? <><Loader2 className="h-4 w-4 mr-2 animate-spin"/>Processing...</>
+                        : <><Check className="h-4 w-4 mr-2"/>Approve & Upload</>
+                      }
+                    </Button>
+                    <Button
+                      variant="destructive" size="sm" className="flex-1"
+                      onClick={() => handleReject(video.id)}
+                      disabled={isUploading}
+                    >
+                      <X className="h-4 w-4 mr-2"/>Reject
+                    </Button>
+                  </CardFooter>
+                )}
+
+                {/* Approved tab: manual upload option */}
+                {filter === "approved" && video.status !== "live" && !isUploading && (
+                  <CardFooter className="pt-0">
+                    <Button
+                      variant="outline" size="sm" className="w-full"
+                      onClick={() => generateAndUpload(video)}
+                    >
+                      <Upload className="h-4 w-4 mr-2"/>
+                      {video.videoUrl ? "Upload to YouTube" : "Generate & Upload"}
+                    </Button>
                   </CardFooter>
                 )}
               </Card>
@@ -643,14 +419,3 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
     </>
   )
 }
-
-
-
-
-
-
-
-
-
-
-

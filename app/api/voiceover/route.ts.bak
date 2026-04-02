@@ -1,0 +1,314 @@
+﻿// app/api/voiceover/route.ts
+// PRO VOICE SYSTEM - Edge TTS with emotion-based settings
+import { NextRequest, NextResponse } from "next/server"
+import { writeFile, mkdir } from "fs/promises"
+import { existsSync, statSync } from "fs"
+import { exec } from "child_process"
+import { promisify } from "util"
+import path from "path"
+const execAsync = promisify(exec)
+
+// ============================================================
+// VOICE CONFIG - Category ke hisab se alag voice + speed
+// ============================================================
+const VOICE_PROFILES: Record<string, {
+  voice: string, rate: string, pitch: string, pauseMs: number, style: string
+}> = {
+  horror: {
+    voice: "hi-IN-MadhurNeural",   // deep male Hindi
+    rate:  "-15%",                  // slow = 0.85x
+    pitch: "-8Hz",                  // deep pitch
+    pauseMs: 600,                   // long pauses
+    style: "whispering"
+  },
+  story: {
+    voice: "hi-IN-MadhurNeural",
+    rate:  "-10%",
+    pitch: "-4Hz",
+    pauseMs: 400,
+    style: "narration-professional"
+  },
+  facts: {
+    voice: "hi-IN-SwaraNeural",    // energetic female
+    rate:  "+10%",                  // fast = 1.1x
+    pitch: "+2Hz",
+    pauseMs: 200,
+    style: "newscast"
+  },
+  tech: {
+    voice: "hi-IN-SwaraNeural",
+    rate:  "+5%",
+    pitch: "+0Hz",
+    pauseMs: 250,
+    style: "newscast"
+  },
+  motivation: {
+    voice: "hi-IN-MadhurNeural",
+    rate:  "+0%",                   // normal 1x
+    pitch: "+3Hz",
+    pauseMs: 300,
+    style: "empathetic"
+  },
+  top10: {
+    voice: "hi-IN-SwaraNeural",
+    rate:  "+8%",
+    pitch: "+1Hz",
+    pauseMs: 250,
+    style: "newscast"
+  },
+  shorts: {
+    voice: "hi-IN-SwaraNeural",
+    rate:  "+15%",                  // fastest for shorts
+    pitch: "+2Hz",
+    pauseMs: 150,
+    style: "newscast"
+  },
+  general: {
+    voice: "hi-IN-MadhurNeural",
+    rate:  "+0%",
+    pitch: "+0Hz",
+    pauseMs: 300,
+    style: "narration-professional"
+  }
+}
+
+// ============================================================
+// SCRIPT PROCESSOR - Hook/Pause/Emphasis markers add karo
+// ============================================================
+function processScriptForVoice(text: string, category: string, isShorts: boolean): string {
+  const profile = VOICE_PROFILES[category] || VOICE_PROFILES.general
+  const pauseTag = `<break time="${profile.pauseMs}ms"/>`
+
+  let processed = text
+    // Existing tags clean
+    .replace(/\[PAUSE\]/g, pauseTag)
+    .replace(/\[EMPHASIS\]/g, "")
+    .replace(/\[SPEED_UP\]/g, "")
+    .replace(/\[SLOW_DOWN\]/g, pauseTag)
+    .replace(/\*\*/g, "")
+    .replace(/#{1,6}\s/g, "")
+    // Add pauses after punctuation for natural speech
+    .replace(/([।!?])/g, `$1${pauseTag}`)
+    .replace(/,/g, `,<break time="200ms"/>`)
+    // Hindi numbers me pause
+    .replace(/(\d+)/g, `<break time="100ms"/>$1<break time="100ms"/>`)
+    .replace(/\n+/g, ` ${pauseTag} `)
+    .replace(/\s+/g, " ")
+    .trim()
+
+  // Horror/story ke liye extra dramatic pauses
+  if (category === "horror" || category === "story") {
+    processed = processed
+      .replace(/\.\.\./g, `<break time="800ms"/>`)
+      .replace(/…/g, `<break time="800ms"/>`)
+  }
+
+  // Length limit
+  if (isShorts) return processed.slice(0, 500)
+  return processed.slice(0, 2000)
+}
+
+// ============================================================
+// EDGE TTS - Python edge-tts use karo (already installed)
+// ============================================================
+async function edgeTTS(
+  text: string,
+  category: string,
+  isShorts: boolean,
+  filePath: string
+): Promise<boolean> {
+  const profile = VOICE_PROFILES[category] || VOICE_PROFILES.general
+
+  // SSML banao - professional voice control
+  const ssml = `
+<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis"
+       xmlns:mstts="https://www.w3.org/2001/mstts"
+       xml:lang="hi-IN">
+  <voice name="${profile.voice}">
+    <mstts:express-as style="${profile.style}" styledegree="1.5">
+      <prosody rate="${profile.rate}" pitch="${profile.pitch}">
+        ${text}
+      </prosody>
+    </mstts:express-as>
+  </voice>
+</speak>`.trim()
+
+  // SSML file save karo temp me
+  const ssmlPath = filePath.replace(".mp3", "_ssml.xml")
+  await writeFile(ssmlPath, ssml, "utf8")
+
+  try {
+    // Edge TTS Python script
+    const pyScript = `
+import asyncio
+import edge_tts
+import sys
+
+async def main():
+    communicate = edge_tts.Communicate(
+        text=open(r"${ssmlPath}", encoding="utf-8").read(),
+        voice="${profile.voice}",
+        rate="${profile.rate}",
+        pitch="${profile.pitch}",
+    )
+    await communicate.save(r"${filePath}")
+
+asyncio.run(main())
+`.trim()
+
+    const pyPath = filePath.replace(".mp3", "_tts.py")
+    await writeFile(pyPath, pyScript, "utf8")
+
+    await execAsync(`python "${pyPath}"`, { timeout: 45000 })
+
+    // Cleanup temp files
+    try { await execAsync(`del "${ssmlPath}" "${pyPath}"`) } catch {}
+
+    if (existsSync(filePath) && statSync(filePath).size > 3000) {
+      console.log(`✅ Edge TTS OK! Voice:${profile.voice} Rate:${profile.rate} Category:${category}`)
+      return true
+    }
+  } catch (e: any) {
+    console.log("Edge TTS error:", e.message)
+    // Try plain text fallback (no SSML)
+    try {
+      const plainText = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+      const pyPlain = `
+import asyncio, edge_tts
+async def main():
+    c = edge_tts.Communicate(
+        text="${plainText.replace(/"/g, '\\"').slice(0, 800)}",
+        voice="${profile.voice}",
+        rate="${profile.rate}",
+        pitch="${profile.pitch}",
+    )
+    await c.save(r"${filePath}")
+asyncio.run(main())
+`.trim()
+      const pyPlainPath = filePath.replace(".mp3", "_plain.py")
+      await writeFile(pyPlainPath, pyPlain, "utf8")
+      await execAsync(`python "${pyPlainPath}"`, { timeout: 30000 })
+      try { await execAsync(`del "${pyPlainPath}"`) } catch {}
+      if (existsSync(filePath) && statSync(filePath).size > 3000) {
+        console.log(`✅ Edge TTS plain OK!`)
+        return true
+      }
+    } catch {}
+  }
+  return false
+}
+
+// ============================================================
+// OPENAI TTS FALLBACK - Best quality
+// ============================================================
+async function openaiTTS(text: string, category: string, isShorts: boolean, filePath: string): Promise<boolean> {
+  const openaiKey = process.env.OPENAI_API_KEY
+  if (!openaiKey) return false
+
+  const voiceMap: Record<string, string> = {
+    horror: "onyx",      // deep, dark
+    story: "onyx",
+    facts: "nova",       // energetic female
+    tech: "echo",        // clear male
+    motivation: "fable", // strong
+    top10: "nova",
+    shorts: "shimmer",   // bright
+    general: "alloy",
+  }
+
+  const speedMap: Record<string, number> = {
+    horror: 0.8, story: 0.9, facts: 1.1, tech: 1.0,
+    motivation: 1.0, top10: 1.1, shorts: 1.15, general: 1.0
+  }
+
+  try {
+    const cleanText = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+    const res = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openaiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "tts-1-hd",  // HD quality
+        voice: voiceMap[category] || "alloy",
+        input: cleanText.slice(0, 4096),
+        speed: speedMap[category] || 1.0,
+        response_format: "mp3"
+      }),
+      signal: AbortSignal.timeout(45000)
+    })
+    if (res.ok) {
+      const buffer = await res.arrayBuffer()
+      await writeFile(filePath, Buffer.from(buffer))
+      console.log(`✅ OpenAI TTS HD! Voice:${voiceMap[category]} Speed:${speedMap[category]}`)
+      return true
+    }
+  } catch (e: any) { console.log("OpenAI TTS error:", e.message) }
+  return false
+}
+
+// ============================================================
+// MAIN HANDLER
+// ============================================================
+export async function POST(req: NextRequest) {
+  try {
+    const { text, title, isShorts = false, category = "general" } = await req.json()
+    if (!text) return NextResponse.json({ error: "Text required" }, { status: 400 })
+
+    const audioDir = path.join(process.cwd(), "storage", "audio")
+    if (!existsSync(audioDir)) await mkdir(audioDir, { recursive: true })
+
+    const fileName = `audio_${Date.now()}.mp3`
+    const filePath = path.join(audioDir, fileName)
+
+    const catKey = category.toLowerCase()
+    const processedText = processScriptForVoice(text, catKey, isShorts)
+
+    console.log(`🎤 Voice generating... Category:${catKey} Shorts:${isShorts}`)
+    console.log(`📝 Text preview: ${processedText.slice(0, 100)}...`)
+
+    // Priority: Edge TTS → OpenAI TTS → Silent fallback
+
+    // 1. Edge TTS (free, good quality)
+    const edgeOk = await edgeTTS(processedText, catKey, isShorts, filePath)
+    if (edgeOk) {
+      return NextResponse.json({
+        success: true,
+        audioUrl: `/storage/audio/${fileName}`,
+        provider: "edge-tts",
+        voice: VOICE_PROFILES[catKey]?.voice || "hi-IN-MadhurNeural",
+        size: statSync(filePath).size
+      })
+    }
+
+    // 2. OpenAI TTS HD fallback
+    const cleanText = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+    const openaiOk = await openaiTTS(cleanText, catKey, isShorts, filePath)
+    if (openaiOk) {
+      return NextResponse.json({
+        success: true,
+        audioUrl: `/storage/audio/${fileName}`,
+        provider: "openai-tts-hd",
+        size: statSync(filePath).size
+      })
+    }
+
+    // 3. Silent fallback
+    const duration = isShorts ? 60 : 180
+    await execAsync(
+      `ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo -t ${duration} -q:a 9 -acodec libmp3lame "${filePath}"`,
+      { timeout: 30000 }
+    )
+    console.log("⚠️ Silent fallback used")
+    return NextResponse.json({
+      success: true,
+      audioUrl: `/storage/audio/${fileName}`,
+      provider: "silent"
+    })
+
+  } catch (error: any) {
+    console.error("Voiceover error:", error.message)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
