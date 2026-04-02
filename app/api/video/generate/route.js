@@ -424,7 +424,7 @@ export async function POST(request) {
       try {
         await execAsync(
           `"${FFMPEG}" -y -stream_loop -1 -i "${bgPath}" -i "${mixedPath}" ` +
-          `-filter_script:v "${filterPath}" ` +
+          `-vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" ` +
           `-map 0:v -map 1:a ` +
           `-c:v libx264 -preset fast -crf 20 ` +
           `-c:a aac -b:a 192k -pix_fmt yuv420p ` +
@@ -443,7 +443,7 @@ export async function POST(request) {
           `"${FFMPEG}" -y ` +
           `-f lavfi -i "color=c=${conf.bg}:size=${W}x${H}:rate=25:duration=${audioDur}" ` +
           `-i "${mixedPath}" ` +
-          `-filter_script:v "${filterPath}" ` +
+          `-vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" ` +
           `-map 0:v -map 1:a ` +
           `-c:v libx264 -preset fast -crf 20 ` +
           `-c:a aac -b:a 192k -pix_fmt yuv420p ` +
