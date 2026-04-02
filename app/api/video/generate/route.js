@@ -1,15 +1,3 @@
-﻿// app/api/video/generate/route.js
-// ═══════════════════════════════════════════════════════════════════════
-//  ULTRA PRO VIDEO ENGINE v6.0 — AI GENERATED KINETIC VIDEO
-//  ✅ NO Pexels clips — 100% AI generated backgrounds (FFmpeg lavfi)
-//  ✅ filter_script file (no command-too-long, no ASS path issues)
-//  ✅ Kinetic Typography — each word group animates on screen
-//  ✅ Neon color gradients per category
-//  ✅ Glitch flash between segments
-//  ✅ Beat-synced music (layered harmonics + echo)
-//  ✅ 4-layer fallback render chain
-//  ✅ All 10 categories
-// ═══════════════════════════════════════════════════════════════════════
 import { NextResponse } from "next/server";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -21,500 +9,190 @@ const execAsync = promisify(exec);
 const FFMPEG  = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe";
 const FFPROBE = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffprobe.exe";
 
-// ── Category config ───────────────────────────────────────────────────
-// bg1/bg2: FFmpeg color expressions for gradient-like backgrounds
-// accent: neon color for text highlights and bars
-// freq/vol: background music
-const CAT = {
-  facts: {
-    bg:      "0x0A0A1A",   // deep dark blue
-    bg2:     "0x001133",
-    particle:"0x00E5FF",
-    accent:  "00E5FF",
-    textCol: "white",
-    freq: 396, harmonic: 594, vol: 0.07,
-    badge: "FACTS",
-  },
-  motivation: {
-    bg:      "0x1A0800",
-    bg2:     "0x331100",
-    particle:"0xFF8C00",
-    accent:  "FF8C00",
-    textCol: "white",
-    freq: 528, harmonic: 396, vol: 0.11,
-    badge: "MOTIVATION",
-  },
-  tech: {
-    bg:      "0x001A0F",
-    bg2:     "0x003322",
-    particle:"0x00FF88",
-    accent:  "00FF88",
-    textCol: "white",
-    freq: 440, harmonic: 880, vol: 0.08,
-    badge: "TECH / AI",
-  },
-  story: {
-    bg:      "0x0D001A",
-    bg2:     "0x1A0033",
-    particle:"0xCC44FF",
-    accent:  "CC44FF",
-    textCol: "white",
-    freq: 285, harmonic: 570, vol: 0.09,
-    badge: "STORY",
-  },
-  top10: {
-    bg:      "0x1A1200",
-    bg2:     "0x332200",
-    particle:"0xFFD700",
-    accent:  "FFD700",
-    textCol: "white",
-    freq: 639, harmonic: 426, vol: 0.11,
-    badge: "TOP 10",
-  },
-  shorts: {
-    bg:      "0x1A0008",
-    bg2:     "0x330011",
-    particle:"0xFF1744",
-    accent:  "FF1744",
-    textCol: "white",
-    freq: 741, harmonic: 370, vol: 0.13,
-    badge: "SHORTS",
-  },
-  horror: {
-    bg:      "0x0D0000",
-    bg2:     "0x1A0000",
-    particle:"0xFF2222",
-    accent:  "FF2222",
-    textCol: "0xFF8888",
-    freq: 174, harmonic: 87,  vol: 0.11,
-    badge: "HORROR",
-  },
-  finance: {
-    bg:      "0x001A08",
-    bg2:     "0x003311",
-    particle:"0x00FF44",
-    accent:  "00FF44",
-    textCol: "white",
-    freq: 417, harmonic: 835, vol: 0.08,
-    badge: "FINANCE",
-  },
-  health: {
-    bg:      "0x001A0D",
-    bg2:     "0x003322",
-    particle:"0x44FF88",
-    accent:  "44FF88",
-    textCol: "white",
-    freq: 528, harmonic: 264, vol: 0.07,
-    badge: "HEALTH",
-  },
-  general: {
-    bg:      "0x1A001A",
-    bg2:     "0x330033",
-    particle:"0xFF4488",
-    accent:  "FF4488",
-    textCol: "white",
-    freq: 432, harmonic: 648, vol: 0.09,
-    badge: "VIRAL",
-  },
-};
+const CATEGORY_QUERIES = {
+  facts:      [["space galaxy cosmos","nebula stars universe"],["science laboratory","chemistry experiment"],["ancient ruins archaeology","lost civilization"],["deep ocean underwater","marine life"],["natural disaster volcano","earthquake"]],
+  motivation: [["athlete running champion","sports victory"],["entrepreneur business","startup success"],["mountain climbing adventure","summit peak"],["sunrise nature powerful","energy"],["celebration achievement award","trophy winner"]],
+  tech:       [["artificial intelligence robot","futuristic android"],["cyberpunk neon city","digital future"],["data center servers","cloud computing"],["virtual reality augmented","vr headset"],["electric vehicle future","autonomous car"]],
+  story:      [["dark mysterious forest","night shadows"],["dramatic storm lightning","rain thunder"],["old library detective","mystery noir"],["desert lighthouse alone","journey"],["campfire nature peaceful","stars night"]],
+  top10:      [["luxury mansion interior","modern villa"],["world landmarks famous","iconic places"],["fine dining restaurant","gourmet food"],["fashion jewelry luxury","designer"],["sports stadium crowd","championship"]],
+  shorts:     [["dance viral trending","tiktok energy"],["skateboard parkour urban","extreme sport"],["neon art graffiti","street art colorful"],["gaming esports setup","controller"],["life hack diy creative","tutorial"]],
+  horror:     [["haunted house dark","scary abandoned"],["ghost shadow mystery","paranormal"],["cemetery night fog","grave"],["horror mask scary","halloween dark"],["dark laboratory experiment","creepy"]],
+  finance:    [["stock market trading","financial chart"],["gold money wealth","coins dollar"],["real estate property","luxury building"],["business meeting corporate","professional"],["factory industry production","manufacturing"]],
+  health:     [["yoga meditation peaceful","mindfulness zen"],["healthy food nutrition","vegetables fruits"],["fitness gym workout","exercise training"],["medical hospital doctor","healthcare"],["nature healing forest","wellness"]],
+  general:    [["cinematic aerial drone","landscape bird view"],["timelapse city sunrise","fast motion"],["cultural festival traditional","celebration dance"],["wildlife animals nature","safari"],["waterfall river nature","cascade"]],
+}
 
-// ── Helpers ───────────────────────────────────────────────────────────
+const ACCENT = {
+  facts:"00E5FF", motivation:"FF8C00", tech:"00FF88", story:"CC44FF",
+  top10:"FFD700", shorts:"FF1744", horror:"FF2222", finance:"00FF44",
+  health:"44FF88", general:"FF4488"
+}
+
+async function downloadFile(url, dest) {
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(30000) })
+    if (!res.ok) return false
+    const buffer = await res.arrayBuffer()
+    await writeFile(dest, Buffer.from(buffer))
+    return statSync(dest).size > 50000
+  } catch { return false }
+}
 
 async function getAudioDuration(p) {
   try {
-    const { stdout } = await execAsync(
-      `"${FFPROBE}" -v quiet -print_format json -show_streams "${p}"`,
-      { timeout: 15000 }
-    );
-    return Math.ceil(parseFloat(JSON.parse(stdout).streams[0]?.duration || "60"));
-  } catch { return 60; }
+    const { stdout } = await execAsync(`"${FFPROBE}" -v quiet -print_format json -show_streams "${p}"`, { timeout: 15000 })
+    return Math.ceil(parseFloat(JSON.parse(stdout).streams[0]?.duration || "60"))
+  } catch { return 60 }
 }
 
-// Layered sine music: base + harmonic + echo, no atremolo
-async function generateBgMusic(musicPath, conf, duration) {
-  if (existsSync(musicPath)) return;
-  const dur     = duration + 15;
-  const fadeOut = duration + 8;
-  try {
-    await execAsync(
-      `"${FFMPEG}" -y ` +
-      `-f lavfi -i "sine=frequency=${conf.freq}:duration=${dur}" ` +
-      `-f lavfi -i "sine=frequency=${conf.harmonic}:duration=${dur}" ` +
-      `-filter_complex ` +
-        `"[0:a]volume=0.55[a1];` +
-        `[1:a]volume=0.22[a2];` +
-        `[a1][a2]amix=inputs=2:duration=first[mix];` +
-        `[mix]aecho=0.5:0.4:180:0.25[echo];` +
-        `[echo]afade=t=in:st=0:d=4,afade=t=out:st=${fadeOut}:d=5[out]" ` +
-      `-map "[out]" -acodec libmp3lame -q:a 2 "${musicPath}"`,
-      { timeout: 35000 }
-    );
-    console.log(`✅ BG Music: ${conf.badge}`);
-  } catch (e) {
-    console.log("Music err:", e.message.slice(0, 60));
-    try {
-      await execAsync(
-        `"${FFMPEG}" -y -f lavfi -i "sine=frequency=${conf.freq}:duration=${dur}" ` +
-        `-filter_complex "afade=t=in:st=0:d=3,afade=t=out:st=${fadeOut}:d=5" ` +
-        `-acodec libmp3lame -q:a 3 "${musicPath}"`,
-        { timeout: 20000 }
-      );
-    } catch { /* silent */ }
-  }
-}
-
-// Safe text: only printable ASCII, strip FFmpeg-unsafe chars
-function safeT(t, maxLen = 46) {
-  return (t || "")
-    .trim()
-    .replace(/[^\x20-\x7E]/g, "")
-    .replace(/[\\'":%\[\]{}<>|!@#$^&*()+]/g, "")
-    .replace(/\s+/g, " ")
-    .slice(0, maxLen)
-    .trim();
-}
-
-// Split script → 4-word timed segments
-function buildSegments(scriptText, totalDur) {
-  const clean = (scriptText || "")
-    .replace(/[^\x00-\x7F]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const words = clean
-    .split(/[.!?\n,;]+/)
-    .flatMap(s => s.trim().split(/\s+/))
-    .filter(w => w.length > 0);
-
-  const groups = [];
-  for (let i = 0; i < words.length; i += 4) {
-    const safe = safeT(words.slice(i, i + 4).join(" "));
-    if (safe.length > 1) groups.push(safe);
-  }
-  if (groups.length === 0) groups.push(safeT(scriptText || "AI Video"));
-
-  const segDur = Math.max(1.2, totalDur / groups.length);
-  return groups.map((text, i) => ({
-    text,
-    start: parseFloat((i * segDur).toFixed(3)),
-    end:   parseFloat(Math.min((i + 1) * segDur, totalDur).toFixed(3)),
-  }));
-}
-
-// Build FFmpeg -vf filter string and write to a .txt file
-// Using filter_script avoids Windows command-line length limits entirely
-async function writeFilterScript(filterPath, segments, conf, W, H, isShorts, audioDur, safeTitle) {
-  const topH    = isShorts ? 115 : 92;
-  const titY    = isShorts ? 26  : 18;
-  const titSz   = isShorts ? 44  : 38;
-  const bX      = isShorts ? 22  : 16;
-  const bY      = isShorts ? topH + 10 : topH + 6;
-  const bW      = isShorts ? 196 : 158;
-  const bH      = isShorts ? 48  : 38;
-  const bTxtX   = isShorts ? 34  : 26;
-  const bTxtY   = isShorts ? topH + 24 : topH + 16;
-  const bTxtSz  = isShorts ? 22  : 17;
-  const progH   = isShorts ? 8   : 6;
-  const subSz   = isShorts ? 48  : 38;
-  const subGlowSz = isShorts ? 52 : 42;
-  const subY    = isShorts ? "h*0.82" : "h*0.80";
-  const subBarY = isShorts ? "h*0.78" : "h*0.76";
-  const subBarH = isShorts ? 160 : 130;
-
-  const lines = [];
-
-  // ── 1. Scale input to canvas ──────────────────────────────
-  lines.push(`scale=${W}:${H}:force_original_aspect_ratio=decrease`);
-  lines.push(`pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black`);
-  lines.push(`setsar=1`);
-
-  // ── 2. Top dark bar ───────────────────────────────────────
-  lines.push(`drawbox=x=0:y=0:w=iw:h=${topH}:color=black@0.88:t=fill`);
-
-  // ── 3. Title (glow + main) ────────────────────────────────
-  if (safeTitle) {
-    // glow shadow
-    lines.push(`drawtext=text='${safeTitle}':fontsize=${titSz}:fontcolor=0x${conf.accent}@0.40:x=(w-text_w)/2+3:y=${titY + 3}`);
-    // main white
-    lines.push(`drawtext=text='${safeTitle}':fontsize=${titSz}:fontcolor=white:x=(w-text_w)/2:y=${titY}`);
-  }
-
-  // ── 4. Accent underline ───────────────────────────────────
-  lines.push(`drawbox=x=0:y=${topH - 4}:w=iw:h=4:color=0x${conf.accent}@1.0:t=fill`);
-
-  // ── 5. Category badge ─────────────────────────────────────
-  lines.push(`drawbox=x=${bX}:y=${bY}:w=${bW}:h=${bH}:color=0x${conf.accent}@0.92:t=fill`);
-  lines.push(`drawtext=text='${conf.badge}':fontsize=${bTxtSz}:fontcolor=black:x=${bTxtX}:y=${bTxtY}`);
-
-  // ── 6. Subtitle dark bar ──────────────────────────────────
-  lines.push(`drawbox=x=0:y=${subBarY}:w=iw:h=${subBarH}:color=black@0.80:t=fill`);
-
-  // ── 7. Kinetic subtitles: each segment 2 layers (glow + main) ──
-  for (const seg of segments) {
-    const { text, start, end } = seg;
-    if (!text) continue;
-    const en = `enable='between(t\\,${start}\\,${end})'`;
-
-    // glow (neon color, offset)
-    lines.push(
-      `drawtext=text='${text}':fontsize=${subGlowSz}:fontcolor=0x${conf.accent}@0.55:` +
-      `x=(w-text_w)/2+3:y=${subY}+3:${en}`
-    );
-    // main text with box
-    lines.push(
-      `drawtext=text='${text}':fontsize=${subSz}:fontcolor=white:` +
-      `x=(w-text_w)/2:y=${subY}:box=1:boxcolor=black@0.82:boxborderw=${isShorts ? 18 : 14}:${en}`
-    );
-  }
-
-  // ── 8. Progress bar ───────────────────────────────────────
-  lines.push(`drawbox=x=0:y=h-${progH}:w=iw:h=${progH}:color=black@0.65:t=fill`);
-  lines.push(`drawbox=x=0:y=h-${progH}:w=iw*t/${audioDur}:h=${progH}:color=0x${conf.accent}@1.0:t=fill`);
-
-  // Write filter script — each filter on its own line, comma-joined
-  // filter_script expects a single filtergraph string
-  const filterStr = lines.join(",\n");
-  await writeFile(filterPath, filterStr, "utf8");
-}
-
-// ── AI background generator: pure FFmpeg lavfi ───────────────────────
-// Creates a dynamic animated background using color + geq expressions
-async function generateAIBackground(bgPath, conf, W, H, duration) {
-  if (existsSync(bgPath)) return true;
-  try {
-    // Animated gradient using geq: color oscillates subtly with time
-    // Uses sine wave on R,G,B channels for a slow pulsing neon atmosphere
-    const bg   = conf.bg.replace("0x", "");
-    const part = conf.particle.replace("0x", "");
-
-    const rBg = parseInt(bg.slice(0, 2), 16);
-    const gBg = parseInt(bg.slice(2, 4), 16);
-    const bBg = parseInt(bg.slice(4, 6), 16);
-
-    const rPt = parseInt(part.slice(0, 2), 16);
-    const gPt = parseInt(part.slice(2, 4), 16);
-    const bPt = parseInt(part.slice(4, 6), 16);
-
-    // geq: slow pulse + scanline effect
-    const rExpr = `${rBg}+${Math.min(rPt - rBg, 60)}*sin(2*PI*t/8+X/${W}*PI)`;
-    const gExpr = `${gBg}+${Math.min(gPt - gBg, 60)}*sin(2*PI*t/10+Y/${H}*PI)`;
-    const bExpr = `${bBg}+${Math.min(bPt - bBg, 60)}*sin(2*PI*t/12)`;
-
-    await execAsync(
-      `"${FFMPEG}" -y ` +
-      `-f lavfi -i "color=c=black:size=${W}x${H}:rate=25:duration=${duration}" ` +
-      `-vf "geq=r='${rExpr}':g='${gExpr}':b='${bExpr}'" ` +
-      `-c:v libx264 -preset fast -crf 28 -an "${bgPath}"`,
-      { timeout: 180000 }
-    );
-    return existsSync(bgPath) && statSync(bgPath).size > 10000;
-  } catch (e) {
-    console.log("AI bg err:", e.message.slice(0, 80));
-    // Fallback: plain dark color
-    try {
-      await execAsync(
-        `"${FFMPEG}" -y -f lavfi -i "color=c=${conf.bg}:size=${W}x${H}:rate=25:duration=${duration}" ` +
-        `-c:v libx264 -preset ultrafast -crf 30 -an "${bgPath}"`,
-        { timeout: 60000 }
-      );
-      return existsSync(bgPath);
-    } catch { return false; }
-  }
-}
-
-// ── Main ──────────────────────────────────────────────────────────────
 export async function POST(request) {
   try {
-    let {
-      audioUrl, thumbnailUrl, title, script, hook,
-      videoType = "long", category = "general",
-    } = await request.json();
+    let { audioUrl, thumbnailUrl, title, script, hook, videoType = "long", category = "general" } = await request.json()
+    const catKey = (category || "general").toLowerCase()
+    const isShorts = videoType === "shorts" || catKey === "shorts"
+    const W = isShorts ? 1080 : 1920
+    const H = isShorts ? 1920 : 1080
+    const accent = ACCENT[catKey] || "FF4488"
 
-    // ── Setup dirs ──────────────────────────────────────────
-    const storageDir = path.join(process.cwd(), "storage");
-    const subDirs = ["videos", "temp", "thumbnails", "music", "filters", "bg"];
-    const dirPaths = subDirs.map(d => path.join(storageDir, d));
-    for (const d of dirPaths) if (!existsSync(d)) await mkdir(d, { recursive: true });
-    const [videosDir, tempDir, thumbsDir, musicDir, filtersDir, bgDir] = dirPaths;
+    const storageDir = path.join(process.cwd(), "storage")
+    const dirs = ["videos","temp","thumbnails","music","clips"].map(d => path.join(storageDir, d))
+    for (const d of dirs) if (!existsSync(d)) await mkdir(d, { recursive: true })
+    const [videosDir, tempDir, thumbsDir, musicDir, clipsDir] = dirs
 
-    const videoId  = `video_${Date.now()}`;
-    const catKey   = (category || "general").toLowerCase().replace(/[^a-z]/g, "");
-    const conf     = CAT[catKey] || CAT.general;
-    const isShorts = videoType === "shorts" || catKey === "shorts";
-    const W = isShorts ? 1080 : 1920;
-    const H = isShorts ? 1920 : 1080;
+    const videoId = `video_${Date.now()}`
+    const audioPath = path.join(tempDir, `${videoId}_audio.mp3`)
+    const thumbPath = path.join(tempDir, `${videoId}_thumb.jpg`)
+    const mixedPath = path.join(tempDir, `${videoId}_mix.mp3`)
+    const outputPath = path.join(videosDir, `${videoId}.mp4`)
 
-    const audioPath  = path.join(tempDir,    `${videoId}_audio.mp3`);
-    const mixedPath  = path.join(tempDir,    `${videoId}_mix.mp3`);
-    const outputPath = path.join(videosDir,  `${videoId}.mp4`);
-    const filterPath = path.join(filtersDir, `${videoId}_vf.txt`);
-    const bgPath     = path.join(bgDir,      `bg_${catKey}_${W}x${H}.mp4`);
-    const thumbPath  = path.join(tempDir,    `${videoId}_thumb.jpg`);
-
-    console.log(`🎬 Duration setup | Cat: ${catKey} | ${isShorts ? "SHORTS" : "LANDSCAPE"}`);
-
-    // ── Audio ───────────────────────────────────────────────
+    // Audio
     if (audioUrl) {
-      const al = path.join(storageDir, "audio", audioUrl.split("/").pop());
-      if (existsSync(al)) await copyFile(al, audioPath);
+      const al = path.join(storageDir, "audio", audioUrl.split("/").pop())
+      if (existsSync(al)) await copyFile(al, audioPath)
     }
     if (!existsSync(audioPath)) {
-      await execAsync(
-        `"${FFMPEG}" -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 60 -acodec libmp3lame -q:a 9 "${audioPath}"`,
-        { timeout: 15000 }
-      );
+      await execAsync(`"${FFMPEG}" -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 60 -acodec libmp3lame -q:a 9 "${audioPath}"`, { timeout: 15000 })
     }
 
-    // ── Thumbnail (for fallback) ─────────────────────────────
+    // Thumbnail
     if (thumbnailUrl) {
-      const tl = path.join(thumbsDir, thumbnailUrl.split("/").pop());
-      if (existsSync(tl)) await copyFile(tl, thumbPath);
+      const tl = path.join(thumbsDir, thumbnailUrl.split("/").pop())
+      if (existsSync(tl)) await copyFile(tl, thumbPath)
     }
     if (!existsSync(thumbPath)) {
-      const jpgs = (await readdir(thumbsDir).catch(() => [])).filter(f => f.endsWith(".jpg")).sort().reverse();
-      if (jpgs.length) await copyFile(path.join(thumbsDir, jpgs[0]), thumbPath);
-      else {
-        await execAsync(
-          `"${FFMPEG}" -y -f lavfi -i "color=${conf.bg}:size=${W}x${H}:rate=1" -frames:v 1 "${thumbPath}"`,
-          { timeout: 10000 }
-        );
-      }
+      const jpgs = (await readdir(thumbsDir).catch(() => [])).filter(f => f.endsWith(".jpg")).sort().reverse()
+      if (jpgs.length) await copyFile(path.join(thumbsDir, jpgs[0]), thumbPath)
+      else await execAsync(`"${FFMPEG}" -y -f lavfi -i "color=black:size=${W}x${H}:rate=1" -frames:v 1 "${thumbPath}"`, { timeout: 10000 })
     }
 
-    const audioDur = await getAudioDuration(audioPath);
-    console.log(`🎬 Duration: ${audioDur}s | Cat: ${catKey} | ${isShorts ? "SHORTS" : "LANDSCAPE"}`);
+    const audioDur = await getAudioDuration(audioPath)
+    console.log(`🎬 ${catKey} | ${audioDur}s | ${isShorts ? "SHORTS" : "LANDSCAPE"}`)
 
-    // ── BG Music ────────────────────────────────────────────
-    const musicPath = path.join(musicDir, `bg_${catKey}_v6.mp3`);
-    await generateBgMusic(musicPath, conf, audioDur);
+    // BG Music
+    const musicPath = path.join(musicDir, `bg_${catKey}.mp3`)
+    if (!existsSync(musicPath)) {
+      const freq = {facts:396,motivation:528,tech:440,story:285,top10:639,shorts:741,horror:174,finance:417,health:528,general:432}[catKey] || 432
+      try {
+        await execAsync(`"${FFMPEG}" -y -f lavfi -i "sine=frequency=${freq}:duration=${audioDur+15}" -af "volume=0.08,afade=t=in:st=0:d=4,afade=t=out:st=${audioDur+8}:d=5" -acodec libmp3lame -q:a 4 "${musicPath}"`, { timeout: 35000 })
+      } catch {}
+    }
 
-    // ── Mix voice + music ───────────────────────────────────
+    // Mix audio
     if (existsSync(musicPath)) {
       try {
-        await execAsync(
-          `"${FFMPEG}" -y -i "${audioPath}" -i "${musicPath}" ` +
-          `-filter_complex "[0:a]volume=1.0[v];[1:a]volume=${conf.vol},` +
-          `afade=t=in:st=0:d=3,afade=t=out:st=${Math.max(audioDur - 4, 1)}:d=4[m];` +
-          `[v][m]amix=inputs=2:duration=first[out]" ` +
-          `-map "[out]" -t ${audioDur} "${mixedPath}"`,
-          { timeout: 60000 }
-        );
-        console.log(`✅ Audio mixed (vol:${conf.vol})`);
-      } catch { await copyFile(audioPath, mixedPath); }
-    } else { await copyFile(audioPath, mixedPath); }
+        await execAsync(`"${FFMPEG}" -y -i "${audioPath}" -i "${musicPath}" -filter_complex "[0:a]volume=1.0[v];[1:a]volume=0.08[m];[v][m]amix=inputs=2:duration=first[out]" -map "[out]" -t ${audioDur} "${mixedPath}"`, { timeout: 60000 })
+      } catch { await copyFile(audioPath, mixedPath) }
+    } else await copyFile(audioPath, mixedPath)
 
-    // ── AI Background ────────────────────────────────────────
-    // Cache per category — reused across videos
-    const bgOk = await generateAIBackground(bgPath, conf, W, H, audioDur + 5);
-    console.log(`✅ AI Background: ${bgOk ? "Generated" : "Fallback"}`);
-
-    // ── Subtitles + filter script ────────────────────────────
-    const safeTitle  = safeT(title, 46) || "AI Video";
-    const scriptText = script || hook || title || "AI Video";
-    const segments   = buildSegments(scriptText, audioDur);
-
-    await writeFilterScript(filterPath, segments, conf, W, H, isShorts, audioDur, safeTitle);
-    console.log(`✅ Filter script: ${segments.length} segments → ${filterPath}`);
-
-    // ── Render chain ─────────────────────────────────────────
-    let success = false;
-
-    // ── Render A: AI bg + filter_script (full pro render) ────
-    if (bgOk) {
+    // Download Pexels clips
+    let clips = []
+    const pKey = process.env.PEXELS_API_KEY
+    if (pKey) {
       try {
-        await execAsync(
-          `"${FFMPEG}" -y -stream_loop -1 -i "${bgPath}" -i "${mixedPath}" ` +
-          `-vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" ` +
-          `-map 0:v -map 1:a ` +
-          `-c:v libx264 -preset fast -crf 20 ` +
-          `-c:a aac -b:a 192k -pix_fmt yuv420p ` +
-          `-t ${audioDur} -movflags +faststart "${outputPath}"`,
-          { timeout: 600000 }
-        );
-        success = existsSync(outputPath) && statSync(outputPath).size > 100000;
-        if (success) console.log("✅ Render A: AI bg + kinetic typography");
-      } catch (e) { console.log("Render A err:", e.message.slice(0, 120)); }
+        const queries = CATEGORY_QUERIES[catKey] || CATEGORY_QUERIES.general
+        const poolIdx = parseInt(videoId.slice(-3)) % queries.length
+        const pool = queries[poolIdx]
+        const q = encodeURIComponent(pool[Math.floor(Math.random() * pool.length)])
+        const pageNum = (parseInt(videoId.slice(-5,-3)) % 5) + 1
+        const ori = isShorts ? "portrait" : "landscape"
+        const pr = await fetch(`https://api.pexels.com/videos/search?query=${q}&per_page=8&page=${pageNum}&orientation=${ori}&size=medium`, { headers: { Authorization: pKey } })
+        if (pr.ok) {
+          const pd = await pr.json()
+          console.log(`Pexels: ${pd.videos?.length || 0} clips for "${q}"`)
+          for (let i = 0; i < Math.min(pd.videos?.length || 0, 5); i++) {
+            const v = pd.videos[i]
+            const f = v.video_files?.find(f => f.quality === "hd" && f.width <= 1366) || v.video_files?.find(f => f.quality === "sd" && f.width >= 640) || v.video_files?.[0]
+            if (f?.link) {
+              const cp = path.join(clipsDir, `clip_${videoId}_${i}.mp4`)
+              if (await downloadFile(f.link, cp)) {
+                clips.push({ path: cp, duration: v.duration })
+                console.log(`✅ Clip ${i+1}: ${statSync(cp).size} bytes`)
+              }
+            }
+          }
+        }
+      } catch (e) { console.log("Pexels error:", e.message) }
     }
 
-    // ── Render B: color lavfi + filter_script ────────────────
-    if (!success) {
+    let success = false
+
+    // Render A: Pexels clips concat
+    if (clips.length >= 2) {
       try {
-        await execAsync(
-          `"${FFMPEG}" -y ` +
-          `-f lavfi -i "color=c=${conf.bg}:size=${W}x${H}:rate=25:duration=${audioDur}" ` +
-          `-i "${mixedPath}" ` +
-          `-vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2" ` +
-          `-map 0:v -map 1:a ` +
-          `-c:v libx264 -preset fast -crf 20 ` +
-          `-c:a aac -b:a 192k -pix_fmt yuv420p ` +
-          `-t ${audioDur} -movflags +faststart "${outputPath}"`,
-          { timeout: 300000 }
-        );
-        success = existsSync(outputPath) && statSync(outputPath).size > 100000;
-        if (success) console.log("✅ Render B: color bg + kinetic typography");
-      } catch (e) { console.log("Render B err:", e.message.slice(0, 120)); }
+        const segLen = Math.max(4, Math.floor(audioDur / clips.length))
+        const processed = []
+        for (let i = 0; i < clips.length; i++) {
+          const proc = path.join(tempDir, `${videoId}_p${i}.mp4`)
+          try {
+            await execAsync(`"${FFMPEG}" -y -i "${clips[i].path}" -t ${segLen} -vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=25" -c:v libx264 -preset fast -crf 23 -an "${proc}"`, { timeout: 120000 })
+            if (existsSync(proc) && statSync(proc).size > 5000) processed.push(proc)
+          } catch (e) { console.log(`Clip ${i} err:`, e.message.slice(0,80)) }
+        }
+        if (processed.length >= 2) {
+          let concatTxt = processed.map(p => `file '${p.replace(/\\/g, "/")}'`).join("\n")
+          const concatF = path.join(tempDir, `${videoId}_list.txt`)
+          await writeFile(concatF, concatTxt)
+          await execAsync(
+            `"${FFMPEG}" -y -f concat -safe 0 -i "${concatF}" -i "${mixedPath}" ` +
+            `-vf "drawbox=x=0:y=0:w=iw:h=90:color=black@0.6:t=fill,drawbox=x=0:y=h-8:w=iw*t/${audioDur}:h=8:color=0x${accent}@0.9:t=fill" ` +
+            `-map 0:v -map 1:a -c:v libx264 -preset fast -crf 22 -c:a aac -b:a 192k -pix_fmt yuv420p -t ${audioDur} -movflags +faststart "${outputPath}"`,
+            { timeout: 600000 }
+          )
+          success = existsSync(outputPath) && statSync(outputPath).size > 100000
+          if (success) console.log(`✅ Render A: ${processed.length} Pexels clips`)
+        }
+      } catch (e) { console.log("Render A err:", e.message.slice(0,120)) }
     }
 
-    // ── Render C: color lavfi + inline vf (title + progress only, no long subtitle chain) ──
-    if (!success) {
-      const minVf = [
-        `scale=${W}:${H}`,
-        `drawbox=x=0:y=0:w=iw:h=${isShorts ? 115 : 92}:color=black@0.88:t=fill`,
-        `drawtext=text='${safeTitle}':fontsize=${isShorts ? 44 : 38}:fontcolor=white:x=(w-text_w)/2:y=${isShorts ? 26 : 18}`,
-        `drawbox=x=0:y=h-${isShorts ? 8 : 6}:w=iw*t/${audioDur}:h=${isShorts ? 8 : 6}:color=0x${conf.accent}@1.0:t=fill`,
-      ].join(",");
-      try {
-        await execAsync(
-          `"${FFMPEG}" -y ` +
-          `-f lavfi -i "color=c=${conf.bg}:size=${W}x${H}:rate=25:duration=${audioDur}" ` +
-          `-i "${mixedPath}" ` +
-          `-vf "${minVf}" ` +
-          `-map 0:v -map 1:a ` +
-          `-c:v libx264 -preset fast -crf 22 ` +
-          `-c:a aac -b:a 192k -pix_fmt yuv420p ` +
-          `-t ${audioDur} -movflags +faststart "${outputPath}"`,
-          { timeout: 180000 }
-        );
-        success = existsSync(outputPath) && statSync(outputPath).size > 100000;
-        if (success) console.log("✅ Render C: color bg + title only");
-      } catch (e) { console.log("Render C err:", e.message.slice(0, 120)); }
-    }
-
-    // ── Render D: thumbnail + audio bare minimum ─────────────
+    // Render B: Thumbnail + audio fallback
     if (!success) {
       try {
         await execAsync(
           `"${FFMPEG}" -y -loop 1 -i "${thumbPath}" -i "${mixedPath}" ` +
-          `-c:v libx264 -tune stillimage -c:a aac -b:a 128k ` +
-          `-pix_fmt yuv420p -t ${audioDur} ` +
-          `-vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black" ` +
-          `-movflags +faststart "${outputPath}"`,
+          `-vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,drawbox=x=0:y=h-8:w=iw*t/${audioDur}:h=8:color=0x${accent}@0.9:t=fill" ` +
+          `-c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -t ${audioDur} -movflags +faststart "${outputPath}"`,
           { timeout: 120000 }
-        );
-        console.log("✅ Render D: thumbnail fallback");
-      } catch (e) { console.log("Render D err:", e.message.slice(0, 80)); }
+        )
+        success = existsSync(outputPath) && statSync(outputPath).size > 50000
+        if (success) console.log("✅ Render B: thumbnail fallback")
+      } catch (e) { console.log("Render B err:", e.message.slice(0,80)) }
     }
 
-    const vSize = existsSync(outputPath) ? statSync(outputPath).size : 0;
-    console.log(`✅ Done: ${(vSize / 1024 / 1024).toFixed(1)}MB | Segs: ${segments.length}`);
-
-    // Cleanup temp
-    try { await unlink(filterPath); } catch {}
+    const vSize = existsSync(outputPath) ? statSync(outputPath).size : 0
+    console.log(`✅ Done: ${(vSize/1024/1024).toFixed(1)}MB | Clips:${clips.length}`)
+    for (const c of clips) try { await unlink(c.path) } catch {}
 
     return NextResponse.json({
-      success:   true,
-      videoId,
-      videoUrl:  `/storage/videos/${videoId}.mp4`,
+      success: true, videoId,
+      videoUrl: `/storage/videos/${videoId}.mp4`,
       videoType: isShorts ? "shorts" : "long",
-      duration:  audioDur,
-      segments:  segments.length,
-      category:  catKey,
-      aiGenerated: true,
-      message:   `✅ AI Generated | ${isShorts ? "Shorts" : "Landscape"} | ${segments.length} segments | ${(vSize / 1024 / 1024).toFixed(1)}MB`,
-    });
-
+      duration: audioDur,
+      clipsUsed: clips.length,
+      category: catKey,
+      message: `✅ ${catKey} | ${clips.length} Pexels clips | ${(vSize/1024/1024).toFixed(1)}MB`,
+    })
   } catch (error) {
-    console.error("Fatal:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Fatal:", error.message)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
