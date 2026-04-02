@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { writeFile, mkdir } from "fs/promises"
 import { existsSync, statSync } from "fs"
 import { exec } from "child_process"
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     const audioDir = path.join(process.cwd(), "storage", "audio")
     if (!existsSync(audioDir)) await mkdir(audioDir, { recursive: true })
-    const fileName = `audio_${Date.now()}.mp3`
+    const fileName = "audio_" + Date.now() + ".mp3"
     const filePath = path.join(audioDir, fileName)
 
     const catKey = (category || "general").toLowerCase()
@@ -42,29 +42,21 @@ export async function POST(req: NextRequest) {
 
     try {
       const safeText = cleanedText.replace(/"/g,"'").replace(/\\/g,"").replace(/\n/g," ")
-      const pyFile = path.join(audioDir, `tts_${Date.now()}.py`)
+      const pyFile = path.join(audioDir, "tts_" + Date.now() + ".py")
       const outPath = filePath.replace(/\\/g,"\\\\")
-      const py = [
-        "import asyncio, edge_tts",
-        "async def go():",
-        `    c = edge_tts.Communicate(text="${safeText}", voice="${vc.voice}", rate="${vc.rate}", pitch="${vc.pitch}")`,
-        `    await c.save(r"${outPath}")`,
-        '    import os',
-        `    print("Done! Size:", os.path.getsize(r"${outPath}"), "bytes")`,
-        "asyncio.run(go())"
-      ].join("\n")
+      const py = "import asyncio, edge_tts\nasync def go():\n    c = edge_tts.Communicate(text=\"" + safeText + "\", voice=\"" + vc.voice + "\", rate=\"" + vc.rate + "\", pitch=\"" + vc.pitch + "\")\n    await c.save(r\"" + outPath + "\")\n    import os\n    print(\"Done! Size:\", os.path.getsize(r\"" + outPath + "\"), \"bytes\")\nasyncio.run(go())"
       await writeFile(pyFile, py)
-      const { stdout } = await execAsync(`python "${pyFile}"`, { timeout: 60000 })
+      const { stdout } = await execAsync("python \"" + pyFile + "\"", { timeout: 60000 })
       try { const fs = await import("fs/promises"); await fs.unlink(pyFile) } catch {}
       if (stdout.includes("Done!") && existsSync(filePath) && statSync(filePath).size > 1000) {
         console.log("Edge TTS OK!", stdout.trim())
-        return NextResponse.json({ success: true, audioUrl: `/storage/audio/${fileName}`, provider: "edge-tts" })
+        return NextResponse.json({ success: true, audioUrl: "/storage/audio/" + fileName, provider: "edge-tts" })
       }
     } catch(e: any) { console.log("Edge TTS err:", e.message?.slice(0,80)) }
 
     try {
       const encoded = encodeURIComponent(cleanedText.slice(0, 200))
-      const res = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=hi&client=tw-ob&ttsspeed=0.85`, {
+      const res = await fetch("https://translate.google.com/translate_tts?ie=UTF-8&q=" + encoded + "&tl=hi&client=tw-ob&ttsspeed=0.85", {
         headers: { "User-Agent": "Mozilla/5.0", "Referer": "https://translate.google.com/" },
         signal: AbortSignal.timeout(15000)
       })
@@ -73,13 +65,13 @@ export async function POST(req: NextRequest) {
         if (buf.byteLength > 3000) {
           await writeFile(filePath, Buffer.from(buf))
           console.log("Google TTS OK!", buf.byteLength)
-          return NextResponse.json({ success: true, audioUrl: `/storage/audio/${fileName}`, provider: "google" })
+          return NextResponse.json({ success: true, audioUrl: "/storage/audio/" + fileName, provider: "google" })
         }
       }
     } catch {}
 
-    await execAsync(`ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 60 -q:a 9 -acodec libmp3lame "${filePath}"`)
-    return NextResponse.json({ success: true, audioUrl: `/storage/audio/${fileName}`, provider: "silent" })
+    await execAsync("ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=stereo -t 60 -q:a 9 -acodec libmp3lame \"" + filePath + "\"")
+    return NextResponse.json({ success: true, audioUrl: "/storage/audio/" + fileName, provider: "silent" })
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
