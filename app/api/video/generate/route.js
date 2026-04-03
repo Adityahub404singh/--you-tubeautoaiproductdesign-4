@@ -7,7 +7,7 @@ import path from "path";
 const execAsync = promisify(exec);
 
 const FF = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe";
-const FP = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffprobe.exe";
+const FP = "ffprobe";
 
 const CAT = {
   facts:      { q:[["space nebula galaxy cosmos","deep ocean underwater abyss"],["ancient ruins mystery","science laboratory experiment"],["natural disaster volcano","wildlife predator hunt"]], accent:"00E5FF", freq:396, badge:"FACTS" },
@@ -73,7 +73,7 @@ export async function POST(request) {
     }
 
     const ad = await dur(ap)
-    console.log(`🎬 ${cat} | ${ad}s | ${isS?"SHORTS":"LANDSCAPE"}`)
+    console.log(`ðŸŽ¬ ${cat} | ${ad}s | ${isS?"SHORTS":"LANDSCAPE"}`)
 
     // Music - layered harmonics
     const mpath = path.join(md,`bg_${cat}.mp3`)
@@ -81,15 +81,15 @@ export async function POST(request) {
       const f=cfg.freq, h=Math.round(f*1.5)
       try {
         await execAsync(`"${FF}" -y -f lavfi -i "sine=frequency=${f}:duration=${ad+15}" -f lavfi -i "sine=frequency=${h}:duration=${ad+15}" -filter_complex "[0:a]volume=0.6[a1];[1:a]volume=0.25[a2];[a1][a2]amix=inputs=2:duration=first[m];[m]aecho=0.5:0.4:180:0.25[e];[e]afade=t=in:st=0:d=4,afade=t=out:st=${ad+8}:d=5[out]" -map "[out]" -acodec libmp3lame -q:a 2 "${mpath}"`,{timeout:35000})
-        console.log(`✅ Music: ${cat} ${f}Hz`)
+        console.log(`âœ… Music: ${cat} ${f}Hz`)
       } catch(e) { console.log("Music err:",e.message.slice(0,60)) }
     }
 
     // Mix
     if(existsSync(mpath)) {
       try {
-        await execAsync(`"${FF}" -y -i "${ap}" -i "${mpath}" -filter_complex "[0:a]volume=1.0[v];[1:a]volume=0.09[m];[v][m]amix=inputs=2:duration=first[out]" -map "[out]" -t ${ad} "${mp}"`,{timeout:60000})
-        console.log("✅ Audio mixed")
+        await execAsync(`"${FF}" -y -i "${ap}" -i "${mpath}" -filter_complex "[0:a]volume=1,afade=t=in:st=0:d=0.5,afade=t=out:st=2:d=0.5[v];[1:a]volume=0.09[m];[v][m]amix=inputs=2:duration=first[out]" -map "[out]" -t ${ad} "${mp}"`,{timeout:60000})
+        console.log("âœ… Audio mixed")
       } catch { await copyFile(ap,mp) }
     } else await copyFile(ap,mp)
 
@@ -115,7 +115,7 @@ export async function POST(request) {
             const f = v.video_files?.find(f=>f.quality==="hd"&&f.width<=1366) || v.video_files?.find(f=>f.quality==="sd"&&f.width>=640) || v.video_files?.[0]
             if(f?.link) {
               const cp=path.join(cd,`clip_${vid}_${clips.length}.mp4`)
-              if(await dl(f.link,cp)) { clips.push({path:cp,duration:v.duration}); console.log(`✅ Clip ${clips.length}: ${(statSync(cp).size/1024/1024).toFixed(1)}MB`) }
+              if(await dl(f.link,cp)) { clips.push({path:cp,duration:v.duration}); console.log(`âœ… Clip ${clips.length}: ${(statSync(cp).size/1024/1024).toFixed(1)}MB`) }
             }
           }
         } catch(e) { console.log("Pexels err:",e.message.slice(0,60)) }
@@ -133,8 +133,8 @@ export async function POST(request) {
           const pp=path.join(td,`${vid}_p${i}.mp4`)
           try {
             const zoom = i%2===0 ? `zoompan=z='min(zoom+0.001,1.08)':d=${segLen*25}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)',` : ""
-            await execAsync(`"${FF}" -y -i "${clips[i].path}" -t ${segLen} -vf "${zoom}scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=25" -c:v libx264 -preset fast -crf 22 -an "${pp}"`,{timeout:120000})
-            if(existsSync(pp)&&statSync(pp).size>5000) { proc.push(pp); console.log(`✅ Clip ${i+1} processed`) }
+            await execAsync(`"${FF}" -y -i "${clips[i].path}" -t ${segLen} -vf "${zoom}scale=${W}:${H},eq=contrast=1.2:brightness=0.05,zoompan=z='min(zoom+0.0015,1.5)':d=125:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=25" -c:v libx264 -preset fast -crf 22 -an "${pp}"`,{timeout:120000})
+            if(existsSync(pp)&&statSync(pp).size>5000) { proc.push(pp); console.log(`âœ… Clip ${i+1} processed`) }
           } catch(e) { console.log(`Clip ${i} err:`,e.message.slice(0,60)) }
         }
         if(proc.length>=2) {
@@ -149,7 +149,7 @@ export async function POST(request) {
             {timeout:600000}
           )
           success=existsSync(op)&&statSync(op).size>100000
-          if(success) console.log(`✅ Render A: ${proc.length} clips + progress bar`)
+          if(success) console.log(`âœ… Render A: ${proc.length} clips + progress bar`)
         }
       } catch(e) { console.log("Render A err:",e.message.slice(0,120)) }
     }
@@ -159,18 +159,18 @@ export async function POST(request) {
       try {
         await execAsync(
           `"${FF}" -y -loop 1 -i "${tp}" -i "${mp}" ` +
-          `-vf "scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,` +
+          `-vf "scale=${W}:${H},eq=contrast=1.2:brightness=0.05,zoompan=z='min(zoom+0.0015,1.5)':d=125:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,` +
           `drawbox=x=0:y=h-10:w=iw*t/${ad}:h=10:color=0x${ac}@1.0:t=fill" ` +
           `-c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -t ${ad} -movflags +faststart "${op}"`,
           {timeout:120000}
         )
         success=existsSync(op)&&statSync(op).size>50000
-        if(success) console.log("✅ Render B: thumbnail")
+        if(success) console.log("âœ… Render B: thumbnail")
       } catch(e) { console.log("Render B err:",e.message.slice(0,80)) }
     }
 
     const vs=existsSync(op)?statSync(op).size:0
-    console.log(`✅ Done: ${(vs/1024/1024).toFixed(1)}MB | Clips:${clips.length}`)
+    console.log(`âœ… Done: ${(vs/1024/1024).toFixed(1)}MB | Clips:${clips.length}`)
     for(const c of clips) try{await unlink(c.path)}catch{}
 
     return NextResponse.json({
@@ -178,10 +178,12 @@ export async function POST(request) {
       videoUrl:`/storage/videos/${vid}.mp4`,
       videoType:isS?"shorts":"long",
       duration:ad, clipsUsed:clips.length, category:cat,
-      message:`✅ ${cat} | ${clips.length} clips | ${(vs/1024/1024).toFixed(1)}MB`
+      message:`âœ… ${cat} | ${clips.length} clips | ${(vs/1024/1024).toFixed(1)}MB`
     })
   } catch(e) {
     console.error("Fatal:",e.message)
     return NextResponse.json({error:e.message},{status:500})
   }
 }
+
+

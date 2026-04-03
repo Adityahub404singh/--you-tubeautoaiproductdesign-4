@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import Groq from "groq-sdk"
 
 const LOCATIONS = ["jungle", "hospital", "metro", "school", "village", "hotel", "space station", "mountain", "beach", "old mansion"]
@@ -97,11 +97,11 @@ UNIQUE CONTEXT TO USE:
 
 Respond ONLY with this JSON (no extra text):
 {
-  "title": "viral clickbait title max 60 chars with power words/numbers",
+  "title": "Create viral Hindi title under 55 chars. Use numbers, curiosity, emotion. Example: ?? 5 AI Tools ???? ?????? ??? ????? ??",
   "hook": "SHOCKING first 5 seconds - must make viewer stop scrolling",
-  "script": "full script. Horror: use [PAUSE] after every line, slow dramatic. Facts: use [SPEED_UP] for facts, energetic. Motivation: use [EMPHASIS] on power words, strong confident. Shorts: max 60 seconds, fast punchy. Format: [HOOK][SETUP][BUILDUP][PEAK][END][CTA]",
+  "script": "Create HIGH RETENTION viral script:\n\n[HOOK - 0-3 sec]\nShock / curiosity / question\n\n[BODY - fast]\nExplain 3 points with examples\n\n[PATTERN BREAK]\nAdd twist line\n\n[CLIMAX]\nPowerful emotional or shocking line\n\n[ENDING]\nSatisfying conclusion\n\n[CTA]\nFollow for more\n\nRules:\n- Short punch lines\n- Each line < 10 words\n- No boring text\n- High dopamine script\n- Hindi + simple English mix",
   "keyPoints": ["point1","point2","point3","point4","point5"],
-  "description": "SEO description 200+ words",
+  "description": "Professional SEO description 300+ words. Include: 1) Hook line, 2) What viewers will learn, 3) Why this matters, 4) Keywords naturally placed, 5) Call to action, 6) Relevant hashtags. No generic text.",
   "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8","tag9","tag10","tag11","tag12","tag13","tag14","tag15"],
   "callToAction": "end CTA text",
   "pexelsQuery": "3-4 word English search for relevant stock video",
@@ -141,13 +141,13 @@ Respond ONLY with this JSON (no extra text):
     }
 
     const CATEGORY_STYLES: Record<string, any> = {
-      facts:      { bgColor: "#1a237e", accent: "#2196F3", emoji: "🧠", badge: "FACTS" },
-      motivation: { bgColor: "#e65100", accent: "#FF9800", emoji: "💪", badge: "MOTIVATION" },
-      tech:       { bgColor: "#1b5e20", accent: "#4CAF50", emoji: "🤖", badge: "TECH" },
-      story:      { bgColor: "#4a148c", accent: "#9C27B0", emoji: "📖", badge: "STORY" },
-      top10:      { bgColor: "#f57f17", accent: "#FFC107", emoji: "🏆", badge: "TOP 10" },
-      shorts:     { bgColor: "#b71c1c", accent: "#F44336", emoji: "⚡", badge: "SHORTS" },
-      general:    { bgColor: "#880000", accent: "#FF0000", emoji: "🔥", badge: "VIRAL" },
+      facts:      { bgColor: "#1a237e", accent: "#2196F3", emoji: "??", badge: "FACTS" },
+      motivation: { bgColor: "#e65100", accent: "#FF9800", emoji: "??", badge: "MOTIVATION" },
+      tech:       { bgColor: "#1b5e20", accent: "#4CAF50", emoji: "??", badge: "TECH" },
+      story:      { bgColor: "#4a148c", accent: "#9C27B0", emoji: "??", badge: "STORY" },
+      top10:      { bgColor: "#f57f17", accent: "#FFC107", emoji: "??", badge: "TOP 10" },
+      shorts:     { bgColor: "#b71c1c", accent: "#F44336", emoji: "?", badge: "SHORTS" },
+      general:    { bgColor: "#880000", accent: "#FF0000", emoji: "??", badge: "VIRAL" },
     }
     const catStyle = CATEGORY_STYLES[catKey] || CATEGORY_STYLES.general
 
@@ -179,5 +179,7 @@ Respond ONLY with this JSON (no extra text):
     return NextResponse.json({ error: error.message || "Generation failed" }, { status: 500 })
   }
 }
+
+
 
 

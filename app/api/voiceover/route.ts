@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       .replace(/\[PAUSE\]/gi,". ").replace(/\[EMPHASIS\]/gi,"")
       .replace(/\*\*/g,"").replace(/#{1,6}\s/g,"")
       .replace(/\n+/g,". ").replace(/\s+/g," ").trim()
-      .slice(0, isShorts ? 200 : 400)
+      .slice(0, isShorts ? 250 : 800)
 
     console.log("Voice:", catKey, vc.voice, vc.rate)
 
@@ -77,3 +77,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
