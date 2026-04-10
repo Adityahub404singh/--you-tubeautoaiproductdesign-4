@@ -1,75 +1,50 @@
-﻿import { NextResponse } from "next/server";
-
-export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const code = searchParams.get("code");
-  const error = searchParams.get("error");
-
-  if (error) {
-    return NextResponse.redirect("/dashboard/channels?instagram_error=access_denied");
-  }
-
+﻿import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+const APP_ID = process.env.INSTAGRAM_APP_ID
+const APP_SECRET = process.env.INSTAGRAM_APP_SECRET
+const REDIRECT_URI = process.env.INSTAGRAM_REDIRECT_URI || "http://localhost:3000/api/auth/instagram/callback"
+export async function GET(req) {
+  const { searchParams } = new URL(req.url)
+  const code = searchParams.get("code")
+  const error = searchParams.get("error")
+  if (error || !code) return NextResponse.redirect(`http://localhost:3000/dashboard?instagram=error`)
   try {
-    // Get access token from Facebook
     const tokenRes = await fetch("https://graph.facebook.com/v18.0/oauth/access_token", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: process.env.INSTAGRAM_APP_ID,
-        client_secret: process.env.INSTAGRAM_APP_SECRET,
-        grant_type: "authorization_code",
-        redirect_uri: process.env.INSTAGRAM_REDIRECT_URI,
-        code: code,
-      }),
-    });
-    const tokenData = await tokenRes.json();
-
-    if (!tokenData.access_token) {
-      throw new Error("No access token received");
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ client_id: APP_ID, client_secret: APP_SECRET, redirect_uri: REDIRECT_URI, code }),
+    })
+    const tokenData = await tokenRes.json()
+    if (tokenData.error) throw new Error(tokenData.error.message)
+    const shortToken = tokenData.access_token
+    const longRes = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${APP_ID}&client_secret=${APP_SECRET}&fb_exchange_token=${shortToken}`)
+    const longData = await longRes.json()
+    const longToken = longData.access_token || shortToken
+    const expiresIn = longData.expires_in || 5184000
+    const pagesRes = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${longToken}`)
+    const pagesData = await pagesRes.json()
+    const pages = pagesData.data || []
+    let igUserId = process.env.INSTAGRAM_USER_ID || "17841480004664319"
+    let finalToken = longToken
+    for (const page of pages) {
+      const igRes = await fetch(`https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token}`)
+      const igData = await igRes.json()
+      if (igData.instagram_business_account?.id) {
+        igUserId = igData.instagram_business_account.id
+        finalToken = page.access_token
+        break
+      }
     }
-
-    // Get Instagram Business Account ID
-    const accountsRes = await fetch(
-      `https://graph.facebook.com/v18.0/me/accounts?access_token=${tokenData.access_token}`
-    );
-    const accountsData = await accountsRes.json();
-
-    const pageId = accountsData.data?.[0]?.id;
-    if (!pageId) {
-      throw new Error("No Instagram page found");
-    }
-
-    // Get Instagram account ID
-    const igRes = await fetch(
-      `https://graph.facebook.com/v18.0/${pageId}?fields=instagram_business_account&access_token=${tokenData.access_token}`
-    );
-    const igData = await igRes.json();
-    const instagramId = igData.instagram_business_account?.id;
-
-    if (!instagramId) {
-      throw new Error("No Instagram business account found");
-    }
-
-    // Store in localStorage (or DB in production)
-    const channels = JSON.parse(localStorage.getItem("channels") || "[]");
-    const igChannel = {
-      id: instagramId,
-      platform: "instagram",
-      name: igData.name || "Instagram",
-      accessToken: tokenData.access_token,
-      pageId: pageId,
-      connected: true,
-      connectedAt: new Date().toISOString(),
-    };
-
-    // Remove old instagram channel and add new
-    const filtered = channels.filter(c => c.platform !== "instagram");
-    filtered.push(igChannel);
-    localStorage.setItem("channels", JSON.stringify(filtered));
-
-    return NextResponse.redirect("/dashboard/channels?instagram_connected=true");
-  } catch (error) {
-    console.error("Instagram OAuth error:", error);
-    return NextResponse.redirect("/dashboard/channels?instagram_error=" + encodeURIComponent(error.message));
+    const cookieStore = await cookies()
+    const expiry = new Date(Date.now() + expiresIn * 1000)
+    cookieStore.set("ig_access_token", finalToken, { httpOnly: true, expires: expiry, path: "/" })
+    cookieStore.set("ig_user_id", igUserId, { httpOnly: true, expires: expiry, path: "/" })
+    cookieStore.set("ig_connected", "true", { expires: expiry, path: "/" })
+    cookieStore.set("ig_expiry", expiry.toISOString(), { expires: expiry, path: "/" })
+    console.log("Instagram connected! User:", igUserId)
+    return NextResponse.redirect("http://localhost:3000/dashboard?instagram=connected")
+  } catch (err) {
+    console.error("Instagram callback error:", err.message)
+    return NextResponse.redirect(`http://localhost:3000/dashboard?instagram=error&msg=${encodeURIComponent(err.message)}`)
   }
 }
