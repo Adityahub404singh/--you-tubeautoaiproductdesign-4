@@ -78,10 +78,6 @@ export interface Video {
   uploadError?: string // Upload error message
   youtubeAccessToken?: string // User's YouTube access token (stored encrypted in real app)
   youtubeRefreshToken?: string // User's YouTube refresh token
-  youtubeVideoId?: string // YouTube video ID after upload
-  youtubeUrl?: string // YouTube URL after upload
-  uploadedAt?: string // When video was uploaded to YouTube
-  uploadError?: string // Error message if upload failed
   createdAt: string
 }
 
