@@ -9,7 +9,7 @@ import { ProtectedRoute } from "@/components/auth/protected-route"
 import { useAuth } from "@/lib/auth-context"
 import { store } from "@/lib/store"
 import { Button } from "@/components/ui/button"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { AlertCircle, Zap } from "lucide-react"
 import YouTubeConnect from "@/components/YouTubeConnect"
 import VideoGenerateUpload from "@/components/VideoGenerateUpload"
@@ -17,7 +17,6 @@ import VideoGenerateUpload from "@/components/VideoGenerateUpload"
 export default function DashboardPage() {
   const { user } = useAuth()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [selectedChannel, setSelectedChannel] = useState("main-channel")
 
   useEffect(() => {
