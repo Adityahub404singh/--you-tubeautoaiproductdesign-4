@@ -63,6 +63,7 @@ export default function MyVideosPage() {
   const [videos, setVideos] = useState<VideoType[]>([])
   const [channels, setChannels] = useState<Channel[]>([])
   const [activeTab, setActiveTab] = useState("all")
+  const [selectedChannel, setSelectedChannel] = useState<string>("main-channel")
 
   useEffect(() => {
     if (!user || !store) return
@@ -89,7 +90,7 @@ export default function MyVideosPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
-        <DashboardHeader />
+        <DashboardHeader selectedChannel={selectedChannel} onChannelChange={setSelectedChannel} />
         <main className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between mb-8">
             <div>
