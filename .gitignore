@@ -10,3 +10,10 @@ node_modules/
 storage/
 
 /lib/generated/prisma
+
+storage/
+*.mp4
+*.mp3
+*.wav
+*.zip
+.next/
