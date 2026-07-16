@@ -8,12 +8,4 @@ export default defineConfig({
   datasource: {
     url: dbPath,
   },
-  migrate: {
-    async adapter() {
-      const { PrismaLibSQL } = await import("@prisma/adapter-libsql")
-      const { createClient } = await import("@libsql/client")
-      const client = createClient({ url: dbPath })
-      return new PrismaLibSQL(client)
-    },
-  },
 })
