@@ -1,9 +1,0 @@
-{
-  "models": [
-    {
-      "title": "Ollama Local",
-      "provider": "ollama",
-      "model": "minimax-m2.7:cloud"
-    }
-  ]
-}

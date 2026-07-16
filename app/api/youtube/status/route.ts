@@ -1,19 +1,16 @@
 ﻿import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getValidAccessToken } from "@/lib/youtube-token";
 
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get("ig_access_token")?.value;
-    const userId = cookieStore.get("ig_user_id")?.value;
-
-    if (!token || !userId) {
-      return NextResponse.json({ connected: false });
-    }
-
+    const result = await getValidAccessToken(cookieStore);
+    
+    // Agar getValidAccessToken fail nahi hua, matlab connected hai
     return NextResponse.json({ 
       connected: true, 
-      username: "Instagram Connected" 
+      channelName: "Your YouTube Channel" // Isko baad mein fetch kar sakte hain
     });
   } catch (error) {
     return NextResponse.json({ connected: false });

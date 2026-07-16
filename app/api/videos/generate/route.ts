@@ -1,236 +1,134 @@
+﻿// app/api/videos/generate/route.ts - v8 PRO: Subcategories + Viral Hooks + SEO
 import { NextRequest, NextResponse } from "next/server"
 import Groq from "groq-sdk"
 
 // ============================================================
-// CATEGORY SYSTEM - Pro viral content per category
+// SUBCATEGORY SYSTEM — each category has 4-6 subcategories
+// Each subcategory has: hooks[], titleFormula, thumbnailStyle, musicMood
 // ============================================================
-const CATEGORY_CONFIG: Record<string, any> = {
-  facts: {
-    systemPrompt: `You are India's #1 viral facts YouTuber. Your style: shocking, mind-blowing, educational.
-Rules:
-- Start with "Kya aap jaante hain" or shocking statement
-- Use simple Hindi everyone understands
-- Each fact must be MORE shocking than previous
-- Short sentences. Maximum 8 words per sentence.
-- Add "[PAUSE]" after every 2-3 sentences for natural breathing
-- End with "Aisa hi ek aur video dekhne ke liye abhi subscribe karo!"`,
-    pexelsQueries: ["space galaxy nebula cinematic", "science laboratory neon blue", "ancient ruins mystery fog", "underwater bioluminescent ocean", "brain neurons glowing purple"],
-    voiceRate: "+10%",
-    voicePitch: "+2Hz",
-    voice: "hi-IN-MadhurNeural",
-    musicMood: "ethereal mysterious",
+const SUBCATEGORIES: Record<string, any> = {
+  psychology: {
+    sub: ["dark_psychology", "body_language", "manipulation_tactics", "cognitive_bias", "attachment_theory", "subconscious_mind"],
+    dark_psychology:    { hooks: ["Ye 3 tricks se log aapko control karte hain bina aapko pata chale,", "Dark psychology ka sabse khatarnak secret,", "Psychologist ne bataya ye sign mat ignore karna,"], title: "Dark Psychology: [TOPIC] Ka Khatarnak Sach", music: "dark ambient mysterious" },
+    body_language:      { hooks: ["Ye body language sign dekha to samajh lo sach kya hai,", "Haath ki ye position batati hai sab kuch,", "Aankhein kabhi jhooth nahi bolti,"], title: "Body Language: [TOPIC] Se Pehchano Asli Iraada", music: "calm psychology" },
+    manipulation_tactics:{ hooks: ["Ye 5 tarike se log aapko manipulate karte hain,", "Sales wale ye trick use karte hain aap par,", "Is word ka use mat karo kabhi,"], title: "[TOPIC]: Manipulation Tactics Jo Sabne Use Ki", music: "dark cinematic" },
+    cognitive_bias:     { hooks: ["Aapka dimaag aapko roz bewakoof banata hai,", "Ye bias aapke har fesle mein hai,", "Scientists ne prove kiya ye galat sochte hain sab,"], title: "Cognitive Bias: [TOPIC] Se Aapka Dimaag Dhoka Khata Hai", music: "curious documentary" },
+    attachment_theory:  { hooks: ["Aap kaisi relationship mein hain ye batata hai ek cheez,", "Bachpan ki ye cheez adult life barbaad karti hai,", "Ye attachment style aapki har relationship fail karti hai,"], title: "Attachment Theory: [TOPIC] Ka Asar Zindagi Par", music: "emotional piano" },
+    subconscious_mind:  { hooks: ["Aapka subconscious aapko control kar raha hai,", "90% decisions subconscious leta hai,", "Neend mein ye hota hai aapke dimaag mein,"], title: "Subconscious Mind: [TOPIC] Ka Andar Ka Sach", music: "ambient mysterious" },
   },
   motivation: {
-    systemPrompt: `You are Sandeep Maheshwari of YouTube. Your style: emotional, powerful, life-changing.
-Rules:
-- Open with a painful truth or inspiring story hook
-- Build emotional connection slowly
-- Use real-life examples from India
-- Short punchy sentences. Maximum 7 words.
-- Add "[PAUSE]" at emotional moments
-- End with powerful CTA that feels like a reward`,
-    pexelsQueries: ["athlete sunrise mountain epic", "champion victory celebration", "hustle grind entrepreneur desk", "eagle flying freedom clouds", "fire determination spirit"],
-    voiceRate: "+3%",
-    voicePitch: "-2Hz",
-    voice: "hi-IN-MadhurNeural",
-    musicMood: "epic orchestral emotional",
+    sub: ["comeback_story", "discipline_habits", "morning_routine", "failure_lessons", "success_mindset", "productivity"],
+    comeback_story:   { hooks: ["Ek banda tha jiske paas kuch nahi tha, aaj crore hai,", "Sabne haare ko dekha tha, par usne ek cheez nahi chodi,", "0 se 1 ka safar — real story,"], title: "Comeback Story: [TOPIC] Ne Kaise Badla Sab Kuch", music: "epic motivational" },
+    discipline_habits:{ hooks: ["Ye ek habit crore log nahi kar sakte,", "Successful log subah uthke ye karte hain,", "66 din mein ye karo, zindagi badal jayegi,"], title: "Discipline: [TOPIC] Ki Habit Jo Sab Badal De", music: "powerful drive" },
+    morning_routine:  { hooks: ["Subah ki pehli 1 ghante mein ye galti mat karna,", "Billionaires ki subah aisi hoti hai,", "Ye morning routine aapki productivity 10x karti hai,"], title: "Morning Routine: [TOPIC] Ka Secret Kamyabi Ka", music: "upbeat energetic" },
+    failure_lessons:  { hooks: ["Ye failure successful logo ka pehla step tha,", "Haar ne aapko kuch diya jo jeet nahi de sakti,", "Elon Musk bhi 3 baar fail hua tha,"], title: "Failure Lessons: [TOPIC] Se Jo Sikhna Chahiye", music: "cinematic inspire" },
+    success_mindset:  { hooks: ["90% log isi soch ki wajah se fail hote hain,", "Amir aur garib ki soch ka ek farq,", "Ye mindset shift aapki life 180 degree palat dega,"], title: "Success Mindset: [TOPIC] Se Badlo Soch", music: "epic orchestral" },
+    productivity:     { hooks: ["Ye method se 8 ghante ka kaam 3 mein hota hai,", "Deep work ka matlab samjhe hain aap,", "Ye distraction aapki productivity 40% girata hai,"], title: "Productivity: [TOPIC] Karo 10x Zyada Kaam", music: "focus beats" },
   },
-  tech: {
-    systemPrompt: `You are Technical Guruji meets Dhruv Rathee. Your style: clear, exciting, practical.
-Rules:
-- Explain complex tech in class 8 student language
-- Use Indian examples and comparisons
-- Make technology sound exciting and urgent
-- Short sentences. No jargon without explanation.
-- Add "[PAUSE]" between key points
-- End with practical tip viewers can use TODAY`,
-    pexelsQueries: ["holographic AI robot neon", "cyberpunk city night lights", "coding screen dark room", "futuristic technology blue", "data visualization 3d"],
-    voiceRate: "+8%",
-    voicePitch: "+0Hz",
-    voice: "hi-IN-MadhurNeural",
-    musicMood: "synthwave electronic beat",
+  businesslessons: {
+    sub: ["startup_mistakes", "marketing_hacks", "negotiation", "leadership", "sales_psychology", "financial_freedom"],
+    startup_mistakes: { hooks: ["99% startups isi ek galti se doobt hain,", "Founder ne pehle din ye bhool ki, sab kho diya,", "VC investor ne seedha poocha ye sawal,"], title: "Startup Mistakes: [TOPIC] Jo Founder Regret Karta Hai", music: "corporate urgent" },
+    marketing_hacks:  { hooks: ["Ye marketing trick bina paisa ke viral karti hai,", "Coca-Cola ne ye trick use ki 100 saal se,", "Ye color change karne se sales 30% badi,"], title: "Marketing Hack: [TOPIC] Se Bina Budget Viral Bano", music: "upbeat corporate" },
+    negotiation:      { hooks: ["Ye ek line salary double kar deti hai,", "FBI negotiator ka ye secret sab use karte hain,", "Kabhi bhi pehle price mat batao,"], title: "Negotiation: [TOPIC] Se Pao Jo Chahte Ho", music: "confident corporate" },
+    leadership:       { hooks: ["Sab boss hote hain, leader koi koi hota hai,", "Ye ek quality sabse bade leaders mein common hai,", "Jeff Bezos ne ye ek rule banaya tha,"], title: "Leadership: [TOPIC] Ke Woh Guna Jo Logo Ko Inspire Kare", music: "inspiring corporate" },
+    sales_psychology: { hooks: ["Customer ye nahi chahta jo aap bechte ho,", "Ye 3 words sales double kar dete hain,", "Sabse bada sales lie jo sab mante hain,"], title: "Sales Psychology: [TOPIC] Se Kuch Bhi Becho", music: "confident upbeat" },
+    financial_freedom:{ hooks: ["25 saal mein financially free hone ka ek formula,", "Middle class ye galti karta hai puri zindagi,", "Ye asset aapko sote mein paise deta hai,"], title: "Financial Freedom: [TOPIC] Ka Raasta Aazadi Ka", music: "success ambient" },
   },
-  story: {
-    systemPrompt: `You are India's best horror/mystery storyteller. Your style: suspenseful, cinematic, gripping.
-Rules:
-- Start IN the middle of the action (in medias res)
-- Build tension slowly with vivid descriptions
-- Use sensory details: sounds, smells, feelings
-- Short dramatic sentences. Sometimes ONE word sentences for impact.
-- Add "[PAUSE]" at scary/tense moments
-- Leave a twist ending that makes viewers share`,
-    pexelsQueries: ["dark forest fog night", "abandoned house mystery", "rainy window cinematic noir", "dramatic storm lightning", "shadows mystery thriller"],
-    voiceRate: "-15%",
-    voicePitch: "-5Hz",
-    voice: "hi-IN-SwaraNeural",
-    musicMood: "dark cinematic suspense",
+  storytelling: {
+    sub: ["true_crime", "emotional_drama", "mystery_thriller", "real_life_hero", "betrayal_story", "redemption"],
+    true_crime:       { hooks: ["Ye sach tha, par kisi ne believe nahi kiya,", "Police case band kar di, par sach alag tha,", "Us raat jo hua, court mein bhi bataya nahi gaya,"], title: "True Crime: [TOPIC] Ka Sach Jo Chhupaya Gaya", music: "dark suspense" },
+    emotional_drama:  { hooks: ["Rona aayega, par ye sunna zaroori hai,", "Ek bete ne baap ke liye jo kiya woh,", "Hospital ki is kahani ne lakho logo ko rula diya,"], title: "Emotional Story: [TOPIC] — Dil Ko Chhoo Legi", music: "emotional strings" },
+    mystery_thriller: { hooks: ["Koi nahi jaanta abhi bhi kya hua tha,", "Ye case aaj bhi unsolved hai,", "Raat ke 2 baje phone aaya, number unknown tha,"], title: "Mystery: [TOPIC] Ka Raaz Jo Abhi Nahi Khula", music: "thriller suspense" },
+    real_life_hero:   { hooks: ["Ek aam aadmi ne woh kiya jo heroes karte hain,", "Kisi ne credit nahi liya, par duniya badal di,", "Ye banda sirf dil ki sunta hai,"], title: "Real Hero: [TOPIC] Ka Asli Hero Kaun Tha", music: "inspiring hero" },
+    betrayal_story:   { hooks: ["Jis par sabse zyada trust kiya, usne hi toda,", "Partner, friend, family — ye betrayal sabse badi thi,", "Ye sacchi kahani aapko sochne par majboor karegi,"], title: "Betrayal: [TOPIC] Ne Jo Kiya Woh Maafinaar Nahi", music: "sad dramatic" },
+    redemption:       { hooks: ["Sab haare maan chuke the, par usne nahi,", "Ek doosra mauka mila, aur sab badal gaya,", "Ye insaan jail se bahar aaya aur crore kamaya,"], title: "Redemption: [TOPIC] — Haar Ke Jeetne Walo Ki Kahani", music: "hopeful cinematic" },
   },
-  top10: {
-    systemPrompt: `You are India's top countdown creator. Your style: exciting, dramatic, surprising reveals.
-Rules:
-- Start with "Aaj main aapko bataunga Top 10..."
-- Count DOWN from 10 to 1
-- Each item must be MORE surprising than previous
-- Build excitement as you approach #1
-- Add "[PAUSE]" before each reveal for drama
-- #1 must be absolutely shocking/unexpected`,
-    pexelsQueries: ["luxury lifestyle wealth success", "world landmarks iconic", "award trophy winner ceremony", "countdown explosion fireworks", "dramatic reveal spotlight"],
-    voiceRate: "+12%",
-    voicePitch: "+3Hz",
-    voice: "hi-IN-MadhurNeural",
-    musicMood: "hype countdown building",
-  },
-  shorts: {
-    systemPrompt: `You are India's #1 viral Shorts creator. Your style: FAST, punchy, addictive.
-Rules:
-- Hook in FIRST 2 WORDS - make them stop scrolling
-- Total script: maximum 45 seconds when read aloud
-- ONE clear message or emotion
-- Every sentence must earn its place
-- Add "[PAUSE]" only once for maximum impact
-- End with a question that makes them comment`,
-    pexelsQueries: ["viral energy explosion fast", "social media lifestyle trendy", "street urban aesthetic night", "quick motion dynamic sport", "neon aesthetic cool"],
-    voiceRate: "+20%",
-    voicePitch: "+4Hz",
-    voice: "hi-IN-SwaraNeural",
-    musicMood: "trap beat drop energy",
+  history: {
+    sub: ["india_untold", "mughal_secrets", "freedom_struggle", "ancient_civilizations", "world_wars", "forgotten_heroes"],
+    india_untold:        { hooks: ["Ye history books mein kabhi nahi padhai gayi,", "India ki ye sacchai chhupai gayi thi,", "Ye khazana aaj bhi wahi hai,"], title: "India History: [TOPIC] Ka Chhupa Hua Sach", music: "epic orchestral" },
+    mughal_secrets:      { hooks: ["Mughals ka ye secret history ne chhupa diya,", "Shahjahan ke baad jo hua, woh shocking hai,", "Ye Mughal darbar mein roz hota tha,"], title: "Mughal Secrets: [TOPIC] Ka Andar Ka Sach", music: "historical cinematic" },
+    freedom_struggle:    { hooks: ["Azaadi ke liye ye kurbani di gayi, kisi ne nahi bataya,", "Is freedom fighter ka naam school mein nahi padha,", "August 1947 mein ye hua tha jo batate nahi,"], title: "Freedom: [TOPIC] Ki Larai Jo History Ne Bhulai", music: "patriotic orchestral" },
+    ancient_civilizations:{ hooks: ["5000 saal purani civilization ka ye raaz,", "Ye technology 2000 saal pehle India mein thi,", "Harappa mein ye milna scientists ko shock kar gaya,"], title: "Ancient India: [TOPIC] Ka 5000 Saal Purana Raaz", music: "ancient mystery" },
+    world_wars:          { hooks: ["World War 2 ka ye fact schools mein nahi padhate,", "Ek galat decision ne lakhon log maar diye,", "Hitler ke akhri din ka sach kya tha,"], title: "World War: [TOPIC] Ka Wo Sach Jo History Mein Nahi", music: "war documentary" },
+    forgotten_heroes:    { hooks: ["Ye banda India ka sabse bada hero tha, koi nahi jaanta,", "Aurat ne kiya tha jo kisi mard nahi kar saka,", "Is naam ko bhula diya gaya, par kaam yaad hai,"], title: "Forgotten Hero: [TOPIC] — Jise India Bhool Gaya", music: "heroic strings" },
   },
   horror: {
-    systemPrompt: `You are India's scariest horror content creator. Your style: terrifying, psychological, real-feeling.
-Rules:
-- Make it feel like a TRUE story from India
-- Use specific Indian locations (Delhi metro, old haveli, Rajasthan desert, Mumbai local)
-- Build dread slowly, never rush the scare
-- Use silence and pauses as weapons
-- Add "[PAUSE]" before every scary moment
-- End with a chill-inducing twist that makes them share`,
-    pexelsQueries: ["haunted house dark fog", "horror shadows empty room", "graveyard night misty", "old corridor dark light", "scary forest night"],
-    voiceRate: "-25%",
-    voicePitch: "-12Hz",
-    voice: "hi-IN-SwaraNeural",
-    musicMood: "horror ambient eerie",
+    sub: ["haunted_places", "true_paranormal", "unexplained_events", "psychological_horror", "urban_legends", "cursed_objects"],
+    haunted_places:     { hooks: ["Ye jagah India ki sabse darr wali jagah hai,", "Is building mein raat ko koi nahi rukta,", "Government ne is area ko seal kiya hua hai,"], title: "Haunted: [TOPIC] — Raat Ko Yahan Koi Nahi Jata", music: "horror ambient" },
+    true_paranormal:    { hooks: ["Ye 100% sachi kahani hai, main swear karta hoon,", "Camera ne jo pakda, woh paranormal tha,", "Ye event scientific proof ke baad bhi unexplained hai,"], title: "Paranormal: [TOPIC] — Science Bhi Explain Nahi Kar Saka", music: "dark supernatural" },
+    unexplained_events: { hooks: ["Ye event aaj bhi mystery hai duniya ke liye,", "Plane disappear ho gaya, 30 saal baad woh mila,", "Ye disappearance case aaj bhi open hai,"], title: "Mystery: [TOPIC] — Duniya Abhi Tak Samajh Nahi Pai", music: "thriller suspense" },
+    psychological_horror:{ hooks: ["Ye cheez dimaag mein darr daalti hai bina baat ke,", "Sleep paralysis mein jo dikhta hai, woh kya hai,", "Ye disorder aapko khud se dara deta hai,"], title: "Psychological Horror: [TOPIC] Ka Dimaagi Darr", music: "psychological dark" },
+    urban_legends:      { hooks: ["Ye kahani India ke har sheher mein hai,", "Nani dadi ki ye kahaaniyaan sach nikli,", "Kya sach mein aise hota hai midnight par,"], title: "Urban Legend: [TOPIC] — Sacchi Ya Jhooth?", music: "eerie ambient" },
+    cursed_objects:      { hooks: ["Is cheez ko rakhne wala safe nahi hai,", "Museum ne is object ko seal kar rakha hai,", "Ye painting sirf bure logon ke saath hoti hai,"], title: "Cursed: [TOPIC] — Ye Object Kisi Ko Nahi Chuna Chahiye", music: "dark horror" },
   },
-  finance: {
-    systemPrompt: `You are India's most trusted personal finance educator. Your style: practical, urgent, eye-opening.
-Rules:
-- Start with a money mistake most Indians make
-- Use real rupee amounts (not dollars)
-- Simple language, no complex terms without explanation
-- Make every tip actionable TODAY
-- Add "[PAUSE]" after important numbers/facts
-- End with one action they can take in next 5 minutes`,
-    pexelsQueries: ["money rupees wealth india", "stock market growth chart", "savings investment gold", "business success entrepreneur india", "financial freedom lifestyle"],
-    voiceRate: "+6%",
-    voicePitch: "+1Hz",
-    voice: "hi-IN-MadhurNeural",
-    musicMood: "corporate professional upbeat",
-  },
-  health: {
-    systemPrompt: `You are India's most trusted health & wellness creator. Your style: caring, scientific, practical.
-Rules:
-- Start with a health fact that surprises Indians
-- Use Ayurveda + modern science mix
-- Reference dadi ke nuskhe where relevant
-- Simple actionable tips, no doctor jargon
-- Add "[PAUSE]" after important health warnings
-- End with one healthy habit to start today`,
-    pexelsQueries: ["yoga sunrise india wellness", "healthy food vegetables colorful", "meditation peace calm nature", "fitness workout energy", "ayurveda herbs natural healing"],
-    voiceRate: "+4%",
-    voicePitch: "+2Hz",
-    voice: "hi-IN-SwaraNeural",
-    musicMood: "calm peaceful nature sounds",
-  },
-  general: {
-    systemPrompt: `You are India's most versatile viral content creator. Your style: engaging, relatable, shareable.
-Rules:
-- Start with something every Indian can relate to
-- Mix humor with information
-- Use simple Hindi with occasional English words
-- Short sentences for mobile viewers
-- Add "[PAUSE]" for natural rhythm
-- End with strong share-worthy CTA`,
-    pexelsQueries: ["cinematic aerial drone sunset", "epic India landscape", "urban city timelapse", "beautiful nature light", "dramatic sky clouds"],
-    voiceRate: "+6%",
-    voicePitch: "+0Hz",
-    voice: "hi-IN-MadhurNeural",
-    musicMood: "cinematic emotional",
+  ainews: {
+    sub: ["ai_tools", "tech_giants", "future_jobs", "ai_india", "robotics", "digital_economy"],
+    ai_tools:      { hooks: ["Ye AI tool launch hote hi viral ho gaya,", "ChatGPT ko ye tool peeche chhor gaya,", "Ye free tool aapka kaam 10x fast karta hai,"], title: "AI Tool Alert: [TOPIC] — Abhi Try Karo", music: "tech upbeat" },
+    tech_giants:   { hooks: ["Google ne aaj jo announce kiya, sab hil gaye,", "Apple ka ye secret project finally bahar aaya,", "Microsoft ka ye move sab badal dega,"], title: "Tech News: [TOPIC] Ka Bada Elaan Aaj", music: "breaking news" },
+    future_jobs:   { hooks: ["Ye 5 jobs AI 2 saal mein khatam kar dega,", "Ye skill seekh lo, AI replace nahi kar payega,", "2026 mein ye jobs demand mein hongi,"], title: "Future Jobs: [TOPIC] — AI Ke Baad Kya Bachega", music: "urgent documentary" },
+    ai_india:      { hooks: ["India ka ye AI startup duniya mein chhaya,", "Government ne AI ke liye ye plan banaya,", "IIT se nikla ye AI tool viral ho gaya,"], title: "India AI: [TOPIC] — Desh Ka Tech Revolution", music: "patriotic upbeat" },
+    robotics:      { hooks: ["Ye robot human jaisi baat karta hai,", "Factory mein robots ne workers replace kar diye,", "Ye humanoid robot 2025 mein aa raha hai,"], title: "Robots: [TOPIC] — Machines Ki Duniya Aa Gayi", music: "futuristic electronic" },
+    digital_economy:{ hooks: ["Ye crypto 1000% return de raha hai,", "Digital rupee kya hoga India mein,", "NFT khatam hua ya abhi bhi chance hai,"], title: "Digital Economy: [TOPIC] — Paise Ka Future", music: "finance tech" },
   },
 }
 
-// ============================================================
-// HOOK TEMPLATES - Proven viral openers (FIXED encoding)
-// ============================================================
-const HOOKS: Record<string, string[]> = {
-  facts: [
-    "Ye fact sunke aapka dimaag ghoom jayega,",
-    "99% log ye nahi jaante,",
-    "Science ne abhi ye bata diya,",
-    "Ye secret aaj tak kisi ne nahi bataya,",
-    "Aaj ek aisi baat bataunga jo aap sochte bhi nahi,",
-  ],
-  motivation: [
-    "Ek insaan ne sab kuch khokar bhi wapas aaya,",
-    "Haar se 1 kadam pehle mat rukna,",
-    "Duniya ne kaha impossible, usne kar dikhaya,",
-    "Aaj ki ye kahani aapki zindagi badal degi,",
-    "Woh raat jab sab kuch khatam lag raha tha,",
-  ],
-  tech: [
-    "Ye AI tool aapki naukri khatam kar sakta hai,",
-    "ChatGPT se bhi powerful tool aa gaya India mein,",
-    "2025 ka sabse bada tech secret reveal ho gaya,",
-    "Ye ek app aapke 10000 rupaye bachayegi,",
-    "Abhi jo technology aayi hai, usse sab dar rahe hain,",
-  ],
-  story: [
-    "Raat ke 3 baje jab main akela tha,",
-    "Usne door se jo dekha, woh aaj bhi yaad hai,",
-    "Log kehte hain ye sach nahi hua, par main jaanta hoon,",
-    "Us raat ke baad, woh kabhi wahan nahi gaya,",
-    "Meri dadi ne marne se pehle ye raaz bataya,",
-  ],
-  top10: [
-    "Top 10 aisi cheezein jo aap bilkul nahi jaante,",
-    "Ye 10 facts sunke aap soch mein pad jaoge,",
-    "India ki 10 sabse shocking secrets,",
-    "Top 10 log jo sach mein superhuman hain,",
-    "10 aise kaam jo aaj se hi band karo,",
-  ],
-  shorts: [
-    "Ye dekho,",
-    "Suno ek minute,",
-    "Ye trick kisi ne nahi batai,",
-    "Aaj ka fact,",
-    "Ye jaanna zaroori hai,",
-  ],
-  horror: [
-    "Ye sacchi kahani hai, main guarantee deta hoon,",
-    "Mere saath jo hua, woh main bhool nahi sakta,",
-    "Us ghar mein abhi bhi koi rehta hai,",
-    "Police ne case file band kar di, par sach kya tha,",
-    "Aaj bhi woh awaaz aati hai raat ko,",
-  ],
-  finance: [
-    "Ye ek galti aapko garib rakh sakti hai,",
-    "Har Indian ye paisa barbad kar raha hai,",
-    "Ye simple trick se 1 lakh rupaye bachao,",
-    "Bank aapko ye kabhi nahi batayega,",
-    "Sirf 500 rupaye se crorepati ban sakte hain,",
-  ],
-  health: [
-    "Ye ek cheez subah khao, bimari kabhi nahi aayegi,",
-    "Doctors ye isliye nahi batate,",
-    "Dadi ka ye nuskha science ne bhi mana,",
-    "Ye ek habit aapki umar 10 saal badha degi,",
-    "Har raat ye karo, subah naya insaan banoge,",
-  ],
-  general: [
-    "Ye baat aaj sabko jaanni chahiye,",
-    "Aisa kya hai jo India mein sab karte hain,",
-    "Ek simple cheez jo life badal deti hai,",
-    "Aaj kuch aisa bataunga jo aap sochte nahi,",
-    "India mein ye trend ab sab kar rahe hain,",
-  ],
+// Fill missing categories with general structure
+const DEFAULT_SUB = {
+  sub: ["general"],
+  general: { hooks: ["Aaj kuch aisa bataunga jo aap sochte nahi,", "Ye baat aaj sabko jaanni chahiye,", "Ek simple cheez jo life badal deti hai,"], title: "[TOPIC] — Ye Jaanna Zaroori Tha", music: "cinematic emotional" }
+}
+
+const CATEGORY_CONFIG: Record<string, any> = {
+  psychology:      { voice: "hi-IN-MadhurNeural", voiceRate: "+8%",  voicePitch: "-1Hz", pexels: ["brain neurons purple glow","therapy office calm","ocean waves night blue","city lights blur night","misty lake dawn"] },
+  stoicism:        { voice: "hi-IN-MadhurNeural", voiceRate: "-5%",  voicePitch: "-3Hz", pexels: ["greek marble statue fog","foggy mountain solo","solitary silhouette","ancient ruins grayscale","calm lake mist"] },
+  quotes:          { voice: "hi-IN-SwaraNeural",  voiceRate: "0%",   voicePitch: "0Hz",  pexels: ["warm sunset window","cozy coffee bokeh","golden hour bokeh","minimalist desk","golden nature calm"] },
+  businesslessons: { voice: "hi-IN-MadhurNeural", voiceRate: "+10%", voicePitch: "+1Hz", pexels: ["office skyscraper glass","business handshake","stock chart green","city skyline bright","modern office clean"] },
+  storytelling:    { voice: "hi-IN-SwaraNeural",  voiceRate: "-8%",  voicePitch: "-2Hz", pexels: ["dark forest cinematic","abandoned house mystery","rainy window noir","candle shadow room","old library dust"] },
+  startupstories:  { voice: "hi-IN-MadhurNeural", voiceRate: "+10%", voicePitch: "+1Hz", pexels: ["startup office night","tech team coding","laptop screen glow","silicon valley modern","entrepreneur pitch"] },
+  luxury:          { voice: "hi-IN-MadhurNeural", voiceRate: "+2%",  voicePitch: "0Hz",  pexels: ["luxury car night","gold watch shine","private jet interior","luxury yacht sunset","designer fashion"] },
+  history:         { voice: "hi-IN-MadhurNeural", voiceRate: "-3%",  voicePitch: "-1Hz", pexels: ["ancient ruins fog","historical battlefield","old map parchment","ancient columns","vintage photograph"] },
+  pov:             { voice: "hi-IN-SwaraNeural",  voiceRate: "+5%",  voicePitch: "+1Hz", pexels: ["cyberpunk city neon","immersive neon corridor","futuristic hallway glow","synthwave horizon","neon rain night"] },
+  horror:          { voice: "hi-IN-SwaraNeural",  voiceRate: "-15%", voicePitch: "-5Hz", pexels: ["haunted house dark fog","horror corridor red","graveyard night mist","dark door shadow","scary forest fog"] },
+  ainews:          { voice: "hi-IN-MadhurNeural", voiceRate: "+15%", voicePitch: "+2Hz", pexels: ["news studio broadcast","breaking news digital","world map digital","newsroom desk blue","digital ticker screen"] },
+  motivation:      { voice: "hi-IN-MadhurNeural", voiceRate: "+8%",  voicePitch: "+0Hz", pexels: ["sunrise motivation epic","athlete training power","mountain peak victory","crowd cheering stadium","determination face"] },
+  general:         { voice: "hi-IN-MadhurNeural", voiceRate: "+6%",  voicePitch: "0Hz",  pexels: ["cinematic aerial sunset","epic mountains golden","urban city timelapse","beautiful nature light","dramatic sky clouds"] },
+}
+
+const GROQ_MODELS = ["llama-3.3-70b-versatile", "meta-llama/llama-4-scout-17b-16e-instruct", "llama-3.1-8b-instant"]
+
+async function groqWithFallback(groq: Groq, messages: any[], max_tokens: number, temperature: number): Promise<string> {
+  for (const model of GROQ_MODELS) {
+    try {
+      const res = await groq.chat.completions.create({ model, messages, temperature, max_tokens })
+      const content = res.choices[0].message.content || ""
+      console.log(`✅ Groq model: ${model}`)
+      return content
+    } catch (e: any) {
+      if (e?.status === 429) { console.log(`⚠️ Rate limit: ${model}`); continue }
+      throw e
+    }
+  }
+  throw new Error("All Groq models rate limited.")
+}
+
+function extractJSON(raw: string): any {
+  let text = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/```(?:json)?\s*/gi, "").replace(/```\s*/g, "").trim()
+  try { return JSON.parse(text) } catch {}
+  const s = text.indexOf("{"), e = text.lastIndexOf("}")
+  if (s !== -1 && e > s) {
+    try { return JSON.parse(text.slice(s, e + 1)) } catch {}
+    try { return JSON.parse(text.slice(s, e + 1).replace(/\r?\n/g, " ").replace(/\t/g, " ")) } catch {}
+  }
+  throw new Error("No valid JSON in response")
+}
+
+// Pick a random subcategory for variety
+function getSubcategory(catKey: string): { subKey: string; subConfig: any } {
+  const cat = SUBCATEGORIES[catKey] || DEFAULT_SUB
+  const subs = cat.sub || ["general"]
+  const subKey = subs[Math.floor(Math.random() * subs.length)]
+  const subConfig = cat[subKey] || DEFAULT_SUB.general
+  return { subKey, subConfig }
 }
 
 export async function POST(req: NextRequest) {
@@ -239,128 +137,111 @@ export async function POST(req: NextRequest) {
     const { topic, language, channelName, category, mode, generate30Day } = await req.json()
     if (!topic) return NextResponse.json({ error: "Topic required" }, { status: 400 })
 
-    const catKey = (category || "general").toLowerCase().replace(/\s+/g, "")
+    const catKey = (category || "general").toLowerCase().replace(/\s+/g, "").replace(/[^a-z0-9]/g, "")
     const config = CATEGORY_CONFIG[catKey] || CATEGORY_CONFIG.general
     const isShorts = mode === "shorts" || catKey === "shorts" || catKey === "horror"
     const lang = language || "Hindi"
     const channel = channelName || "My Channel"
 
-    // Pick random hook
-    const hooks = HOOKS[catKey] || HOOKS.general
+    const { subKey, subConfig } = getSubcategory(catKey)
+    const hooks = subConfig.hooks || ["Aaj kuch aisa bataunga jo aap sochte nahi,"]
     const randomHook = hooks[Math.floor(Math.random() * hooks.length)]
+    const titleFormula = subConfig.title || "[TOPIC] — Jaanna Chahiye"
+    const musicMood = subConfig.music || "cinematic ambient"
 
-    // 30-day schedule
+    console.log(`📂 Category: ${catKey} | Subcategory: ${subKey} | Music: ${musicMood}`)
+
     if (generate30Day) {
-      const scheduleRes = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [{
-          role: "user",
-          content: `Generate 30 unique YouTube video topics for "${topic}" in ${lang} language.
-Category: ${catKey}
-Rules:
-- Each topic completely different angle
-- Mix of: shocking facts, emotional stories, top10 lists, how-to guides
-- All highly searchable in India
-- Include specific numbers when possible (e.g., "5 aise secrets...")
-Return JSON array ONLY: [{"day": 1, "topic": "...", "type": "facts|story|top10|motivation|shorts", "hook": "opening line in Hindi"}]`
-        }],
-        temperature: 0.95,
-        max_tokens: 2500,
-      })
-      const raw = scheduleRes.choices[0].message.content || ""
-      const match = raw.replace(/```json|```/g, "").trim().match(/\[[\s\S]*\]/)
-      const schedule = match ? JSON.parse(match[0]) : []
-      return NextResponse.json({ success: true, schedule30Day: schedule })
+      const raw = await groqWithFallback(groq, [{
+        role: "user",
+        content: `Generate 30 unique YouTube Shorts video topics for "${topic}" in ${lang}.
+Category: ${catKey} | Subcategories: ${(SUBCATEGORIES[catKey]?.sub || ["general"]).join(", ")}
+Rules: Each topic different subcategory angle. Mix hooks — shocking, emotional, fact-based.
+Return JSON array ONLY:
+[{"day":1,"topic":"...","subcategory":"...","type":"facts|story|top10|motivation|psychology","hook":"opening line in Hindi","titleFormula":"title with topic filled in"}]`,
+      }], 2500, 0.95)
+      const schedule = extractJSON(raw)
+      return NextResponse.json({ success: true, schedule30Day: Array.isArray(schedule) ? schedule : [] })
     }
 
-    // Main script generation
-    const scriptRes = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content: `${config.systemPrompt}
+    const seoTitle = titleFormula.replace("[TOPIC]", topic.slice(0, 30))
 
-Channel: "${channel}" | Language: ${lang} | Style: ${catKey}
+    const raw = await groqWithFallback(groq, [
+      {
+        role: "system",
+        content: `You are India's #1 viral Hindi YouTube content creator. Category: ${catKey}. Subcategory: ${subKey}.
+Music mood this video: ${musicMood}.
+Channel: "${channel}" | Language: ${lang}
 
-CRITICAL VOICE RULES:
-- Write EXACTLY as it should be spoken aloud
-- Use "[PAUSE]" for 1-2 second pauses (at commas, full stops, dramatic moments)
-- NEVER use markdown, bullet points, or symbols in script
-- NEVER use em-dashes (--), asterisks (*), or special characters
-- NEVER use Unicode arrows, bullets, or decorative symbols
-- Pure spoken Hindi/Hinglish only
-- Each line maximum 10 words for clarity
-- Total spoken duration: ${isShorts ? "30-45 seconds" : "4-6 minutes"}
-- NO emojis in script field
+SCRIPT RULES:
+- Start EXACTLY with this hook: "${randomHook}"
+- Every sentence max 8 words
+- Use [PAUSE] for 1-2 sec pauses for drama
+- Pure Hindi/Hinglish spoken words only — NO markdown, NO bullets, NO symbols, NO dashes
+- Duration: ${isShorts ? "30-45 seconds" : "4-6 minutes"}
+- End with subscribe CTA
 
-RESPOND WITH VALID JSON ONLY - no markdown, no extra text before or after`
-        },
-        {
-          role: "user",
-          content: `Create a complete ${isShorts ? "YouTube Shorts (30-45 sec)" : "YouTube video (4-6 min)"} for:
-"${topic}"
+TITLE RULES:
+- Use this formula: "${titleFormula.replace("[TOPIC]", topic)}"
+- Max 60 chars, include numbers if possible
 
-Start the script with this exact hook: "${randomHook}"
+THUMBNAIL RULES:
+- thumbnailText: exactly 2-4 ALL CAPS power words (no more)
+- thumbnailEmoji: 1 emoji matching the emotion
 
-Return this exact JSON structure:
+DESCRIPTION RULES (YouTube SEO):
+- First 2 lines are most important (shown in search)
+- Include: what video is about, main keywords, channel name
+- End with 5-7 relevant Hindi hashtags + 3 English hashtags
+
+TAGS RULES:
+- Mix Hindi + English tags
+- Include: category keywords, trending Indian search terms, topic-specific
+
+RESPOND ONLY WITH VALID JSON — no markdown, no explanation`,
+      },
+      {
+        role: "user",
+        content: `Create a complete ${isShorts ? "YouTube Shorts (30-45s)" : "YouTube video (4-6 min)"} for topic: "${topic}"
+
+Return this EXACT JSON:
 {
-  "title": "Clickbait title in ${lang}, max 60 chars, with numbers/power words, NO special chars",
+  "title": "${seoTitle}",
   "hook": "${randomHook}",
-  "script": "Complete spoken script in ${lang}. Use [PAUSE] for breathing pauses. No dashes, no bullets, no symbols. Natural speech only.",
-  "description": "SEO description 200+ words in ${lang} with keywords, what viewers learn, CTA. End with hashtags.",
-  "keyPoints": ["point 1 in ${lang}", "point 2", "point 3", "point 4", "point 5"],
-  "callToAction": "Subscribe/like/comment CTA in ${lang}",
-  "pexelsQuery": "3-4 specific English words for stock footage search",
-  "thumbnailText": "MAX 4 WORDS ALL CAPS NO SPECIAL CHARS",
-  "thumbnailEmoji": "1 relevant emoji like fire or rocket",
-  "tags": ["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8","tag9","tag10"],
-  "chapters": ["0:00 - Intro","1:00 - Main Point","4:00 - Conclusion"],
-  "videoMood": "energetic"
-}`
-        }
-      ],
-      temperature: 0.85,
-      max_tokens: 4000,
-    })
+  "script": "Complete spoken script in ${lang}. Start with hook. Use [PAUSE]. Natural speech only. All one line.",
+  "description": "SEO description: first line = main keyword + what video covers. Second line = subscribe hook. Then 150 words of context. End: #hindi #${catKey} #viral #india #shorts #trending #knowledge",
+  "keyPoints": ["point1", "point2", "point3", "point4", "point5"],
+  "callToAction": "Subscribe CTA in ${lang}",
+  "pexelsQuery": "3-4 English words for stock footage matching ${catKey} ${subKey}",
+  "thumbnailText": "2-4 WORDS ALL CAPS",
+  "thumbnailEmoji": "1 emoji",
+  "tags": ["${catKey}","${subKey}","hindi","india","viral","shorts","${topic.split(" ")[0].toLowerCase()}","trending","facts","knowledge","motivation","youtube"],
+  "chapters": ["0:00 - Hook","0:15 - Main Point","0:40 - Conclusion"],
+  "videoMood": "${musicMood}",
+  "subcategory": "${subKey}"
+}`,
+      },
+    ], 4000, 0.85)
 
-    const raw = scriptRes.choices[0].message.content || ""
-    const cleaned = raw.replace(/```json|```/g, "").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim()
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) throw new Error("No JSON in AI response")
-    const scriptData = JSON.parse(jsonMatch[0])
+    const scriptData = extractJSON(raw)
 
-    // Deep clean all string fields
     const cleanField = (s: string) => (s || "")
-      .replace(/\u2014|\u2013|—|–/g, ", ")   // em/en dash
-      .replace(/\u2018|\u2019|'|'/g, "")       // smart quotes single
-      .replace(/\u201C|\u201D|"|"/g, "")       // smart quotes double
-      .replace(/Ã¢â‚¬"/g, ", ")
-      .replace(/Ã¢â‚¬Ëœ/g, "")
-      .replace(/Ã¢â‚¬â„¢/g, "")
-      .replace(/â€"/g, ", ")
-      .replace(/â€™/g, "")
+      .replace(/\u2014|\u2013/g, ", ").replace(/\u2018|\u2019|\u201C|\u201D/g, "")
       .replace(/[^\x20-\x7E\u0900-\u097F\u0964\u0965\n.,!?;: [\]]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
+      .replace(/\s+/g, " ").trim()
 
     if (scriptData.script)       scriptData.script       = cleanField(scriptData.script)
-    if (scriptData.title)        scriptData.title        = cleanField(scriptData.title)
+    if (scriptData.title)        scriptData.title        = cleanField(scriptData.title) || seoTitle
     if (scriptData.description)  scriptData.description  = cleanField(scriptData.description)
     if (scriptData.thumbnailText) scriptData.thumbnailText = scriptData.thumbnailText
       .replace(/[^A-Z0-9\s]/gi, "").toUpperCase().trim().split(/\s+/).slice(0, 4).join(" ")
 
-    // Pexels clips
-    let pexelsClips: any[] = []
     const pexelsKey = process.env.PEXELS_API_KEY
+    let pexelsClips: any[] = []
     if (pexelsKey) {
       try {
-        const queries = config.pexelsQueries
-        const q = encodeURIComponent(scriptData.pexelsQuery || queries[Math.floor(Math.random() * queries.length)])
-        const pexRes = await fetch(
-          `https://api.pexels.com/videos/search?query=${q}&per_page=8&orientation=${isShorts ? "portrait" : "landscape"}&size=medium`,
-          { headers: { Authorization: pexelsKey } }
-        )
+        const q = encodeURIComponent(scriptData.pexelsQuery || config.pexels[0])
+        const pexRes = await fetch(`https://api.pexels.com/videos/search?query=${q}&per_page=8&orientation=${isShorts ? "portrait" : "landscape"}&size=medium`, { headers: { Authorization: pexelsKey } })
         if (pexRes.ok) {
           const pexData = await pexRes.json()
           pexelsClips = (pexData.videos || []).slice(0, 5).map((v: any) => ({
@@ -369,30 +250,31 @@ Return this exact JSON structure:
             duration: v.duration,
           }))
         }
-      } catch(e) {}
+      } catch {}
     }
 
     return NextResponse.json({
       success: true,
-      title: scriptData.title || topic,
-      script: scriptData.script || "",
-      description: scriptData.description || "",
-      hook: scriptData.hook || randomHook,
-      keyPoints: scriptData.keyPoints || [],
-      callToAction: scriptData.callToAction || "",
-      chapters: scriptData.chapters || [],
-      pexelsQuery: scriptData.pexelsQuery || "",
-      tags: scriptData.tags || [],
-      voice: config.voice,
-      voiceRate: config.voiceRate,
-      voicePitch: config.voicePitch,
-      videoMood: scriptData.videoMood || "energetic",
-      category: catKey,
-      isShorts,
+      title:         scriptData.title       || seoTitle,
+      script:        scriptData.script      || "",
+      description:   scriptData.description || "",
+      hook:          scriptData.hook        || randomHook,
+      keyPoints:     scriptData.keyPoints   || [],
+      callToAction:  scriptData.callToAction || "",
+      chapters:      scriptData.chapters    || [],
+      pexelsQuery:   scriptData.pexelsQuery  || "",
+      tags:          scriptData.tags         || [],
+      voice:         config.voice,
+      voiceRate:     config.voiceRate,
+      voicePitch:    config.voicePitch,
+      videoMood:     scriptData.videoMood   || musicMood,
+      category:      catKey,
+      subcategory:   scriptData.subcategory || subKey,
+      pexelsClips,
       thumbnail: {
-        boldText: scriptData.thumbnailText || (scriptData.title || "").replace(/[^A-Z0-9\s]/gi,"").toUpperCase().split(/\s+/).slice(0,4).join(" "),
-        emoji: scriptData.thumbnailEmoji || "🔥",
-      }
+        boldText: scriptData.thumbnailText || seoTitle.toUpperCase().split(/\s+/).slice(0, 3).join(" "),
+        emoji:    scriptData.thumbnailEmoji || "🔥",
+      },
     })
   } catch (error: any) {
     console.error("Script gen error:", error.message)

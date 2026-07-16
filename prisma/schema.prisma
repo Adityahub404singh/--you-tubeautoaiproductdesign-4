@@ -7,24 +7,25 @@ datasource db {
 }
 
 model User {
-  id                String    @id @default(cuid())
-  email             String    @unique
+  id                String           @id @default(cuid())
+  email             String           @unique
   name              String
-  phone             String    @default("")
-  role              String    @default("user")
-  plan              String    @default("free")
-  hasCompletedSetup Boolean   @default(false)
-  freeVideosUsed    Int       @default(0)
-  paidVideoCredits  Int       @default(0)
-  totalSpent        Float     @default(0)
-  youtubeMonetized  Boolean   @default(false)
-  youtubeEarnings   Float     @default(0)
-  youtubeShareOwed  Float     @default(0)
-  lastActive        DateTime  @default(now())
-  createdAt         DateTime  @default(now())
+  phone             String           @default("")
+  role              String           @default("user")
+  plan              String           @default("free")
+  hasCompletedSetup Boolean          @default(false)
+  freeVideosUsed    Int              @default(0)
+  paidVideoCredits  Int              @default(0)
+  totalSpent        Float            @default(0)
+  youtubeMonetized  Boolean          @default(false)
+  youtubeEarnings   Float            @default(0)
+  youtubeShareOwed  Float            @default(0)
+  lastActive        DateTime         @default(now())
+  createdAt         DateTime         @default(now())
   channels          Channel[]
   videos            Video[]
   payments          Payment[]
+  conceptHistory    ConceptHistory[]
 }
 
 model Channel {
@@ -56,8 +57,10 @@ model Video {
   views           Int       @default(0)
   likes           Int       @default(0)
   comments        Int       @default(0)
+  retentionRate   Float     @default(0.0)
   thumbnail       String    @default("")
   topic           String
+  subCategory     String    @default("general")
   description     String    @default("")
   tags            String    @default("[]")
   aiScore         Int       @default(75)
@@ -93,4 +96,15 @@ model Payment {
   status    String   @default("pending")
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model ConceptHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  category    String
+  subCategory String
+  topic       String
+  hook        String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
 }

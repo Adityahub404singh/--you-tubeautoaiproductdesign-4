@@ -1,4 +1,5 @@
-﻿import { NextResponse } from "next/server"
+import { NextResponse } from "next/server"
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
@@ -18,15 +19,15 @@ export async function GET(request) {
       }),
     })
     const tokens = await tokenResponse.json()
-    console.log("YouTube tokens:", tokens.access_token ? "✅ Got token" : "❌ " + tokens.error)
+    console.log("YouTube tokens:", tokens.access_token ? "? Got token" : "? " + tokens.error)
     if (tokens.error) return NextResponse.redirect(`${process.env.APP_URL}/dashboard?youtube=token_error`)
     const response = NextResponse.redirect(`${process.env.APP_URL}/dashboard/channels?youtube=connected`)
-    response.cookies.set("yt_access_token", tokens.access_token, { httpOnly: true, maxAge: tokens.expires_in || 3600, path: "/", sameSite: "lax" })
+    response.cookies.set("yt_access_token", tokens.access_token, { httpOnly: true, maxAge: 3600, path: "/", sameSite: "lax" })
     if (tokens.refresh_token) {
       response.cookies.set("yt_refresh_token", tokens.refresh_token, { httpOnly: true, maxAge: 2592000, path: "/", sameSite: "lax" })
-      console.log("✅ Refresh token saved!")
+      console.log("? Refresh token saved!")
     } else {
-      console.log("⚠️ No refresh token - revoke and reconnect!")
+      console.log("?? No refresh token - user ne pehle connect kiya tha, Google console mein token revoke karo")
     }
     return response
   } catch (err) {

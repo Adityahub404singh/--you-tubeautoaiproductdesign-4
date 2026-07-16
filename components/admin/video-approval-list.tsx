@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 // components/admin/video-approval-list.tsx
 // PRO APPROVAL SYSTEM - Generate -> Upload -> YouTube + Instagram auto flow
 import { useEffect, useState, useCallback } from "react"
@@ -189,17 +189,17 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
       setToast({ id: video.id, title: "Video Live on YouTube!", type: "upload-success", message: upData.youtubeUrl })
       loadVideos()
 
-      // Step 2.5: Upload to Cloudinary for public URL
-      let publicVideoUrl = videoUrl.startsWith("http") ? videoUrl : `http://localhost:3000${videoUrl}`
+      // Step 2.5: Upload to Cloudinary (BEFORE Instagram needs the file)
+      let publicVideoUrl = videoUrl.startsWith("http") ? videoUrl : `https://hyperaemic-jann-involuntary.ngrok-free.dev${videoUrl}`
       try {
         const cdnRes = await fetch("/api/storage/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoUrl })
+          body: JSON.stringify({ videoUrl, videoId: video.id })
         })
         const cdnData = await cdnRes.json()
         if (cdnData.success) {
-          publicVideoUrl = cdnData.url
+          publicVideoUrl = cdnData.cloudUrl
           console.log("Cloudinary URL:", publicVideoUrl)
         }
       } catch(e) { console.log("Cloudinary failed, using local URL") }
@@ -234,7 +234,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
         await fetch("/api/storage/cleanup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ videoUrl })
+          body: JSON.stringify({ videoUrl, videoId: video.id })
         })
       } catch(e) {}
 
@@ -446,3 +446,8 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
     </>
   )
 }
+
+
+
+
+
