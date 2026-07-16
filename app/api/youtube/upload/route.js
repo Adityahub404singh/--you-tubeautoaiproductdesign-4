@@ -5,7 +5,7 @@ import { statSync, existsSync, createReadStream } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 
-export const maxDuration = 600;
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 export async function POST(request) {
