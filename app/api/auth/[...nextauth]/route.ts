@@ -24,18 +24,38 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null
+        try {
+          console.log("AUTH DEBUG: step 1 - received email:", credentials?.email)
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        })
+          if (!credentials?.email || !credentials?.password) {
+            console.log("AUTH DEBUG: step 2 - missing email or password")
+            return null
+          }
 
-        if (!user || !user.password) return null
+          console.log("AUTH DEBUG: step 3 - querying prisma...")
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+          })
+          console.log("AUTH DEBUG: step 4 - user found?", !!user)
+          console.log("AUTH DEBUG: step 5 - has password field?", !!user?.password)
 
-        const isValid = await bcrypt.compare(credentials.password, user.password)
-        if (!isValid) return null
+          if (!user || !user.password) {
+            console.log("AUTH DEBUG: step 6 - returning null, no user or no password")
+            return null
+          }
 
-        return user as any
+          console.log("AUTH DEBUG: step 7 - comparing bcrypt...")
+          const isValid = await bcrypt.compare(credentials.password, user.password)
+          console.log("AUTH DEBUG: step 8 - password valid?", isValid)
+
+          if (!isValid) return null
+
+          console.log("AUTH DEBUG: step 9 - SUCCESS, returning user")
+          return user as any
+        } catch (err: any) {
+          console.log("AUTH DEBUG: CRASHED with error:", err?.message, err?.stack)
+          return null
+        }
       },
     }),
   ],
