@@ -1,17 +1,15 @@
 ﻿import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma } from "../../../../lib/prisma";
 
 const handler = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  // ⚠️ PRISMA ADAPTER HATA DIYA HAI (No DB Connection required for login)
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      clientId: process.env.GOOGLE_CLIENT_ID || "dummy",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "dummy",
     }),
     
     CredentialsProvider({
@@ -23,25 +21,13 @@ const handler = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email) return null;
         
-        try {
-          let user = await prisma.user.findUnique({
-            where: { email: credentials.email }
-          });
-          
-          if (!user) {
-            user = await prisma.user.create({
-              data: {
-                email: credentials.email,
-                name: "Admin User",
-              }
-            });
-          }
-          
-          return user as any;
-        } catch (e) {
-          console.error("Auth Error:", e);
-          return null;
-        }
+        // 🔥 GOD MODE: Database search bypass! 
+        // Seedha login allow kar do kisi bhi password ke sath.
+        return {
+          id: "god-mode-123",
+          name: "Admin User",
+          email: credentials.email
+        } as any;
       }
     })
   ],
