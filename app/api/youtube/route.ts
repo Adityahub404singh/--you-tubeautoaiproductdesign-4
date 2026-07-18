@@ -2,10 +2,12 @@
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  if (searchParams.get("action") === "connect") {
+  const action = searchParams.get("action");
+
+  if (action === "connect") {
     const params = new URLSearchParams({
       client_id: process.env.GOOGLE_CLIENT_ID || "",
-      // 🔥 CHOR PAKDA GAYA: ENV variable hata kar direct Live URL daal diya
+      // 🔥 AAKHRI VAAR: No Env Var, No Guessing. Direct URL.
       redirect_uri: "https://youtubeautoaiproductdesign5.vercel.app/api/youtube/callback",
       response_type: "code",
       scope: "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube",
