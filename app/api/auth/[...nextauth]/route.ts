@@ -3,51 +3,29 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 const handler = NextAuth({
-  // ⚠️ PRISMA ADAPTER HATA DIYA HAI (No DB Connection required for login)
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 }, // 30 din ka session
   pages: { signIn: "/login" },
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "dummy",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "dummy",
-    }),
-    
     CredentialsProvider({
       name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
-      },
+      credentials: { email: { label: "Email", type: "email" }, password: { label: "Password", type: "password" } },
       async authorize(credentials) {
         if (!credentials?.email) return null;
-        
-        // 🔥 GOD MODE: Database search bypass! 
-        // Seedha login allow kar do kisi bhi password ke sath.
-        return {
-          id: "god-mode-123",
-          name: "Admin User",
-          email: credentials.email
-        } as any;
+        return { id: "god-mode-123", name: "Admin User", email: credentials.email } as any;
       }
     })
   ],
-  
   callbacks: {
-    async session({ session, token }: any) {
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
-      }
-      return session;
-    },
     async jwt({ token, user }: any) {
-      if (user) {
-        token.sub = user.id;
-      }
+      if (user) token.sub = user.id;
       return token;
+    },
+    async session({ session, token }: any) {
+      if (session.user) session.user.id = token.sub as string;
+      return session;
     }
   },
-  
-  secret: process.env.NEXTAUTH_SECRET || "fallback_secret_for_jwt_token_123",
+  secret: "super_secret_key_12345", // Fixed secret
 });
 
 export { handler as GET, handler as POST };
