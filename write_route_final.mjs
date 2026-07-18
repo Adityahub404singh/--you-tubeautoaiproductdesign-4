@@ -1,4 +1,6 @@
-﻿// app/api/video/generate/route.js
+import { writeFileSync } from 'fs';
+
+const code = `// app/api/video/generate/route.js
 // v5.2 - Fixed all parse errors
 
 import { NextResponse } from "next/server";
@@ -9,8 +11,8 @@ import { existsSync, statSync } from "fs";
 import path from "path";
 
 const execAsync = promisify(exec);
-const FFMPEG  = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe";
-const FFPROBE = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffprobe.exe";
+const FFMPEG  = "C:\\\\Users\\\\alc\\\\AppData\\\\Local\\\\Microsoft\\\\WinGet\\\\Packages\\\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\\\ffmpeg-8.1-full_build\\\\bin\\\\ffmpeg.exe";
+const FFPROBE = "C:\\\\Users\\\\alc\\\\AppData\\\\Local\\\\Microsoft\\\\WinGet\\\\Packages\\\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\\\ffmpeg-8.1-full_build\\\\bin\\\\ffprobe.exe";
 const ENV = { ...process.env, FONTCONFIG_FILE: "C:/fontconfig/fonts.conf", FONTCONFIG_PATH: "C:/fontconfig" };
 
 const CAT = {
@@ -27,7 +29,7 @@ const CAT = {
 };
 
 function safeT(t, max) {
-  return (t||"").replace(/['"\\:<>|*?]/g,"").replace(/[^\x20-\x7E]/g," ").slice(0,max||50).trim()||"";
+  return (t||"").replace(/['"\\\\:<>|*?]/g,"").replace(/[^\\x20-\\x7E]/g," ").slice(0,max||50).trim()||"";
 }
 
 async function dl(url, dest) {
@@ -42,7 +44,7 @@ async function dl(url, dest) {
 
 async function translateToHindi(text) {
   if (!text||text.length<3) return text;
-  const hr = (text.match(/[\u0900-\u097F]/g)||[]).length/(text.replace(/\s/g,"").length||1);
+  const hr = (text.match(/[\\u0900-\\u097F]/g)||[]).length/(text.replace(/\\s/g,"").length||1);
   if (hr>0.25) return text;
   try {
     const chunks = text.match(/.{1,400}/gs)||[text];
@@ -64,7 +66,7 @@ async function translateToHindi(text) {
 
 function generateASS(script, dur, isShorts) {
   if (!script||script.length<5) return null;
-  const words = script.replace(/\[.*?\]/g,"").replace(/\*\*/g,"").replace(/#+\s/g,"").replace(/\n+/g," ").trim().split(/\s+/).filter(Boolean);
+  const words = script.replace(/\\[.*?\\]/g,"").replace(/\\*\\*/g,"").replace(/#+\\s/g,"").replace(/\\n+/g," ").trim().split(/\\s+/).filter(Boolean);
   if (words.length<2) return null;
   const sz = isShorts?3:4;
   const chunks = [];
@@ -75,17 +77,17 @@ function generateASS(script, dur, isShorts) {
     const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=Math.floor(s%60),cs=Math.floor((s%1)*100);
     return h+":"+String(m).padStart(2,"0")+":"+String(sec).padStart(2,"0")+"."+String(cs).padStart(2,"0");
   };
-  let ass = "[Script Info]\nScriptType: v4.00+\nPlayResX: "+(isShorts?1080:1920)+"\nPlayResY: "+(isShorts?1920:1080)+"\nWrapStyle: 1\n\n";
-  ass += "[V4+ Styles]\n";
-  ass += "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n";
-  ass += "Style: Main,Arial,"+fs+",&H000000FF,&H000000FF,&H00000000,&HB4000000,1,0,0,0,100,100,0,0,3,5,3,2,30,30,"+mv+",1\n";
-  ass += "\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n";
+  let ass = "[Script Info]\\nScriptType: v4.00+\\nPlayResX: "+(isShorts?1080:1920)+"\\nPlayResY: "+(isShorts?1920:1080)+"\\nWrapStyle: 1\\n\\n";
+  ass += "[V4+ Styles]\\n";
+  ass += "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\\n";
+  ass += "Style: Main,Arial,"+fs+",&H000000FF,&H000000FF,&H00000000,&HB4000000,1,0,0,0,100,100,0,0,3,5,3,2,30,30,"+mv+",1\\n";
+  ass += "\\n[Events]\\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\\n";
   const lines = chunks.map(function(chunk,i) {
     const start=i*dp, end=Math.min((i+1)*dp-0.05,dur);
-    const text = "{\\fscx115\\fscy115\\t(0,120,\\fscx100\\fscy100)}"+chunk;
+    const text = "{\\\\fscx115\\\\fscy115\\\\t(0,120,\\\\fscx100\\\\fscy100)}"+chunk;
     return "Dialogue: 0,"+fmt(start)+","+fmt(end)+",Main,,0,0,0,,"+text;
-  }).join("\n");
-  return ass+lines+"\n";
+  }).join("\\n");
+  return ass+lines+"\\n";
 }
 
 async function generateAIImagePollinations(prompt, destPath, W, H) {
@@ -222,7 +224,7 @@ export async function POST(request) {
       hasSubs = true;
       console.log("ASS subtitles OK");
     }
-    const assPathFwd = hasSubs ? assPath.replace(/\\/g,"/").replace(/:/g,"\\:") : null;
+    const assPathFwd = hasSubs ? assPath.replace(/\\\\/g,"/").replace(/:/g,"\\\\:") : null;
 
     // AI Background
     const aiBgPath   = path.join(storageDir,"ai_bg",videoId+"_bg.jpg");
@@ -335,7 +337,7 @@ export async function POST(request) {
         const res = await processClip(i);
         if (res.ok) {
           processed.push(res.path);
-          concatTxt += "file '" + res.path.split("\\").join("/") + "'\n";
+          concatTxt += "file '" + res.path.split("\\\\").join("/") + "'\\n";
           console.log("Clip "+(i+1)+" ok: "+(statSync(res.path).size/1024/1024).toFixed(1)+"MB");
         }
       }
@@ -447,4 +449,7 @@ export async function POST(request) {
     return NextResponse.json({error:error.message},{status:500});
   }
 }
+`;
 
+writeFileSync('app/api/video/generate/route.js', code, 'utf8');
+console.log('Done! Lines: ' + code.split('\n').length);

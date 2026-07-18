@@ -1,8 +1,12 @@
-"use client"
-
+﻿"use client"
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
-import { store, type User } from "./store"
+
+interface User {
+  id: string; email: string; name: string; phone: string
+  role: string; plan: string; hasCompletedSetup: boolean
+  freeVideosUsed: number; paidVideoCredits: number
+}
 
 interface AuthContextType {
   user: User | null
@@ -18,82 +22,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("currentUser")
-    if (storedUser) {
-      const userData = JSON.parse(storedUser)
-      const foundUser = store?.getUserByEmail(userData.email)
-      if (foundUser) {
-        setUser(foundUser)
-      }
+  const syncUser = async () => {
+    // 1. Check Session Storage first
+    const stored = sessionStorage.getItem("currentUser")
+    if (stored) {
+      try { setUser(JSON.parse(stored)); setIsLoading(false); return } catch {}
     }
+    
+    // 2. Fallback to server session if storage empty
+    try {
+      const res = await fetch("/api/auth/session")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.user) {
+          setUser(data.user)
+          sessionStorage.setItem("currentUser", JSON.stringify(data.user))
+        }
+      }
+    } catch {}
     setIsLoading(false)
-  }, [])
+  }
+
+  useEffect(() => { syncUser() }, [])
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-      if (!store) return false
-
-      const passwords = JSON.parse(localStorage.getItem("passwords") || "{}")
-      if (passwords[email] !== password) return false
-
-      const foundUser = store.getUserByEmail(email)
-      if (foundUser) {
-        setUser(foundUser)
-        localStorage.setItem("currentUser", JSON.stringify(foundUser))
-        return true
-      }
-      return false
-    } catch (error) {
-      console.error("Login error:", error)
-      return false
+    const res = await fetch("/api/auth/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    })
+    const data = await res.json()
+    if (data.success && data.user) {
+      setUser(data.user)
+      sessionStorage.setItem("currentUser", JSON.stringify(data.user))
+      return true
     }
+    return false
   }
 
   const signup = async (name: string, email: string, password: string, phone: string): Promise<boolean> => {
-    try {
-      if (!store) return false
-
-      if (store.getUserByEmail(email)) {
-        return false
-      }
-
-      const passwords = JSON.parse(localStorage.getItem("passwords") || "{}")
-      passwords[email] = password
-      localStorage.setItem("passwords", JSON.stringify(passwords))
-
-      const isAdmin = email === "singhaditya4560@gmail.com"
-
-      const newUser = store.createUser({
-        email,
-        name,
-        phone,
-        role: isAdmin ? "admin" : "user",
-        plan: isAdmin ? "agency" : "free",
-        hasCompletedSetup: isAdmin,
-      })
-
-      setUser(newUser)
-      localStorage.setItem("currentUser", JSON.stringify(newUser))
+    const res = await fetch("/api/auth/signup", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password, phone })
+    })
+    const data = await res.json()
+    if (data.success && data.user) {
+      setUser(data.user)
+      sessionStorage.setItem("currentUser", JSON.stringify(data.user))
       return true
-    } catch (error) {
-      console.error("Signup error:", error)
-      return false
     }
+    return false
   }
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem("currentUser")
+    sessionStorage.removeItem("currentUser")
+    fetch("/api/auth/logout") // Cleanup session
   }
 
   return <AuthContext.Provider value={{ user, login, signup, logout, isLoading }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
-  }
-  return context
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider")
+  return ctx
 }

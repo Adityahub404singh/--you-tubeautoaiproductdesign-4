@@ -139,8 +139,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
       let videoUrl = video.videoUrl || ""
       if (!videoUrl) {
         const catMap: Record<string, string> = { fact: "facts", motiv: "motivation", tech: "tech", ai: "tech", story: "story", top: "top10", short: "shorts" }
-        const topicLow = (video.topic || "").toLowerCase()
-        const catKey = Object.keys(catMap).find(k => topicLow.includes(k)) ? catMap[Object.keys(catMap).find(k => topicLow.includes(k))!] : "general"
+        const catKey = (video as any).category || (Object.keys(catMap).find(k => (video.topic||"").toLowerCase().includes(k)) ? catMap[Object.keys(catMap).find(k => (video.topic||"").toLowerCase().includes(k))!] : "general")
         const genRes = await fetch("/api/video/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -213,7 +212,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
             videoUrl: publicVideoUrl,
             caption: `${video.title || video.topic}\n\n${video.description || ""}`,
             title: video.title,
-            category: video.videoType || "general",
+            category: (video as any).category || video.videoType || "general",
             hashtags: Array.isArray(video.tags) ? video.tags.slice(0, 5) : [],
           })
         })
@@ -446,6 +445,7 @@ export function VideoApprovalList({ filter }: VideoApprovalListProps) {
     </>
   )
 }
+
 
 
 

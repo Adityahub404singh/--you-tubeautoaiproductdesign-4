@@ -1,11 +1,8 @@
-import { defineConfig } from "prisma/config"
-import path from "path"
-
-const dbPath = "file:" + path.join(process.cwd(), "prisma", "dev.db").replace(/\\/g, "/")
+﻿import { defineConfig } from "prisma/config"
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
   datasource: {
-    url: dbPath,
+    url: "file:./dev.db",
   },
 })

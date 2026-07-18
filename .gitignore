@@ -10,3 +10,5 @@ storage/
 *.zip
 prisma/dev.db
 public/**/*.ttf
+.vercel
+.env*

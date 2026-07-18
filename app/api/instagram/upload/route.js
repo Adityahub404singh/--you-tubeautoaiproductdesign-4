@@ -1,6 +1,4 @@
-﻿// app/api/instagram/upload/route.js — v7 fixed
-
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { existsSync, createReadStream } from "fs"
 import { exec } from "child_process"
@@ -13,9 +11,9 @@ const FFMPEG  = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gy
 const FFPROBE = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffprobe.exe"
 
 const CAT_TAGS = {
-  psychology:      "#psychology #mentalhealth #mindset #hindi #india #viral #shorts #facts #brain #psychologyfacts",
+  psychology:      "#psychology #mentalhealth #mindset #hindi #india #viral #shorts #brain #psychologyfacts #darkpsychology",
   stoicism:        "#stoicism #philosophy #mindset #hindi #india #viral #motivation #discipline #wisdom #stoic",
-  quotes:          "#quotes #motivation #hindi #india #viral #inspiration #quotesoftheday #positivity #mindset #love",
+  quotes:          "#quotes #motivation #hindi #india #viral #inspiration #quotesoftheday #positivity #mindset #shorts",
   businesslessons: "#business #entrepreneur #startup #hindi #india #viral #money #success #motivation #investing",
   storytelling:    "#story #emotional #hindi #india #kahani #reels #viral #shorts #feelings #desi",
   startupstories:  "#startup #entrepreneur #success #hindi #india #viral #business #tech #founder #hustle",
@@ -164,11 +162,10 @@ export async function POST(req) {
       }
     }
 
-    // AUTO CLEANUP temp files after successful upload
     try {
       const { unlink } = await import("fs/promises")
       if (existsSync(outPath)) await unlink(outPath)
-      console.log("🧹 Temp file cleaned up")
+      console.log("🧹 Temp cleaned")
     } catch {}
 
     return NextResponse.json({

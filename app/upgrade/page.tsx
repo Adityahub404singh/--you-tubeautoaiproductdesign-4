@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -164,11 +164,11 @@ export default function UpgradePage() {
               store.updateUser(user.id, {
                 plan: planMap[plan.id] || "pro",
                 paidVideoCredits: (user.paidVideoCredits || 0) + newCredits,
-                totalSpent: user.totalSpent + plan.price,
+                totalSpent: ((user as any).totalSpent || 0) + plan.price,
               })
             }
             toast({
-              title: "Payment Successful! 🎉",
+              title: "Payment Successful! ðŸŽ‰",
               description: `You are now on ${plan.name} plan with ${plan.videos} video credits!`,
             })
             router.push("/dashboard")
@@ -225,11 +225,11 @@ export default function UpgradePage() {
                   <CardTitle className="text-2xl">{plan.name}</CardTitle>
                   <CardDescription>{plan.description}</CardDescription>
                   <div className="mt-4">
-                    <span className="text-4xl font-bold">₹{plan.price}</span>
+                    <span className="text-4xl font-bold">â‚¹{plan.price}</span>
                     <span className="text-muted-foreground">{plan.period}</span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {plan.videos} videos/month • {plan.dailyLimit} videos/day max
+                    {plan.videos} videos/month â€¢ {plan.dailyLimit} videos/day max
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -250,7 +250,7 @@ export default function UpgradePage() {
                     disabled={loading === plan.id}
                   >
                     <CreditCard className="mr-2 h-4 w-4" />
-                    {loading === plan.id ? "Processing..." : `Pay ₹${plan.price}/mo`}
+                    {loading === plan.id ? "Processing..." : `Pay â‚¹${plan.price}/mo`}
                   </Button>
                 </CardFooter>
               </Card>
@@ -258,7 +258,7 @@ export default function UpgradePage() {
           </div>
 
           <div className="text-center text-sm text-muted-foreground">
-            🔒 Secure payments via Razorpay • UPI • Cards • Net Banking
+            ðŸ”’ Secure payments via Razorpay â€¢ UPI â€¢ Cards â€¢ Net Banking
           </div>
         </div>
       </div>
