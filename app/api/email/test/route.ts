@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server"
+﻿import { NextRequest, NextResponse } from "next/server"
 import { Resend } from "resend"
 
 export async function POST(request: NextRequest) {
@@ -43,17 +43,17 @@ export async function POST(request: NextRequest) {
       </head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-          <h1 style="color: white; margin: 0;">🧪 Test Email</h1>
+          <h1 style="color: white; margin: 0;">ðŸ§ª Test Email</h1>
           <p style="color: rgba(255,255,255,0.85); margin: 10px 0 0;">YouTubeAuto.ai Email System</p>
         </div>
         <div style="padding: 30px; background: #f9f9f9; border-radius: 0 0 12px 12px;">
-          <p style="font-size: 16px; color: #333;">✅ Your email notifications are working correctly!</p>
+          <p style="font-size: 16px; color: #333;">âœ… Your email notifications are working correctly!</p>
           <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e0e0e0;">
             <p style="margin: 0 0 10px; color: #333; font-weight: bold;">What this means:</p>
             <ul style="margin: 0; padding-left: 20px; color: #666;">
-              <li>When admin approves your video → you'll get an email</li>
-              <li>When video goes live on YouTube → you'll get an email</li>
-              <li>When upload fails → you'll get an email with error details</li>
+              <li>When admin approves your video â†’ you'll get an email</li>
+              <li>When video goes live on YouTube â†’ you'll get an email</li>
+              <li>When upload fails â†’ you'll get an email with error details</li>
             </ul>
           </div>
           <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 20px 0;">
@@ -61,8 +61,8 @@ export async function POST(request: NextRequest) {
               <strong>Sent at:</strong> ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
             </p>
           </div>
-          <a href="${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold;">Go to Dashboard</a>
-          <p style="margin-top: 30px; font-size: 14px; color: #999;">YouTubeAuto.ai — AI-Powered Video Automation</p>
+          <a href="${process.env.NEXT_PUBLIC_APP_URL || "https://youtubeautoaiproductdesign5.vercel.app"}/dashboard" style="display: inline-block; background: #667eea; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold;">Go to Dashboard</a>
+          <p style="margin-top: 30px; font-size: 14px; color: #999;">YouTubeAuto.ai â€” AI-Powered Video Automation</p>
         </div>
       </body>
       </html>
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     const data = await resend.emails.send({
       from: "YouTubeAuto.ai <onboarding@resend.dev>",
       to: [to],
-      subject: "🧪 Test Email — YouTubeAuto.ai Notifications Working!",
+      subject: "ðŸ§ª Test Email â€” YouTubeAuto.ai Notifications Working!",
       html: testHtml,
     })
 
@@ -95,3 +95,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
