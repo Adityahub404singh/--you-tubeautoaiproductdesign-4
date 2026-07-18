@@ -12,3 +12,9 @@ prisma/dev.db
 public/**/*.ttf
 .vercel
 .env*
+
+# local utility scripts
+add-password-column.js
+check-user.js
+gen-hash.js
+set-password.js
