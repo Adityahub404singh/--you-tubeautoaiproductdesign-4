@@ -1,4 +1,4 @@
-// app/api/youtube/retry-queue/route.js
+﻿// app/api/youtube/retry-queue/route.js
 // Auto-retry queued YouTube uploads
 
 import { NextResponse } from "next/server"
@@ -13,7 +13,7 @@ const QUEUE_DIR = path.join(process.cwd(), "storage", "ready_to_upload")
 
 async function getAccessToken() {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/youtube/refresh-token`, { method: "POST" })
+    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "https://youtubeautoaiproductdesign5.vercel.app"}/api/youtube/refresh-token`, { method: "POST" })
     if (res.ok) { const d = await res.json(); return d.accessToken || null }
   } catch {}
   return null
@@ -65,7 +65,7 @@ async function uploadVideo(videoPath, metadata, token) {
   return videoId
 }
 
-// GET — check queue
+// GET â€” check queue
 export async function GET() {
   try {
     if (!existsSync(QUEUE_DIR)) return NextResponse.json({ queued: 0, items: [] })
@@ -81,7 +81,7 @@ export async function GET() {
   } catch(e) { return NextResponse.json({ error: e.message }, { status: 500 }) }
 }
 
-// POST — process queue
+// POST â€” process queue
 export async function POST(req) {
   try {
     const { processAll = false } = await req.json().catch(() => ({}))
@@ -89,10 +89,10 @@ export async function POST(req) {
 
     const files = (await readdir(QUEUE_DIR)).filter(f => f.endsWith(".json"))
     if (files.length === 0) return NextResponse.json({ processed: 0, message: "Queue empty" })
-    console.log(`📋 Queue: ${files.length} videos`)
+    console.log(`ðŸ“‹ Queue: ${files.length} videos`)
 
     const token = await getAccessToken()
-    if (!token) return NextResponse.json({ error: "No YouTube token — reconnect YouTube" }, { status: 401 })
+    if (!token) return NextResponse.json({ error: "No YouTube token â€” reconnect YouTube" }, { status: 401 })
 
     // Quick quota check
     const check = await fetch("https://www.googleapis.com/youtube/v3/channels?part=id&mine=true", { headers: { Authorization: `Bearer ${token}` } })
@@ -113,16 +113,16 @@ export async function POST(req) {
           results.push({ file, status: "skipped", reason: "file missing" })
           continue
         }
-        console.log(`📤 Uploading: ${queued.metadata?.title}`)
+        console.log(`ðŸ“¤ Uploading: ${queued.metadata?.title}`)
         const videoId = await uploadVideo(queued.videoPath, queued.metadata, token)
         await unlink(filePath)
         results.push({ file, status: "uploaded", videoId, url: `https://youtube.com/watch?v=${videoId}` })
-        console.log(`✅ Queued upload: ${videoId}`)
+        console.log(`âœ… Queued upload: ${videoId}`)
         if (toProcess.length > 1) await new Promise(r => setTimeout(r, 3000))
       } catch(e) {
         if (e.message === "QUOTA_EXCEEDED") { results.push({ file, status: "quota_exceeded" }); break }
         results.push({ file, status: "failed", reason: e.message })
-        console.log(`❌ Failed (${file}): ${e.message}`)
+        console.log(`âŒ Failed (${file}): ${e.message}`)
       }
     }
 
@@ -131,3 +131,4 @@ export async function POST(req) {
     return NextResponse.json({ success: true, processed: uploaded, remaining, results })
   } catch(e) { return NextResponse.json({ error: e.message }, { status: 500 }) }
 }
+

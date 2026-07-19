@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 const APP_ID = process.env.INSTAGRAM_APP_ID
 const APP_SECRET = process.env.INSTAGRAM_APP_SECRET
-const REDIRECT_URI = process.env.INSTAGRAM_REDIRECT_URI || "http://localhost:3000/api/auth/instagram/callback"
+const REDIRECT_URI = process.env.INSTAGRAM_REDIRECT_URI || "https://youtubeautoaiproductdesign5.vercel.app/api/auth/instagram/callback"
 export async function GET(req) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get("code")
@@ -48,3 +48,4 @@ export async function GET(req) {
     return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard?instagram=error&msg=${encodeURIComponent(err.message)}`)
   }
 }
+

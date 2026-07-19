@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
 const CLIENT_ID     = process.env.GOOGLE_CLIENT_ID
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
 const REDIRECT_URI  = process.env.GOOGLE_OAUTH_REDIRECT_URI
 
-// ✅ FIX: Use NEXTAUTH_URL instead of hardcoded localhost
+// âœ… FIX: Use NEXTAUTH_URL instead of hardcoded localhost
 function getBaseUrl() {
-  return (process.env.NEXTAUTH_URL || "http://localhost:3000").replace(/\/$/, "")
+  return (process.env.NEXTAUTH_URL || "https://youtubeautoaiproductdesign5.vercel.app").replace(/\/$/, "")
 }
 
 export async function GET(request) {
@@ -72,7 +72,7 @@ export async function GET(request) {
 
     console.log("YouTube connected!")
 
-    // ✅ FIX: No hardcoded localhost
+    // âœ… FIX: No hardcoded localhost
     return NextResponse.redirect(`${getBaseUrl()}/dashboard?youtube=connected`)
 
   } catch (err) {
@@ -82,3 +82,4 @@ export async function GET(request) {
     )
   }
 }
+
