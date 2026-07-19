@@ -1,8 +1,9 @@
 ﻿import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
-const CLIENT_ID     = process.env.GOOGLE_CLIENT_ID
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
+// 🔥 Trim lagaya taaki env variables mein galti se aaye spaces Google ko na bheje
+const CLIENT_ID     = (process.env.GOOGLE_CLIENT_ID || "").trim()
+const CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || "").trim()
 const REDIRECT_URI  = "https://youtubeautoaiproductdesign5.vercel.app/api/youtube/callback"
 
 function getBaseUrl() {
@@ -19,22 +20,25 @@ export async function GET(request) {
   }
 
   try {
+    // 🔥 Nuke: URLSearchParams object ki jagah toString() use kiya jisse format 100% perfect ho
+    const bodyString = new URLSearchParams({
+      code: code,
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      redirect_uri: REDIRECT_URI,
+      grant_type: "authorization_code",
+    }).toString()
+
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        code,
-        client_id:     CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        redirect_uri:  REDIRECT_URI,
-        grant_type:    "authorization_code",
-      }),
+      body: bodyString,
     })
 
     const tokenData = await tokenRes.json()
 
     if (tokenData.error) {
-      console.error("YouTube token error:", tokenData.error)
+      console.error("YouTube Google Token API error:", tokenData)
       return NextResponse.redirect(
         `${getBaseUrl()}/dashboard?youtube=error&msg=${encodeURIComponent(tokenData.error_description || tokenData.error)}`
       )
@@ -70,7 +74,7 @@ export async function GET(request) {
     return NextResponse.redirect(`${getBaseUrl()}/dashboard?youtube=connected`)
 
   } catch (err) {
-    console.error("YouTube callback error:", err.message)
+    console.error("YouTube callback fetch error:", err.message)
     return NextResponse.redirect(
       `${getBaseUrl()}/dashboard?youtube=error&msg=${encodeURIComponent(err.message)}`
     )
