@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   if (action === "connect") {
     const params = new URLSearchParams({
       client_id: process.env.INSTAGRAM_APP_ID || "",
-      // 🔥 DUSRA CHOR PAKDA GAYA: Env variable hata kar direct Live URL daal diya
+      // 🔥 Hardcoded Live Vercel URL
       redirect_uri: "https://youtubeautoaiproductdesign5.vercel.app/api/auth/instagram/callback",
       scope: "instagram_content_publish,instagram_basic,pages_show_list,pages_read_engagement",
       response_type: "code",

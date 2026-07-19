@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   if (action === "connect") {
     const params = new URLSearchParams({
       client_id: process.env.GOOGLE_CLIENT_ID || "",
-      // 🔥 AAKHRI VAAR: No Env Var, No Guessing. Direct URL.
+      // 🔥 Hardcoded Live Vercel URL
       redirect_uri: "https://youtubeautoaiproductdesign5.vercel.app/api/youtube/callback",
       response_type: "code",
       scope: "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube",
