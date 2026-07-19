@@ -9,8 +9,8 @@ import { existsSync, statSync } from "fs";
 import path from "path";
 
 const execAsync = promisify(exec);
-const FFMPEG  = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe";
-const FFPROBE = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffprobe.exe";
+const FFMPEG = process.platform === "win32" ? "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe" : "ffmpeg";
+const FFPROBE = process.platform === "win32" ? "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffprobe.exe" : "ffprobe";
 const ENV = { ...process.env, FONTCONFIG_FILE: "C:/fontconfig/fonts.conf", FONTCONFIG_PATH: "C:/fontconfig" };
 
 const CAT = {
@@ -447,4 +447,5 @@ export async function POST(request) {
     return NextResponse.json({error:error.message},{status:500});
   }
 }
+
 

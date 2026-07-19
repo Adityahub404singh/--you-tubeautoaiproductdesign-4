@@ -7,8 +7,8 @@ import path from "path"
 
 const execAsync = promisify(exec)
 const GRAPH   = "https://graph.facebook.com/v19.0"
-const FFMPEG  = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe"
-const FFPROBE = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffprobe.exe"
+const FFMPEG = process.platform === "win32" ? "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe" : "ffmpeg"
+const FFPROBE = process.platform === "win32" ? "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffprobe.exe" : "ffprobe"
 
 const CAT_TAGS = {
   psychology:      "#psychology #mentalhealth #mindset #hindi #india #viral #shorts #brain #psychologyfacts #darkpsychology",
@@ -179,3 +179,4 @@ export async function POST(req) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
+
