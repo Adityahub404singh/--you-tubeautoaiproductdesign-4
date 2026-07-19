@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 const APP_ID = process.env.INSTAGRAM_APP_ID
 const APP_SECRET = process.env.INSTAGRAM_APP_SECRET
@@ -7,7 +7,7 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get("code")
   const error = searchParams.get("error")
-  if (error || !code) return NextResponse.redirect(`http://localhost:3000/dashboard?instagram=error`)
+  if (error || !code) return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard?instagram=error`)
   try {
     const tokenRes = await fetch("https://graph.facebook.com/v18.0/oauth/access_token", {
       method: "POST",
@@ -42,9 +42,9 @@ export async function GET(req) {
     cookieStore.set("ig_connected", "true", { expires: expiry, path: "/" })
     cookieStore.set("ig_expiry", expiry.toISOString(), { expires: expiry, path: "/" })
     console.log("Instagram connected! User:", igUserId)
-    return NextResponse.redirect("http://localhost:3000/dashboard?instagram=connected")
+    return NextResponse.redirect("${process.env.NEXTAUTH_URL}/dashboard?instagram=connected")
   } catch (err) {
     console.error("Instagram callback error:", err.message)
-    return NextResponse.redirect(`http://localhost:3000/dashboard?instagram=error&msg=${encodeURIComponent(err.message)}`)
+    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/dashboard?instagram=error&msg=${encodeURIComponent(err.message)}`)
   }
 }
