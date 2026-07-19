@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 export async function GET(req) {
   const url = new URL(req.url);
@@ -39,3 +39,4 @@ export async function GET(req) {
     return NextResponse.redirect(new URL("/dashboard?error=TokenFail", req.url));
   }
 }
+
