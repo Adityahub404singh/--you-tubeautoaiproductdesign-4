@@ -1,0 +1,14 @@
+﻿services:
+  - type: web
+    name: youtubeauto-ai
+    env: docker
+    plan: free
+    healthCheckPath: /api/auth/session
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXTAUTH_URL
+        fromService:
+          type: web
+          name: youtubeauto-ai
+          property: host

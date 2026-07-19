@@ -1,0 +1,9 @@
+﻿node_modules
+.next
+.git
+storage
+*.mp4
+*.mp3
+*.wav
+.env
+.env.local
