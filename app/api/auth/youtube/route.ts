@@ -4,7 +4,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const action = searchParams.get("action");
 
-  if (action === "connect") {
+  if (action === "connect" || !action) {
     const params = new URLSearchParams({
       client_id: process.env.GOOGLE_CLIENT_ID || "",
       // Forced absolute production callback
