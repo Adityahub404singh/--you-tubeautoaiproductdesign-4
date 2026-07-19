@@ -1,10 +1,10 @@
-import NextAuth from "next-auth"
+﻿import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { createClient } from "@libsql/client"
 
 const handler = NextAuth({
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "fallback_super_secret_for_vercel_123",
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
