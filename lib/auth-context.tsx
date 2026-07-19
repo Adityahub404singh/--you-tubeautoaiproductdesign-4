@@ -1,6 +1,7 @@
 ﻿"use client"
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
+import { signIn, signOut, useSession } from "next-auth/react"
 
 interface User {
   id: string; email: string; name: string; phone: string
@@ -19,67 +20,46 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { data: session, status } = useSession()
+  const [extraData, setExtraData] = useState<Partial<User>>({})
 
-  const syncUser = async () => {
-    // 1. Check Session Storage first
-    const stored = sessionStorage.getItem("currentUser")
-    if (stored) {
-      try { setUser(JSON.parse(stored)); setIsLoading(false); return } catch {}
-    }
-    
-    // 2. Fallback to server session if storage empty
-    try {
-      const res = await fetch("/api/auth/session")
-      if (res.ok) {
-        const data = await res.json()
-        if (data.user) {
-          setUser(data.user)
-          sessionStorage.setItem("currentUser", JSON.stringify(data.user))
-        }
-      }
-    } catch {}
-    setIsLoading(false)
-  }
-
-  useEffect(() => { syncUser() }, [])
+  const user: User | null = session?.user ? {
+    id: (session.user as any).id || "",
+    email: session.user.email || "",
+    name: session.user.name || "",
+    phone: extraData.phone || "",
+    role: (session.user as any).role || "user",
+    plan: (session.user as any).plan || "free",
+    hasCompletedSetup: extraData.hasCompletedSetup ?? true,
+    freeVideosUsed: extraData.freeVideosUsed || 0,
+    paidVideoCredits: extraData.paidVideoCredits || 0,
+  } : null
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    const res = await fetch("/api/auth/login", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
-    })
-    const data = await res.json()
-    if (data.success && data.user) {
-      setUser(data.user)
-      sessionStorage.setItem("currentUser", JSON.stringify(data.user))
-      return true
-    }
-    return false
+    const result = await signIn("credentials", { email, password, redirect: false })
+    return !result?.error
   }
 
   const signup = async (name: string, email: string, password: string, phone: string): Promise<boolean> => {
-    const res = await fetch("/api/auth/signup", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, phone })
-    })
-    const data = await res.json()
-    if (data.success && data.user) {
-      setUser(data.user)
-      sessionStorage.setItem("currentUser", JSON.stringify(data.user))
-      return true
-    }
-    return false
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, phone })
+      })
+      const data = await res.json()
+      if (!data.success) return false
+      const result = await signIn("credentials", { email, password, redirect: false })
+      return !result?.error
+    } catch { return false }
   }
 
-  const logout = () => {
-    setUser(null)
-    sessionStorage.removeItem("currentUser")
-    fetch("/api/auth/logout") // Cleanup session
-  }
+  const logout = () => signOut({ callbackUrl: "/login" })
 
-  return <AuthContext.Provider value={{ user, login, signup, logout, isLoading }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, login, signup, logout, isLoading: status === "loading" }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {

@@ -1,31 +1,55 @@
-﻿import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import CredentialsProvider from "next-auth/providers/credentials";
+import NextAuth from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import bcrypt from "bcryptjs"
+import { createClient } from "@libsql/client"
 
 const handler = NextAuth({
-  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 }, // 30 din ka session
+  secret: process.env.NEXTAUTH_SECRET,
+  session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [
     CredentialsProvider({
-      name: "Credentials",
-      credentials: { email: { label: "Email", type: "email" }, password: { label: "Password", type: "password" } },
+      name: "credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
       async authorize(credentials) {
-        if (!credentials?.email) return null;
-        return { id: "god-mode-123", name: "Admin User", email: credentials.email } as any;
+        if (!credentials?.email || !credentials?.password) return null
+        try {
+          const db = createClient({
+            url: process.env.DATABASE_URL,
+            authToken: process.env.TURSO_AUTH_TOKEN,
+          })
+          const result = await db.execute({
+            sql: "SELECT * FROM User WHERE email=?",
+            args: [credentials.email.toLowerCase().trim()]
+          })
+          if (result.rows.length === 0) return null
+          const u = result.rows[0]
+          if (u.password) {
+            const valid = await bcrypt.compare(credentials.password, u.password)
+            if (!valid) return null
+          }
+          return { id: u.id, email: u.email, name: u.name, role: u.role, plan: u.plan }
+        } catch { return null }
       }
     })
   ],
   callbacks: {
-    async jwt({ token, user }: any) {
-      if (user) token.sub = user.id;
-      return token;
+    async jwt({ token, user }) {
+      if (user) { token.role = user.role; token.plan = user.plan }
+      return token
     },
-    async session({ session, token }: any) {
-      if (session.user) session.user.id = token.sub as string;
-      return session;
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.role = token.role
+        session.user.plan = token.plan
+        session.user.id = token.sub
+      }
+      return session
     }
-  },
-  secret: "super_secret_key_12345", // Fixed secret
-});
+  }
+})
 
-export { handler as GET, handler as POST };
+export { handler as GET, handler as POST }
