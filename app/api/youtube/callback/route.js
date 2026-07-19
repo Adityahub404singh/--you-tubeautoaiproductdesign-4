@@ -3,11 +3,10 @@ import { cookies } from "next/headers"
 
 const CLIENT_ID     = process.env.GOOGLE_CLIENT_ID
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET
-const REDIRECT_URI  = process.env.GOOGLE_OAUTH_REDIRECT_URI
+const REDIRECT_URI  = "https://youtubeautoaiproductdesign5.vercel.app/api/youtube/callback"
 
-// âœ… FIX: Use NEXTAUTH_URL instead of hardcoded localhost
 function getBaseUrl() {
-  return (process.env.NEXTAUTH_URL || "https://youtubeautoaiproductdesign5.vercel.app").replace(/\/$/, "")
+  return "https://youtubeautoaiproductdesign5.vercel.app"
 }
 
 export async function GET(request) {
@@ -20,7 +19,6 @@ export async function GET(request) {
   }
 
   try {
-    // Exchange code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -43,8 +41,6 @@ export async function GET(request) {
     }
 
     const { access_token, refresh_token, expires_in } = tokenData
-
-    // Save tokens in cookies
     const cookieStore = await cookies()
     const expiry = new Date(Date.now() + (expires_in || 3600) * 1000)
 
@@ -58,7 +54,7 @@ export async function GET(request) {
     if (refresh_token) {
       cookieStore.set("yt_refresh_token", refresh_token, {
         httpOnly: true,
-        expires:  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        expires:  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         path:     "/",
         sameSite: "lax",
       })
@@ -70,9 +66,7 @@ export async function GET(request) {
       sameSite: "lax",
     })
 
-    console.log("YouTube connected!")
-
-    // âœ… FIX: No hardcoded localhost
+    console.log("YouTube connected successfully!")
     return NextResponse.redirect(`${getBaseUrl()}/dashboard?youtube=connected`)
 
   } catch (err) {
@@ -82,4 +76,3 @@ export async function GET(request) {
     )
   }
 }
-
