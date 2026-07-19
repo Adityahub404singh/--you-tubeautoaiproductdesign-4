@@ -29,7 +29,7 @@ export default function YouTubeConnect() {
 
   const handleYTConnect = () => {
     const clientId = "99624088216-6cum4cmnrmlc1lqn75n870cb80i0cnl9.apps.googleusercontent.com";
-    const redirectUri = encodeURIComponent("http://localhost:3000/api/youtube/callback");
+    const redirectUri = encodeURIComponent(window.location.origin + "/api/youtube/callback");
     const scope = encodeURIComponent("https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube");
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
     window.location.href = authUrl;

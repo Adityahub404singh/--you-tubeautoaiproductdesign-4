@@ -4,10 +4,10 @@ import { cookies } from "next/headers"
 // 🔥 Trim lagaya taaki env variables mein galti se aaye spaces Google ko na bheje
 const CLIENT_ID     = (process.env.GOOGLE_CLIENT_ID || "").trim()
 const CLIENT_SECRET = (process.env.GOOGLE_CLIENT_SECRET || "").trim()
-const REDIRECT_URI  = "https://youtubeautoaiproductdesign5.vercel.app/api/youtube/callback"
-
-function getBaseUrl() {
-  return "https://youtubeautoaiproductdesign5.vercel.app"
+function getBaseUrl(req) {
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host")
+  const proto = req.headers.get("x-forwarded-proto") || "https"
+  return `${proto}://${host}`
 }
 
 export async function GET(request) {
@@ -16,7 +16,7 @@ export async function GET(request) {
   const error = searchParams.get("error")
 
   if (error || !code) {
-    return NextResponse.redirect(`${getBaseUrl()}/dashboard?youtube=error`)
+    return NextResponse.redirect(`${getBaseUrl(request)}/dashboard?youtube=error`)
   }
 
   try {
@@ -25,7 +25,7 @@ export async function GET(request) {
       code: code,
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: getBaseUrl(request) + "/api/youtube/callback",
       grant_type: "authorization_code",
     }).toString()
 
@@ -40,7 +40,7 @@ export async function GET(request) {
     if (tokenData.error) {
       console.error("YouTube Google Token API error:", tokenData)
       return NextResponse.redirect(
-        `${getBaseUrl()}/dashboard?youtube=error&msg=${encodeURIComponent(tokenData.error_description || tokenData.error)}`
+        `${getBaseUrl(request)}/dashboard?youtube=error&msg=${encodeURIComponent(tokenData.error_description || tokenData.error)}`
       )
     }
 
@@ -71,12 +71,12 @@ export async function GET(request) {
     })
 
     console.log("YouTube connected successfully!")
-    return NextResponse.redirect(`${getBaseUrl()}/dashboard?youtube=connected`)
+    return NextResponse.redirect(`${getBaseUrl(request)}/dashboard?youtube=connected`)
 
   } catch (err) {
     console.error("YouTube callback fetch error:", err.message)
     return NextResponse.redirect(
-      `${getBaseUrl()}/dashboard?youtube=error&msg=${encodeURIComponent(err.message)}`
+      `${getBaseUrl(request)}/dashboard?youtube=error&msg=${encodeURIComponent(err.message)}`
     )
   }
 }
