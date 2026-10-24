@@ -138,11 +138,57 @@ class Store {
   getUsers(): User[] {
     if (typeof window === "undefined") return []
     const data = localStorage.getItem("users")
-    return data ? JSON.parse(data) : []
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      return Array.isArray(parsed) ? (parsed as User[]) : []
+    } catch {
+      console.error("Could not parse localStorage users")
+      return []
+    }
   }
 
   getUserByEmail(email: string): User | null {
-    return this.getUsers().find((u) => u.email === email) || null
+    if (typeof window === "undefined" || !email?.trim()) return null
+
+    const normalizedEmail = email.trim().toLowerCase()
+    return (
+      this.getUsers().find(
+        (u) => u.email?.trim().toLowerCase() === normalizedEmail
+      ) || null
+    )
+  }
+
+  /**
+   * Repairs legacy channels only when there is exactly one non-admin local user.
+   * The seeded admin profile is ignored. If multiple real users exist, this method
+   * deliberately does nothing to avoid assigning one user's channels to another.
+   */
+  repairOrphanedChannelsForSingleUser(userId: string): void {
+    if (typeof window === "undefined" || !userId) return
+
+    const users = this.getUsers()
+    const nonAdminUsers = users.filter((u) => u.role !== "admin")
+
+    // Only auto-repair when the browser has one real user profile and it matches.
+    if (nonAdminUsers.length !== 1 || nonAdminUsers[0].id !== userId) return
+
+    const channels = this.getChannels()
+    const knownUserIds = new Set(users.map((u) => u.id))
+    let changed = false
+
+    const repairedChannels = channels.map((channel) => {
+      // Reassign only orphaned channel records, never channels owned by a known user.
+      if (!channel.userId || !knownUserIds.has(channel.userId)) {
+        changed = true
+        return { ...channel, userId }
+      }
+      return channel
+    })
+
+    if (changed) {
+      localStorage.setItem("channels", JSON.stringify(repairedChannels))
+    }
   }
 
   createUser(
@@ -194,8 +240,15 @@ class Store {
   getChannels(userId?: string): Channel[] {
     if (typeof window === "undefined") return []
     const data = localStorage.getItem("channels")
-    const channels = data ? JSON.parse(data) : []
-    return userId ? channels.filter((c: Channel) => c.userId === userId) : channels
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      const channels = Array.isArray(parsed) ? (parsed as Channel[]) : []
+      return userId ? channels.filter((c) => c.userId === userId) : channels
+    } catch {
+      console.error("Could not parse localStorage channels")
+      return []
+    }
   }
 
   createChannel(channel: Omit<Channel, "id">): Channel {
@@ -228,8 +281,15 @@ class Store {
   getVideos(channelId?: string): Video[] {
     if (typeof window === "undefined") return []
     const data = localStorage.getItem("videos")
-    const videos = data ? JSON.parse(data) : []
-    return channelId ? videos.filter((v: Video) => v.channelId === channelId) : videos
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      const videos = Array.isArray(parsed) ? (parsed as Video[]) : []
+      return channelId ? videos.filter((v) => v.channelId === channelId) : videos
+    } catch {
+      console.error("Could not parse localStorage videos")
+      return []
+    }
   }
 
   canCreateVideo(userId: string): { allowed: boolean; reason?: string } {
@@ -695,7 +755,3 @@ export function requestBrowserNotificationPermission(): void {
     Notification.requestPermission()
   }
 }
-
-
-
-

@@ -1,5 +1,6 @@
 ﻿"use client"
 import { useState } from "react"
+import type React from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -100,93 +101,189 @@ export default function NewPromptPage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!prompt.trim()) return
-    setLoading(true)
-    setError("")
-    setResult(null)
-    setCompletedSteps([])
+    e.preventDefault();
+
+    if (!prompt.trim()) {
+      setError("Please enter a video topic.");
+      return;
+    }
+
+    if (!user?.email) {
+      setError("Please sign in again before generating a video.");
+      return;
+    }
+
+    if (!store) {
+      setError("Video storage is unavailable in this browser.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setResult(null);
+    setCompletedSteps([]);
 
     try {
-      const channels = store?.getChannels(user?.id)
-      const channel  = channels?.[0]
-
-      // Step 1: Script
-      setCurrentStep("script")
-      const res  = await fetch("/api/videos/generate", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: prompt, mode: category, category, language: channel?.language || "Hindi", channelName: channel?.name || "My Channel" })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Script generation failed")
-      markStep("script")
-
-      // Step 2: Voice
-      setCurrentStep("voice")
-      let audioUrl = ""
-      try {
-        const vr = await fetch("/api/voiceover", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: data.script || data.hook || data.title, title: data.title, category, isShorts: true })
-        })
-        const vd = await vr.json()
-        if (vd.audioUrl) audioUrl = vd.audioUrl
-      } catch {}
-      markStep("voice")
-
-      // Step 3: Thumbnail
-      setCurrentStep("thumbnail")
-      let thumbnailUrl = ""
-      try {
-        const tr = await fetch("/api/thumbnail", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: data.title, topic: prompt, boldText: data.thumbnail?.boldText, bgColor: data.thumbnail?.bgColor, category, videoType: "shorts" })
-        })
-        const td = await tr.json()
-        if (td.thumbnailUrl || td.url) thumbnailUrl = td.thumbnailUrl || td.url
-      } catch {}
-      markStep("thumbnail")
-
-      // Step 4: Video
-      setCurrentStep("video")
-      let videoUrl = ""
-      if (audioUrl) {
-        try {
-          const vgr = await fetch("/api/video/generate", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ audioUrl, thumbnailUrl, title: data.title, script: data.script, hook: data.hook, keyPoints: data.keyPoints, videoType: "shorts", category: category, pexelsQuery: data.pexelsQuery })
-          })
-          const vgd = await vgr.json()
-          if (vgd.videoUrl) videoUrl = vgd.videoUrl
-        } catch {}
+      // NextAuth's user.id may differ from the localStorage profile id.
+      const localUser = store.getUserByEmail(user.email);
+      if (!localUser) {
+        throw new Error(
+          "Your local profile was not found. Sign out and sign in again, then complete channel setup."
+        );
       }
-      markStep("video")
 
-      if (channel && user) {
-        store?.createVideo({
-          channelId:     channel.id,
-          title:         data.title,
-          status:        "pending-approval",
-          scheduledDate: new Date().toISOString(),
-          views: 0, likes: 0, comments: 0,
-          thumbnail:     thumbnailUrl,
-          audioUrl, thumbnailUrl, videoUrl,
-          topic:         prompt,
-          description:   data.description || "",
-          tags:          data.tags || [],
-          script:        data.script || "",
-          hook:          data.hook || "",
-          videoType:     "shorts",
-        })
+      // Repair old demo channels whose userId no longer matches any local profile.
+      // This runs only when the browser has exactly one local profile.
+      store.repairOrphanedChannelsForSingleUser(localUser.id);
+
+      const channels = store.getChannels(localUser.id);
+      const channel = channels[0];
+
+      if (!channel) {
+        throw new Error(
+          "No channel is linked to this profile. Open Channels and complete channel setup first."
+        );
       }
-      setResult({ ...data, audioUrl, thumbnailUrl, videoUrl })
-    } catch (err: any) {
-      setError(err.message)
+
+      // 1. Generate script, title, description and tags.
+      setCurrentStep("script");
+      const scriptResponse = await fetch("/api/videos/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: prompt.trim(),
+          mode: category,
+          category,
+          language: channel.language || "Hindi",
+          channelName: channel.name || "My Channel",
+        }),
+      });
+
+      const data = await scriptResponse.json();
+      if (!scriptResponse.ok) {
+        throw new Error(data.error || "Script generation failed.");
+      }
+      if (!data.script && !data.title) {
+        throw new Error("The script API returned no script or title.");
+      }
+      markStep("script");
+
+      // 2. Voiceover is required for this video pipeline.
+      setCurrentStep("voice");
+      const voiceResponse = await fetch("/api/voiceover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: data.script || data.hook || data.title,
+          title: data.title,
+          category,
+          isShorts: true,
+        }),
+      });
+
+      const voiceData = await voiceResponse.json();
+      if (!voiceResponse.ok || !voiceData.audioUrl) {
+        throw new Error(
+          voiceData.error || "Voiceover failed; no video was saved."
+        );
+      }
+      const audioUrl: string = voiceData.audioUrl;
+      markStep("voice");
+
+      // 3. Thumbnail.
+      setCurrentStep("thumbnail");
+      const thumbnailResponse = await fetch("/api/thumbnail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: data.title || prompt.trim(),
+          topic: prompt.trim(),
+          boldText: data.thumbnail?.boldText,
+          bgColor: data.thumbnail?.bgColor,
+          category,
+          videoType: "shorts",
+        }),
+      });
+
+      const thumbnailData = await thumbnailResponse.json();
+      if (!thumbnailResponse.ok) {
+        throw new Error(
+          thumbnailData.error || "Thumbnail generation failed."
+        );
+      }
+
+      const thumbnailUrl: string =
+        thumbnailData.thumbnailUrl || thumbnailData.url || "";
+      if (!thumbnailUrl) {
+        throw new Error("Thumbnail API did not return a thumbnail URL.");
+      }
+      markStep("thumbnail");
+
+      // 4. Render the video. Do not silently save a record without a video URL.
+      setCurrentStep("video");
+      const videoResponse = await fetch("/api/video/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audioUrl,
+          thumbnailUrl,
+          title: data.title || prompt.trim(),
+          script: data.script || "",
+          hook: data.hook || "",
+          keyPoints: data.keyPoints || [],
+          videoType: "shorts",
+          category,
+          pexelsQuery: data.pexelsQuery,
+        }),
+      });
+
+      const videoData = await videoResponse.json();
+      if (!videoResponse.ok || !videoData.videoUrl) {
+        throw new Error(
+          videoData.error || "Video rendering failed; no video was saved."
+        );
+      }
+
+      const videoUrl: string = videoData.videoUrl;
+      markStep("video");
+
+      // Save the complete asset record to localStorage.
+      const savedVideo = store.createVideo({
+        channelId: channel.id,
+        title: data.title || prompt.trim(),
+        status: "pending-approval",
+        scheduledDate: new Date().toISOString(),
+        views: 0,
+        likes: 0,
+        comments: 0,
+        thumbnail: thumbnailUrl,
+        thumbnailUrl,
+        audioUrl,
+        videoUrl,
+        topic: prompt.trim(),
+        description: data.description || "",
+        tags: Array.isArray(data.tags) ? data.tags : [],
+        script: data.script || "",
+        hook: data.hook || "",
+        videoType: "shorts",
+      });
+
+      setResult({
+        ...data,
+        audioUrl,
+        thumbnailUrl,
+        videoUrl,
+        savedVideoId: savedVideo.id,
+      });
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Video generation failed."
+      );
     } finally {
-      setLoading(false)
-      setCurrentStep("")
+      setLoading(false);
+      setCurrentStep("");
     }
-  }
+  };
 
   const handle30Day = async () => {
     // Logic remains same, visually hidden for cleaner UI focus

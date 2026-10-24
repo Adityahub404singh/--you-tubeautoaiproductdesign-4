@@ -1,9 +1,12 @@
-﻿import { exec } from "child_process";
+import { exec } from "child_process";
 import fs from "fs";
 import path from "path";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
+const FFMPEG = process.platform === "win32"
+  ? "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe"
+  : "ffmpeg";
 
 const THEMES = {
   psychology:      { bg: "F4EBE1", hiColor: "E63946", textColor: "1D3557", element: "brain.png" },
@@ -55,7 +58,7 @@ function splitScenes(script) {
 
 export async function renderTypographyVideo(hindiScript, title, catKey, W, H, duration, mixedPath, outputPath, conf = {}, baseDir, videoId) {
   try {
-    console.log(`🚀 [${videoId}] Zenith V9.1: LOCAL ASSET MODE ACTIVATED...`);
+    console.log(`?? [${videoId}] Zenith V9.1: LOCAL ASSET MODE ACTIVATED...`);
     const themeKey = Object.keys(THEMES).find(k => catKey.toLowerCase().includes(k)) || "general";
     const theme = THEMES[themeKey];
     
@@ -88,7 +91,6 @@ export async function renderTypographyVideo(hindiScript, title, catKey, W, H, du
 
     fs.writeFileSync(assPath, assContent);
 
-    // FIX: Look for local image, if not found, render without it (No Crash!)
     const elementPath = path.join(process.cwd(), "public", "characters", theme.element);
     let inputs = `-i "${mixedPath}"`;
     let filterComplex = "";
@@ -101,11 +103,11 @@ export async function renderTypographyVideo(hindiScript, title, catKey, W, H, du
       filterComplex = `color=c=0x${theme.bg}:s=${W}x${H}:d=${duration}[bg];[bg]ass=filename='${escapedAssPath}'[outv]`;
     }
 
-    const cmd = `ffmpeg -y ${inputs} -filter_complex "${filterComplex}" -map "[outv]" -map 0:a -c:v libx264 -preset veryfast -crf 25 -maxrate 2.5M -bufsize 5M -c:a aac -shortest "${outputPath}"`;
+    const cmd = `"${FFMPEG}" -y ${inputs} -filter_complex "${filterComplex}" -map "[outv]" -c:a aac -shortest "${outputPath}"`;
     await execAsync(cmd);
     return true;
   } catch (err) {
-    console.error("❌ Render Error:", err.message);
+    console.error("? Render Error:", err.message);
     return false;
   }
 }

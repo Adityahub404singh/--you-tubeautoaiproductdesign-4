@@ -1,16 +1,23 @@
-﻿export async function refreshAccessToken(refreshToken: string) {
+export async function refreshAccessToken(refreshToken: string) {
+  const clientId = process.env.GOOGLE_CLIENT_ID || process.env.YOUTUBE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || process.env.YOUTUBE_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error("Missing Google/YouTube Client API Credentials");
+  }
+
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      client_id: clientId,
+      client_secret: clientSecret,
       refresh_token: refreshToken,
       grant_type: "refresh_token",
     }),
   });
+
   const data = await response.json();
-  console.log("Refresh token response:", data.access_token ? "New token got" : "Error: " + data.error);
   if (data.error) throw new Error(`Token refresh failed: ${data.error}`);
   return { access_token: data.access_token, expires_in: data.expires_in };
 }
@@ -22,16 +29,22 @@ export async function getValidAccessToken(cookieStore: any) {
   const accessToken = jar.get("yt_access_token")?.value;
   const refreshToken = jar.get("yt_refresh_token")?.value;
 
-  console.log("getValidAccessToken - accessToken:", accessToken ? "EXISTS" : "MISSING", "refreshToken:", refreshToken ? "EXISTS" : "MISSING");
+  console.log("[OAUTH CHECK] AccessToken:", accessToken ? "EXISTS" : "MISSING", "| RefreshToken:", refreshToken ? "EXISTS" : "MISSING");
 
   if (!refreshToken && !accessToken) throw new Error("NOT_CONNECTED");
 
-  try {
-    const newTokens = await refreshAccessToken(refreshToken);
-    return { accessToken: newTokens.access_token, newToken: newTokens.access_token };
-  } catch (e: any) {
-    console.log("Refresh failed:", e.message);
-    if (accessToken) return { accessToken };
-    throw new Error("NOT_CONNECTED");
+  // Smart Optimization: If refreshToken exists, attempt auto-refresh
+  if (refreshToken) {
+    try {
+      const newTokens = await refreshAccessToken(refreshToken);
+      return { accessToken: newTokens.access_token, newToken: newTokens.access_token };
+    } catch (e: any) {
+      console.log("[OAUTH REFRESH WARNING]:", e.message);
+      if (accessToken) return { accessToken };
+      throw new Error("NOT_CONNECTED");
+    }
   }
+
+  // Fast-path: If only accessToken exists and no refreshToken
+  return { accessToken };
 }

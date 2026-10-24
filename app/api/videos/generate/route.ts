@@ -137,16 +137,16 @@ const CATEGORY_CONFIG: Record<string, any> = {
   general:         { voice:"hi-IN-MadhurNeural", voiceRate:"+6%",  voicePitch:"0Hz",  pexels:["cinematic aerial sunset","epic mountains golden","urban city timelapse","beautiful nature light","dramatic sky clouds"] },
 }
 
-const GROQ_MODELS = ["llama-3.3-70b-versatile","meta-llama/llama-4-scout-17b-16e-instruct","llama-3.1-8b-instant"]
+const GROQ_MODELS = ["qwen/qwen3.8-27b","openai/gpt-oss-120b"]
 
 async function groqWithFallback(groq: Groq, messages: any[], max_tokens: number, temperature: number): Promise<string> {
   for (const model of GROQ_MODELS) {
     try {
       const res = await groq.chat.completions.create({ model, messages, temperature, max_tokens })
-      console.log(`✅ Groq model: ${model}`)
+      console.log(`âœ… Groq model: ${model}`)
       return res.choices[0].message.content || ""
     } catch (e: any) {
-      if (e?.status === 429) { console.log(`⚠️ Rate limit: ${model}`); continue }
+      if (e?.status === 429) { console.log(`âš ï¸ Rate limit: ${model}`); continue }
       throw e
     }
   }
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
     const musicMood: string = subConfig.music || "cinematic ambient"
     const seoTitle = titleFormula.replace("[TOPIC]", topic.slice(0, 30))
 
-    console.log(`📂 Category: ${catKey} | Sub: ${subKey} | Music: ${musicMood}`)
+    console.log(`ðŸ“‚ Category: ${catKey} | Sub: ${subKey} | Music: ${musicMood}`)
 
     if (generate30Day) {
       const subs = (SUBCATEGORIES[catKey] || SUBCATEGORIES.general).sub || ["general"]
@@ -217,16 +217,16 @@ SCRIPT RULES:
 - First line MUST be exactly: "${randomHook}"
 - Max 8 words per sentence
 - Use [PAUSE] for dramatic pauses
-- Pure Hindi/Hinglish speech only — NO markdown, bullets, symbols, dashes
+- Pure Hindi/Hinglish speech only â€” NO markdown, bullets, symbols, dashes
 - Duration: ${isShorts ? "30-45 seconds" : "4-6 minutes"}
 - End with subscribe CTA in Hindi
 
-TITLE: Use this formula exactly: "${seoTitle}" — max 60 chars, add numbers if possible
+TITLE: Create a unique, natural, topic-specific YouTube title in ${lang}. Keep it under 60 characters when possible. Do not force a template, invent statistics, or use misleading clickbait.
 
-THUMBNAIL: thumbnailText = exactly 3 ALL CAPS power words matching the emotion
-TAGS: Mix Hindi + English, include category + subcategory keywords
+THUMBNAIL: Provide 2-4 short, readable words that accurately represent the topic. Avoid misleading claims.
+TAGS: Generate 8-15 relevant search tags based on the specific topic, language, category, and subcategory. Avoid unrelated or repetitive tags.
 
-RESPOND ONLY WITH VALID JSON — no explanation, no markdown`
+RESPOND ONLY WITH VALID JSON â€” no explanation, no markdown`
       },
       {
         role: "user",
@@ -234,16 +234,16 @@ RESPOND ONLY WITH VALID JSON — no explanation, no markdown`
 
 Return EXACT JSON:
 {
-  "title": "${seoTitle}",
-  "hook": "${randomHook}",
-  "script": "Full spoken script in ${lang}. Start with hook. Use [PAUSE]. Natural speech. One line.",
-  "description": "YouTube SEO: Line 1 = main keyword + what video covers. Line 2 = subscribe hook. 150 words. End: #hindi #${catKey} #viral #india #shorts #trending",
+  "title": "Create a unique, accurate, topic-specific YouTube title in ${lang}, under 60 characters when possible.",
+  "hook": "Write a compelling opening about the actual topic in ${lang}. Avoid unsupported claims.",
+  "script": "Write an original, natural spoken script in ${lang} based on the topic. Start with a relevant hook, use [PAUSE] sparingly, and do not invent facts. Keep it on one line.",
+  "description": "Write a useful, topic-specific YouTube description in ${lang}. Explain what the video covers, include relevant search phrases naturally, and add a short CTA. Do not invent facts or force unrelated hashtags.",
   "keyPoints": ["point1","point2","point3","point4","point5"],
   "callToAction": "Subscribe CTA in ${lang}",
   "pexelsQuery": "3-4 English words for ${catKey} ${subKey} footage",
   "thumbnailText": "3 WORDS ALL CAPS",
   "thumbnailEmoji": "1 emoji",
-  "tags": ["${catKey}","${subKey.replace(/_/g," ")}","hindi","india","viral","shorts","trending","${topic.split(" ")[0].toLowerCase()}","facts","knowledge"],
+  "tags": ["${topic}", "${catKey}", "${subKey.replace(/_/g, " ")}"],
   "chapters": ["0:00 - Hook","0:15 - Main Point","0:40 - Conclusion"],
   "videoMood": "${musicMood}",
   "subcategory": "${subKey}"
@@ -301,7 +301,7 @@ Return EXACT JSON:
       pexelsClips,
       thumbnail: {
         boldText: scriptData.thumbnailText || seoTitle.toUpperCase().split(/\s+/).slice(0,3).join(" "),
-        emoji:    scriptData.thumbnailEmoji || "🔥",
+        emoji:    scriptData.thumbnailEmoji || "ðŸ”¥",
       },
     })
   } catch (error: any) {
@@ -309,4 +309,7 @@ Return EXACT JSON:
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+
+
 

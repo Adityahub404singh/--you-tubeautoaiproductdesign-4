@@ -1,12 +1,12 @@
-﻿import { existsSync, writeFileSync } from "fs"
-import { exec } from "child_process"
-import { promisify } from "util"
-import path from "path"
+import { existsSync } from "fs";
+import { exec } from "child_process";
+import { promisify } from "util";
+import path from "path";
 
-const execAsync = promisify(exec)
+const execAsync = promisify(exec);
 const FFMPEG = process.platform === "win32"
   ? "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe"
-  : "ffmpeg"
+  : "ffmpeg";
 
 const FREQ_MAP = {
   psychology:[174,285],stoicism:[396,432],quotes:[432,528],
@@ -15,11 +15,12 @@ const FREQ_MAP = {
   horror:[174,220],ainews:[639,800],motivation:[528,660],
   general:[432,540],facts:[396,495],top10:[639,800],
   shorts:[741,925],finance:[528,660],health:[432,540],
-  story:[285,356],tech:[440,550],
-}
+  story:[285,356],tech:[440,550],cinematic:[174,285],
+  brainrot:[528,660],quiz:[639,800],fakes:[440,550],mysteries:[174,220]
+};
 
 async function generateSineMusic(catKey, duration, destPath) {
-  const [f1, f2] = FREQ_MAP[catKey] || FREQ_MAP.general
+  const [f1, f2] = FREQ_MAP[catKey] || FREQ_MAP.general;
   try {
     await execAsync(
       `"${FFMPEG}" -y ` +
@@ -28,17 +29,17 @@ async function generateSineMusic(catKey, duration, destPath) {
       `-filter_complex "[0:a]volume=0.3,aecho=0.8:0.88:60:0.4[a1];[1:a]volume=0.15,aecho=0.6:0.76:45:0.3[a2];[a1][a2]amix=inputs=2[mix];[mix]afade=t=in:st=0:d=3,afade=t=out:st=${duration}:d=4,volume=0.1" ` +
       `-acodec libmp3lame -q:a 4 "${destPath}"`,
       { timeout: 60000 }
-    )
-    return existsSync(destPath)
-  } catch(e) { console.log("Sine err:", e.message.slice(0,40)); return false }
+    );
+    return existsSync(destPath);
+  } catch(e) { console.log("Sine err:", e.message.slice(0,40)); return false; }
 }
 
 export async function getBgMusic(catKey, duration, storageDir) {
-  const cached = path.join(storageDir, "music", `bg_${catKey}.mp3`)
-  if (existsSync(cached)) { console.log(`🎵 BG Music cached: ${catKey}`); return cached }
-  console.log(`🎵 Generating sine music: ${catKey}`)
-  await generateSineMusic(catKey, duration, cached)
-  return existsSync(cached) ? cached : null
+  const cached = path.join(storageDir, "music", `bg_${catKey}.mp3`);
+  if (existsSync(cached)) { console.log(`?? BG Music cached: ${catKey}`); return cached; }
+  console.log(`?? Generating sine music: ${catKey}`);
+  await generateSineMusic(catKey, duration, cached);
+  return existsSync(cached) ? cached : null;
 }
 
 export async function mixVoiceWithMusic(voicePath, musicPath, outputPath, duration) {
@@ -48,8 +49,7 @@ export async function mixVoiceWithMusic(voicePath, musicPath, outputPath, durati
       `-filter_complex "[0:a]volume=1.0[v];[1:a]volume=0.07,aloop=loop=-1:size=2e+09[m];[v][m]amix=inputs=2:duration=first[out]" ` +
       `-map "[out]" -t ${duration} -acodec libmp3lame -q:a 3 "${outputPath}"`,
       { timeout: 90000 }
-    )
-    return existsSync(outputPath)
-  } catch(e) { console.log("Mix err:", e.message.slice(0,50)); return false }
+    );
+    return existsSync(outputPath);
+  } catch(e) { console.log("Mix err:", e.message.slice(0,50)); return false; }
 }
-

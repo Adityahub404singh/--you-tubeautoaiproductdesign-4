@@ -1,32 +1,67 @@
-﻿import { NextRequest, NextResponse } from "next/server"
-import bcrypt from "bcryptjs"
-import { createClient } from "@libsql/client"
+
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json()
-    if (!email || !password) return NextResponse.json({ error: "Missing fields" }, { status: 400 })
+    const { email, password } = await req.json();
 
-    const db = createClient({
-      url: process.env.DATABASE_URL!,
-      authToken: process.env.TURSO_AUTH_TOKEN,
-    })
-
-    const result = await db.execute({
-      sql: "SELECT * FROM User WHERE email=?",
-      args: [email.toLowerCase().trim()]
-    })
-
-    if (result.rows.length === 0) return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
-
-    const u = result.rows[0] as any
-    if (u.password) {
-      const valid = await bcrypt.compare(password, u.password)
-      if (!valid) return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      !email.trim() ||
+      !password
+    ) {
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({ success: true, user: { id: u.id, email: u.email, name: u.name, phone: u.phone||"", role: u.role, plan: u.plan, hasCompletedSetup: !!u.hasCompletedSetup, freeVideosUsed: u.freeVideosUsed||0, paidVideoCredits: u.paidVideoCredits||0 } })
-  } catch(e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+    const cleanEmail = email.toLowerCase().trim();
+
+    const user = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+    });
+
+    // Reject unknown users and accounts without a password.
+    if (!user || !user.password) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+
+    if (!valid) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone || "",
+        role: user.role,
+        plan: user.plan,
+        hasCompletedSetup: !!user.hasCompletedSetup,
+        freeVideosUsed: user.freeVideosUsed || 0,
+        paidVideoCredits: user.paidVideoCredits || 0,
+      },
+    });
+  } catch (error: unknown) {
+    console.error("Login Error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to process login right now" },
+      { status: 500 }
+    );
   }
 }

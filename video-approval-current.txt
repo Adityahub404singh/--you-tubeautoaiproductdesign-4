@@ -1,0 +1,403 @@
+﻿"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { store, type Video as VideoType } from "@/lib/store"
+import { useAuth } from "@/lib/auth-context"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  CheckCircle2,
+  XCircle,
+  Clock3,
+  Video as VideoIcon,
+  RefreshCw,
+  ExternalLink,
+  AlertTriangle,
+} from "lucide-react"
+
+type FilterType = "pending" | "approved" | "rejected"
+
+interface VideoApprovalListProps {
+  filter: FilterType
+}
+
+export function VideoApprovalList({ filter }: VideoApprovalListProps) {
+  const { user } = useAuth()
+  const [videos, setVideos] = useState<VideoType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [message, setMessage] = useState("")
+  const [error, setError] = useState("")
+
+  const refreshVideos = useCallback(() => {
+    try {
+      setVideos(store ? store.getVideos() : [])
+    } catch (e) {
+      console.error("Could not load videos:", e)
+      setError("Videos load nahi ho paaye.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshVideos()
+
+    // Refresh when this browser tab receives a storage update.
+    const onStorage = () => refreshVideos()
+    window.addEventListener("storage", onStorage)
+
+    return () => window.removeEventListener("storage", onStorage)
+  }, [refreshVideos])
+
+  const filteredVideos = useMemo(() => {
+    return videos
+      .filter((video) => {
+        if (filter === "pending") {
+          return (
+            video.status === "pending-approval" ||
+            (!video.adminApproved &&
+              video.status !== "rejected" &&
+              video.status !== "live" &&
+              video.status !== "failed")
+          )
+        }
+
+        if (filter === "approved") {
+          return video.adminApproved === true &&
+            video.status !== "rejected"
+        }
+
+        return video.status === "rejected"
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime(),
+      )
+  }, [videos, filter])
+
+  const handleApprove = (video: VideoType) => {
+    if (!store || !user?.id) {
+      setError("Admin session ya local video store available nahi hai.")
+      return
+    }
+
+    if (!video.videoUrl) {
+      setError(
+        `"${video.title}" ka actual video file missing hai. Isse approve/publish karne se pehle video generate karke save karo.`,
+      )
+      return
+    }
+
+    if (!video.thumbnailUrl && !video.thumbnail) {
+      setError(
+        `"${video.title}" ka thumbnail missing hai. Pehle thumbnail generate karo.`,
+      )
+      return
+    }
+
+    const confirmed = window.confirm(
+      `"${video.title}" ko admin approval dena hai? Approval ke baad bhi publishing tabhi hogi jab upload API successfully complete hogi.`,
+    )
+
+    if (!confirmed) return
+
+    setBusyId(video.id)
+    setError("")
+    setMessage("")
+
+    try {
+      store.adminApproveVideo(video.id, user.id)
+      refreshVideos()
+      setMessage(
+        "Video approved. Abhi status Approved hai; YouTube par Live tabhi hoga jab upload API successfully chalegi.",
+      )
+    } catch (e) {
+      console.error("Approval failed:", e)
+      setError("Approval save nahi hua. Dobara try karo.")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleReject = (video: VideoType) => {
+    if (!store) {
+      setError("Video store available nahi hai.")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `"${video.title}" ko reject karna hai?`,
+    )
+
+    if (!confirmed) return
+
+    setBusyId(video.id)
+    setError("")
+    setMessage("")
+
+    try {
+      store.adminRejectVideo(video.id)
+      refreshVideos()
+      setMessage("Video reject kar diya gaya.")
+    } catch (e) {
+      console.error("Rejection failed:", e)
+      setError("Video reject nahi ho paaya.")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-12 text-muted-foreground">
+        <RefreshCw className="h-4 w-4 animate-spin" />
+        Videos load ho rahe hain...
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {filteredVideos.length} video(s)
+        </p>
+
+        <Button variant="outline" onClick={refreshVideos}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
+
+      {message && (
+        <div
+          role="status"
+          className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300"
+        >
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300"
+        >
+          <AlertTriangle className="mr-2 inline h-4 w-4" />
+          {error}
+        </div>
+      )}
+
+      {filteredVideos.length === 0 ? (
+        <div className="rounded-xl border border-dashed p-10 text-center">
+          <VideoIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+
+          <h2 className="font-semibold">
+            {filter === "pending"
+              ? "No videos pending approval"
+              : filter === "approved"
+                ? "No approved videos"
+                : "No rejected videos"}
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            Videos generate hone ke baad yahan refresh karke dekho.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6">
+          {filteredVideos.map((video) => {
+            const thumbnail =
+              video.thumbnailUrl || video.thumbnail || ""
+            const videoUrl = video.videoUrl || ""
+            const status =
+              video.status === "live"
+                ? "Live"
+                : video.status === "rejected"
+                  ? "Rejected"
+                  : video.adminApproved
+                    ? "Approved"
+                    : "Pending approval"
+
+            return (
+              <article
+                key={video.id}
+                className="overflow-hidden rounded-xl border bg-card"
+              >
+                <div className="grid grid-cols-1 gap-5 p-4 md:grid-cols-[300px_minmax(0,1fr)]">
+                  <div className="space-y-3">
+                    <div className="overflow-hidden rounded-lg border bg-black">
+                      {thumbnail ? (
+                        <a
+                          href={thumbnail}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open full thumbnail"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={thumbnail}
+                            alt={`Thumbnail: ${video.title}`}
+                            className="aspect-video w-full object-cover"
+                            onError={(event) => {
+                              event.currentTarget.style.display = "none"
+                            }}
+                          />
+                        </a>
+                      ) : (
+                        <div className="flex aspect-video items-center justify-center text-sm text-white">
+                          Thumbnail unavailable
+                        </div>
+                      )}
+                    </div>
+
+                    {videoUrl ? (
+                      <video
+                        key={videoUrl}
+                        src={videoUrl}
+                        controls
+                        preload="metadata"
+                        className="aspect-video w-full rounded-lg border bg-black"
+                      >
+                        Your browser does not support video playback.
+                      </video>
+                    ) : (
+                      <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground">
+                        <div>
+                          <VideoIcon className="mx-auto mb-2 h-7 w-7" />
+                          Actual video file missing
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="break-words text-xl font-bold">
+                          {video.title || "Untitled video"}
+                        </h2>
+
+                        <p className="mt-1 break-all text-xs text-muted-foreground">
+                          ID: {video.id}
+                        </p>
+                      </div>
+
+                      <Badge
+                        variant="outline"
+                        className={
+                          video.status === "rejected"
+                            ? "border-red-500/40 text-red-600"
+                            : video.status === "live"
+                              ? "border-emerald-500/40 text-emerald-600"
+                              : video.adminApproved
+                                ? "border-blue-500/40 text-blue-600"
+                                : "border-amber-500/40 text-amber-600"
+                        }
+                      >
+                        {status === "Live" ? (
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                        ) : status === "Rejected" ? (
+                          <XCircle className="mr-1 h-3 w-3" />
+                        ) : (
+                          <Clock3 className="mr-1 h-3 w-3" />
+                        )}
+                        {status}
+                      </Badge>
+                    </div>
+
+                    <div>
+                      <h3 className="mb-1 text-sm font-semibold">
+                        Description
+                      </h3>
+                      <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                        {video.description || "No description provided."}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="mb-1 text-sm font-semibold">Tags</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {video.tags?.length ? (
+                          video.tags.map((tag, index) => (
+                            <Badge
+                              key={`${tag}-${index}`}
+                              variant="secondary"
+                            >
+                              {tag}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            No tags
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {video.script && (
+                      <details className="rounded-lg border p-3">
+                        <summary className="cursor-pointer text-sm font-semibold">
+                          View script
+                        </summary>
+                        <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
+                          {video.script}
+                        </p>
+                      </details>
+                    )}
+
+                    <div className="text-xs text-muted-foreground">
+                      Created:{" "}
+                      {video.createdAt
+                        ? new Date(video.createdAt).toLocaleString()
+                        : "Unknown"}
+                    </div>
+
+                    {video.youtubeUrl && (
+                      <a
+                        href={video.youtubeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 underline"
+                      >
+                        View on YouTube
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+
+                    {filter === "pending" && (
+                      <div className="flex flex-wrap gap-3 border-t pt-4">
+                        <Button
+                          onClick={() => handleApprove(video)}
+                          disabled={busyId === video.id}
+                          className="bg-emerald-600 text-white hover:bg-emerald-700"
+                        >
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          {busyId === video.id
+                            ? "Saving..."
+                            : "Approve Video"}
+                        </Button>
+
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleReject(video)}
+                          disabled={busyId === video.id}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject Video
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+

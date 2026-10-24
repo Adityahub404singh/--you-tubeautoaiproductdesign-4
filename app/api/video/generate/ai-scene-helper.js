@@ -1,11 +1,13 @@
-﻿import { exec } from "child_process";
+import { exec } from "child_process";
 import { promisify } from "util";
 import { existsSync, statSync } from "fs";
 import { writeFile } from "fs/promises";
 import path from "path";
 
 const execAsync = promisify(exec);
-const FFMPEG = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe";
+const FFMPEG = process.platform === "win32"
+  ? "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe"
+  : "ffmpeg";
 
 function splitIntoScenes(script, sceneCount) {
   const clean = (script || "").replace(/\[.*?\]/g, "").replace(/\*\*/g, "").trim();
@@ -72,7 +74,6 @@ export async function renderAISceneVideo(hindiScript, title, catKey, W, H, durat
       console.log("AI Scene: no images generated, aborting");
       return false;
     }
-    console.log(`AI Scene: ${validImages.length}/${scenes.length} images generated`);
 
     const zoomVariants = [
       "zoompan=z='min(zoom+0.0015,1.15)':d={D}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'",
@@ -115,9 +116,7 @@ export async function renderAISceneVideo(hindiScript, title, catKey, W, H, durat
 
     const cmd = `"${FFMPEG}" -y -f concat -safe 0 -i "${listPath}" -i "${mixedPath}" -vf "${vfFinal}" -c:v libx264 -preset veryfast -crf 23 -c:a aac -shortest -t ${duration} "${outputPath}"`;
     await execAsync(cmd, { timeout: 300000 });
-
     const ok = existsSync(outputPath) && statSync(outputPath).size > 100000;
-    if (ok) console.log(`AI Multi-Scene render DONE: ${clipPaths.length} scenes used`);
     return ok;
   } catch (err) {
     console.error("AI Scene Render Error:", err.message);

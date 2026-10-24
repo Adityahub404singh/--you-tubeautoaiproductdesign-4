@@ -1,0 +1,203 @@
+
+import { NextRequest, NextResponse } from "next/server";
+import { mkdir } from "fs/promises";
+import { existsSync } from "fs";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import path from "path";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const execFileAsync = promisify(execFile);
+
+const FFMPEG =
+  process.platform === "win32"
+    ? "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe"
+    : "ffmpeg";
+
+const THEMES: Record<string, { bg: string; accent: string }> = {
+  cinematic: { bg: "050508", accent: "FF0000" },
+  fakes: { bg: "0d0e15", accent: "FFD700" },
+  mysteries: { bg: "0a0014", accent: "CC44FF" },
+  brainrot: { bg: "001a0d", accent: "00FF88" },
+  quiz: { bg: "00101d", accent: "00E5FF" },
+  avatar: { bg: "001a10", accent: "00E676" },
+  localizer: { bg: "1a0a00", accent: "FF6D00" },
+  psychology: { bg: "0a0015", accent: "8B5CF6" },
+  stoicism: { bg: "1a1a1a", accent: "9E9E9E" },
+  quotes: { bg: "1a0a00", accent: "FFC107" },
+  businesslessons: { bg: "001a0a", accent: "2196F3" },
+  storytelling: { bg: "1a0005", accent: "E53935" },
+  startupstories: { bg: "001020", accent: "00BCD4" },
+  luxury: { bg: "0a0800", accent: "FFD700" },
+  history: { bg: "100800", accent: "C08552" },
+  horror: { bg: "0a0000", accent: "FF0000" },
+  motivation: { bg: "0a0500", accent: "FF6B00" },
+  facts: { bg: "000a1d", accent: "00E5FF" },
+  general: { bg: "050010", accent: "FF4081" },
+};
+
+function cleanText(value: unknown, maxLength: number): string {
+  if (typeof value !== "string") return "";
+
+  return value
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}\s.,!?'-]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function escapeDrawtext(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\\\\\")
+    .replace(/:/g, "\\:")
+    .replace(/'/g, "'\\\\\\''")
+    .replace(/%/g, "\\%");
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+
+    const title = cleanText(body.title, 150);
+    const boldText = cleanText(body.boldText, 80);
+    const category =
+      typeof body.category === "string"
+        ? body.category.toLowerCase().replace(/[^a-z]/g, "")
+        : "general";
+    const videoType = body.videoType;
+
+    if (!title && !boldText) {
+      return NextResponse.json(
+        { success: false, error: "Title or boldText is required." },
+        { status: 400 }
+      );
+    }
+
+    const isShorts = videoType === "shorts";
+    const width = isShorts ? 1080 : 1280;
+    const height = isShorts ? 1920 : 720;
+
+    const theme = THEMES[category] || THEMES.general;
+
+    const thumbnailDir = path.join(
+      process.cwd(),
+      "storage",
+      "thumbnails"
+    );
+
+    await mkdir(thumbnailDir, { recursive: true });
+
+    const fileName = `thumb_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 8)}.jpg`;
+
+    const filePath = path.join(thumbnailDir, fileName);
+
+    const line1 = cleanText(
+      (boldText || title).toUpperCase().split(/\s+/).slice(0, 3).join(" "),
+      24
+    );
+
+    const line2 = cleanText(
+      title.toUpperCase().split(/\s+/).slice(3, 8).join(" "),
+      36
+    );
+
+    const fontFile = path.join(
+      process.cwd(),
+      "public",
+      "fonts",
+      "NotoSansDevanagari-Bold.ttf"
+    );
+
+    const fontOption = existsSync(fontFile)
+      ? `fontfile='${escapeDrawtext(fontFile.replace(/\\/g, "/"))}':`
+      : "";
+
+    const fontSize1 = isShorts ? 88 : 72;
+    const fontSize2 = isShorts ? 56 : 42;
+    const y1 = isShorts ? "(h-text_h)/2-90" : "(h-text_h)/2-45";
+    const y2 = isShorts ? "(h-text_h)/2+45" : "(h-text_h)/2+35";
+
+    const text1 = escapeDrawtext(line1);
+    const text2 = escapeDrawtext(line2);
+
+    const filters = [
+      `drawbox=x=0:y=0:w=${Math.round(width * 0.018)}:h=${height}:color=0x${theme.accent}:t=fill`,
+      `drawbox=x=0:y=0:w=${width}:h=${Math.round(height * 0.012)}:color=0x${theme.accent}:t=fill`,
+      `drawtext=${fontOption}text='${text1}':fontsize=${fontSize1}:fontcolor=white:x=(w-text_w)/2:y=${y1}:shadowcolor=black:shadowx=4:shadowy=4`,
+    ];
+
+    if (line2) {
+      filters.push(
+        `drawtext=${fontOption}text='${text2}':fontsize=${fontSize2}:fontcolor=0x${theme.accent}:x=(w-text_w)/2:y=${y2}:shadowcolor=black:shadowx=3:shadowy=3`
+      );
+    }
+
+    try {
+      await execFileAsync(
+        FFMPEG,
+        [
+          "-y",
+          "-f",
+          "lavfi",
+          "-i",
+          `color=c=0x${theme.bg}:s=${width}x${height}`,
+          "-vf",
+          filters.join(","),
+          "-frames:v",
+          "1",
+          "-q:v",
+          "2",
+          filePath,
+        ],
+        { timeout: 30000, windowsHide: true }
+      );
+    } catch (error) {
+      console.error("FFmpeg thumbnail generation failed:", error);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Thumbnail generation failed. Check that FFmpeg is installed and the configured path is correct.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!existsSync(filePath)) {
+      return NextResponse.json(
+        { success: false, error: "Thumbnail file was not created." },
+        { status: 500 }
+      );
+    }
+
+    const thumbnailUrl = `/api/storage/thumbnails/${fileName}`;
+
+    return NextResponse.json({
+      success: true,
+      thumbnailUrl,
+      url: thumbnailUrl,
+      fileName,
+      width,
+      height,
+    });
+  } catch (error) {
+    console.error("Thumbnail API error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unexpected thumbnail generation error.",
+      },
+      { status: 500 }
+    );
+  }
+}

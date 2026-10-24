@@ -1,0 +1,2173 @@
+
+========== app/api/videos/generate/route.ts ==========
+import { NextRequest, NextResponse } from "next/server"
+import Groq from "groq-sdk"
+
+const SUBCATEGORIES: Record<string, any> = {
+  psychology: {
+    sub: ["dark_psychology","body_language","cognitive_bias","attachment_theory","subconscious_mind","manipulation_tactics"],
+    dark_psychology:     { hooks:["Ye 3 tricks se log aapko control karte hain,","Dark psychology ka sabse khatarnak secret,","Psychologist ne bataya ye sign mat ignore karna,"], title:"Dark Psychology: [TOPIC] Ka Khatarnak Sach", music:"dark ambient mysterious" },
+    body_language:       { hooks:["Ye body language sign dekha to sach samajh lo,","Haath ki ye position batati hai sab kuch,","Aankhein kabhi jhooth nahi bolti,"], title:"Body Language: [TOPIC] Se Pehchano Asli Iraada", music:"calm psychology" },
+    cognitive_bias:      { hooks:["Aapka dimaag aapko roz bewakoof banata hai,","Ye bias aapke har fesle mein hai,","Scientists ne prove kiya ye galat sochte hain sab,"], title:"Cognitive Bias: [TOPIC] Se Aapka Dimaag Dhoka Khata Hai", music:"curious documentary" },
+    attachment_theory:   { hooks:["Aap kaisi relationship mein hain ye batata hai ek cheez,","Bachpan ki ye cheez adult life barbaad karti hai,","Ye attachment style aapki relationship fail karti hai,"], title:"Attachment Theory: [TOPIC] Ka Asar Zindagi Par", music:"emotional piano" },
+    subconscious_mind:   { hooks:["Aapka subconscious aapko control kar raha hai,","90% decisions subconscious leta hai,","Neend mein ye hota hai aapke dimaag mein,"], title:"Subconscious Mind: [TOPIC] Ka Andar Ka Sach", music:"ambient mysterious" },
+    manipulation_tactics:{ hooks:["Ye 5 tarike se log aapko manipulate karte hain,","Sales wale ye trick use karte hain aap par,","Is word ka use kabhi mat karo,"], title:"Manipulation: [TOPIC] Ki Tricks Jo Sab Par Chalti Hain", music:"dark cinematic" },
+  },
+  motivation: {
+    sub: ["comeback_story","discipline_habits","morning_routine","failure_lessons","success_mindset","productivity"],
+    comeback_story:    { hooks:["Ek banda tha jiske paas kuch nahi tha aaj crore hai,","Sabne haare ko dekha par usne ek cheez nahi chodi,","0 se 1 ka safar real story,"], title:"Comeback: [TOPIC] Ne Kaise Badla Sab Kuch", music:"epic motivational" },
+    discipline_habits: { hooks:["Ye ek habit crore log nahi kar sakte,","Successful log subah uthke ye karte hain,","66 din mein ye karo zindagi badal jayegi,"], title:"Discipline: [TOPIC] Ki Habit Jo Sab Badal De", music:"powerful drive" },
+    morning_routine:   { hooks:["Subah ki pehli 1 ghante mein ye galti mat karna,","Billionaires ki subah aisi hoti hai,","Ye morning routine productivity 10x karti hai,"], title:"Morning Routine: [TOPIC] Ka Secret Kamyabi Ka", music:"upbeat energetic" },
+    failure_lessons:   { hooks:["Ye failure successful logo ka pehla step tha,","Haar ne aapko kuch diya jo jeet nahi de sakti,","Elon Musk bhi 3 baar fail hua tha,"], title:"Failure Lessons: [TOPIC] Se Jo Sikhna Chahiye", music:"cinematic inspire" },
+    success_mindset:   { hooks:["90% log isi soch ki wajah se fail hote hain,","Amir aur garib ki soch ka ek farq,","Ye mindset shift life 180 degree palat dega,"], title:"Success Mindset: [TOPIC] Se Badlo Soch", music:"epic orchestral" },
+    productivity:      { hooks:["Ye method se 8 ghante ka kaam 3 mein hota hai,","Deep work ka matlab samjhe hain aap,","Ye distraction productivity 40% girata hai,"], title:"Productivity: [TOPIC] Karo 10x Zyada Kaam", music:"focus beats" },
+  },
+  businesslessons: {
+    sub: ["startup_mistakes","marketing_hacks","negotiation","leadership","sales_psychology","financial_freedom"],
+    startup_mistakes:  { hooks:["99% startups isi ek galti se doobt hain,","Founder ne pehle din ye bhool ki sab kho diya,","VC investor ne seedha poocha ye sawal,"], title:"Startup Mistakes: [TOPIC] Jo Founder Regret Karta Hai", music:"corporate urgent" },
+    marketing_hacks:   { hooks:["Ye marketing trick bina paisa ke viral karti hai,","Coca-Cola ne ye trick use ki 100 saal se,","Ye color change karne se sales 30% badi,"], title:"Marketing Hack: [TOPIC] Se Bina Budget Viral Bano", music:"upbeat corporate" },
+    negotiation:       { hooks:["Ye ek line salary double kar deti hai,","FBI negotiator ka ye secret sab use karte hain,","Kabhi bhi pehle price mat batao,"], title:"Negotiation: [TOPIC] Se Pao Jo Chahte Ho", music:"confident corporate" },
+    leadership:        { hooks:["Sab boss hote hain leader koi koi hota hai,","Ye ek quality sabse bade leaders mein common hai,","Jeff Bezos ne ye ek rule banaya tha,"], title:"Leadership: [TOPIC] Ke Woh Guna Jo Logo Ko Inspire Kare", music:"inspiring corporate" },
+    sales_psychology:  { hooks:["Customer ye nahi chahta jo aap bechte ho,","Ye 3 words sales double kar dete hain,","Sabse bada sales lie jo sab mante hain,"], title:"Sales Psychology: [TOPIC] Se Kuch Bhi Becho", music:"confident upbeat" },
+    financial_freedom: { hooks:["25 saal mein financially free hone ka ek formula,","Middle class ye galti karta hai puri zindagi,","Ye asset aapko sote mein paise deta hai,"], title:"Financial Freedom: [TOPIC] Ka Raasta Aazadi Ka", music:"success ambient" },
+  },
+  storytelling: {
+    sub: ["true_crime","emotional_drama","mystery_thriller","real_life_hero","betrayal_story","redemption"],
+    true_crime:        { hooks:["Ye sach tha par kisi ne believe nahi kiya,","Police case band kar di par sach alag tha,","Us raat jo hua court mein bhi bataya nahi gaya,"], title:"True Crime: [TOPIC] Ka Sach Jo Chhupaya Gaya", music:"dark suspense" },
+    emotional_drama:   { hooks:["Rona aayega par ye sunna zaroori hai,","Ek bete ne baap ke liye jo kiya woh,","Hospital ki is kahani ne lakho logo ko rula diya,"], title:"Emotional Story: [TOPIC] Dil Ko Chhoo Legi", music:"emotional strings" },
+    mystery_thriller:  { hooks:["Koi nahi jaanta abhi bhi kya hua tha,","Ye case aaj bhi unsolved hai,","Raat ke 2 baje phone aaya number unknown tha,"], title:"Mystery: [TOPIC] Ka Raaz Jo Abhi Nahi Khula", music:"thriller suspense" },
+    real_life_hero:    { hooks:["Ek aam aadmi ne woh kiya jo heroes karte hain,","Kisi ne credit nahi liya par duniya badal di,","Ye banda sirf dil ki sunta hai,"], title:"Real Hero: [TOPIC] Ka Asli Hero Kaun Tha", music:"inspiring hero" },
+    betrayal_story:    { hooks:["Jis par sabse zyada trust kiya usne hi toda,","Partner friend family ye betrayal sabse badi thi,","Ye sacchi kahani aapko sochne par majboor karegi,"], title:"Betrayal: [TOPIC] Ne Jo Kiya Woh Maafinaar Nahi", music:"sad dramatic" },
+    redemption:        { hooks:["Sab haare maan chuke the par usne nahi,","Ek doosra mauka mila aur sab badal gaya,","Ye insaan jail se bahar aaya aur crore kamaya,"], title:"Redemption: [TOPIC] Haar Ke Jeetne Walo Ki Kahani", music:"hopeful cinematic" },
+  },
+  history: {
+    sub: ["india_untold","mughal_secrets","freedom_struggle","ancient_civilizations","world_wars","forgotten_heroes"],
+    india_untold:          { hooks:["Ye history books mein kabhi nahi padhai gayi,","India ki ye sacchai chhupai gayi thi,","Ye khazana aaj bhi wahi hai,"], title:"India History: [TOPIC] Ka Chhupa Hua Sach", music:"epic orchestral" },
+    mughal_secrets:        { hooks:["Mughals ka ye secret history ne chhupa diya,","Shahjahan ke baad jo hua woh shocking hai,","Ye Mughal darbar mein roz hota tha,"], title:"Mughal Secrets: [TOPIC] Ka Andar Ka Sach", music:"historical cinematic" },
+    freedom_struggle:      { hooks:["Azaadi ke liye ye kurbani di gayi kisi ne nahi bataya,","Is freedom fighter ka naam school mein nahi padha,","August 1947 mein ye hua tha jo batate nahi,"], title:"Freedom: [TOPIC] Ki Larai Jo History Ne Bhulai", music:"patriotic orchestral" },
+    ancient_civilizations: { hooks:["5000 saal purani civilization ka ye raaz,","Ye technology 2000 saal pehle India mein thi,","Harappa mein ye milna scientists ko shock kar gaya,"], title:"Ancient India: [TOPIC] Ka 5000 Saal Purana Raaz", music:"ancient mystery" },
+    world_wars:            { hooks:["World War 2 ka ye fact schools mein nahi padhate,","Ek galat decision ne lakhon log maar diye,","Hitler ke akhri din ka sach kya tha,"], title:"World War: [TOPIC] Ka Wo Sach Jo History Mein Nahi", music:"war documentary" },
+    forgotten_heroes:      { hooks:["Ye banda India ka sabse bada hero tha koi nahi jaanta,","Aurat ne kiya tha jo kisi mard nahi kar saka,","Is naam ko bhula diya gaya par kaam yaad hai,"], title:"Forgotten Hero: [TOPIC] Jise India Bhool Gaya", music:"heroic strings" },
+  },
+  horror: {
+    sub: ["haunted_places","true_paranormal","unexplained_events","psychological_horror","urban_legends","cursed_objects"],
+    haunted_places:      { hooks:["Ye jagah India ki sabse darr wali jagah hai,","Is building mein raat ko koi nahi rukta,","Government ne is area ko seal kiya hua hai,"], title:"Haunted: [TOPIC] Raat Ko Yahan Koi Nahi Jata", music:"horror ambient" },
+    true_paranormal:     { hooks:["Ye 100% sachi kahani hai main swear karta hoon,","Camera ne jo pakda woh paranormal tha,","Ye event scientific proof ke baad bhi unexplained hai,"], title:"Paranormal: [TOPIC] Science Bhi Explain Nahi Kar Saka", music:"dark supernatural" },
+    unexplained_events:  { hooks:["Ye event aaj bhi mystery hai duniya ke liye,","Plane disappear ho gaya 30 saal baad mila,","Ye disappearance case aaj bhi open hai,"], title:"Mystery: [TOPIC] Duniya Abhi Tak Samajh Nahi Pai", music:"thriller suspense" },
+    psychological_horror:{ hooks:["Ye cheez dimaag mein darr daalti hai bina baat ke,","Sleep paralysis mein jo dikhta hai woh kya hai,","Ye disorder aapko khud se dara deta hai,"], title:"Psychological Horror: [TOPIC] Ka Dimaagi Darr", music:"psychological dark" },
+    urban_legends:       { hooks:["Ye kahani India ke har sheher mein hai,","Nani dadi ki ye kahaaniyaan sach nikli,","Kya sach mein aise hota hai midnight par,"], title:"Urban Legend: [TOPIC] Sacchi Ya Jhooth", music:"eerie ambient" },
+    cursed_objects:      { hooks:["Is cheez ko rakhne wala safe nahi hai,","Museum ne is object ko seal kar rakha hai,","Ye painting sirf bure logon ke saath hoti hai,"], title:"Cursed: [TOPIC] Ye Object Kisi Ko Nahi Chuna Chahiye", music:"dark horror" },
+  },
+  ainews: {
+    sub: ["ai_tools","tech_giants","future_jobs","ai_india","robotics","digital_economy"],
+    ai_tools:       { hooks:["Ye AI tool launch hote hi viral ho gaya,","ChatGPT ko ye tool peeche chhor gaya,","Ye free tool kaam 10x fast karta hai,"], title:"AI Tool Alert: [TOPIC] Abhi Try Karo", music:"tech upbeat" },
+    tech_giants:    { hooks:["Google ne aaj jo announce kiya sab hil gaye,","Apple ka ye secret project finally bahar aaya,","Microsoft ka ye move sab badal dega,"], title:"Tech News: [TOPIC] Ka Bada Elaan Aaj", music:"breaking news" },
+    future_jobs:    { hooks:["Ye 5 jobs AI 2 saal mein khatam kar dega,","Ye skill seekh lo AI replace nahi kar payega,","2026 mein ye jobs demand mein hongi,"], title:"Future Jobs: [TOPIC] AI Ke Baad Kya Bachega", music:"urgent documentary" },
+    ai_india:       { hooks:["India ka ye AI startup duniya mein chhaya,","Government ne AI ke liye ye plan banaya,","IIT se nikla ye AI tool viral ho gaya,"], title:"India AI: [TOPIC] Desh Ka Tech Revolution", music:"patriotic upbeat" },
+    robotics:       { hooks:["Ye robot human jaisi baat karta hai,","Factory mein robots ne workers replace kar diye,","Ye humanoid robot 2025 mein aa raha hai,"], title:"Robots: [TOPIC] Machines Ki Duniya Aa Gayi", music:"futuristic electronic" },
+    digital_economy:{ hooks:["Ye crypto 1000% return de raha hai,","Digital rupee kya hoga India mein,","NFT khatam hua ya abhi bhi chance hai,"], title:"Digital Economy: [TOPIC] Paise Ka Future", music:"finance tech" },
+  },
+  startupstories: {
+    sub: ["founder_journey","funding_story","pivot_moment","product_launch","failure_comeback","unicorn_story"],
+    founder_journey: { hooks:["Iss founder ne ghar bech ke startup shuru kiya,","Ek chai wale ke bete ne crore ka startup banaya,","Sirf 22 saal mein ye banda crorepati bana,"], title:"Founder Story: [TOPIC] Ka Inspiring Safar", music:"inspiring drive" },
+    funding_story:   { hooks:["Investors ne 10 baar reject kiya 11vi baar crore mila,","Shark Tank India mein ye deal sabse badi thi,","Zero se funding lene ka ye formula kaam karta hai,"], title:"Funding Story: [TOPIC] Kaise Mila Crore Ka Investment", music:"corporate upbeat" },
+    pivot_moment:    { hooks:["Company band hone wali thi ek decision ne sab badla,","Ye pivot story India ka sabse bada turnaround hai,","Jab product fail hua to ye kiya aur success mili,"], title:"Pivot: [TOPIC] Ek Decision Se Badli Company Ki Kismat", music:"dramatic corporate" },
+    product_launch:  { hooks:["Pehle din hi 1 lakh downloads ho gaye,","Launch ke 24 ghante mein servers crash ho gaye,","Ye product India mein fastest growing ban gaya,"], title:"Product Launch: [TOPIC] Ka Record-Breaking Debut", music:"exciting upbeat" },
+    failure_comeback:{ hooks:["Company doobi investors ne paise waapas maange,","Founder bankrupt hua aur 2 saal mein billionaire bana,","Ye failure story motivation se bhari hai,"], title:"Comeback: [TOPIC] Doobi Company Kaise Dobara Aayi", music:"epic comeback" },
+    unicorn_story:   { hooks:["Ye startup India ka latest unicorn ban gaya,","1 billion dollar valuation ka ye safar kaisa tha,","Gaon se shuru hua ye startup aaj duniya mein hai,"], title:"Unicorn: [TOPIC] India Ka Naya $1 Billion Startup", music:"success orchestral" },
+  },
+  luxury: {
+    sub: ["expensive_items","billionaire_lifestyle","luxury_travel","premium_brands","rare_collectibles","celebrity_wealth"],
+    expensive_items:    { hooks:["Ye cheez sirf 1% log afford kar sakte hain,","Iski keemat sunke aap chauk jaoge,","Duniya ki sabse mehengi cheez kya hai,"], title:"Luxury: [TOPIC] Ki Keemat Sunke Hairan Ho Jaoge", music:"luxury lounge" },
+    billionaire_lifestyle:{ hooks:["Billionaire ki subah aisi hoti hai,","Jeff Bezos ek din mein itna kharch karta hai,","Ye 5 cheezein sirf billionaires karte hain,"], title:"Billionaire Life: [TOPIC] Ki Zindagi Ka Ek Din", music:"premium smooth" },
+    luxury_travel:      { hooks:["Ye hotel ek raat ka 50 lakh leta hai,","Duniya ka sabse mehengaa vacation kaisa hota hai,","Private jet mein travel ka ye anubhav alag hai,"], title:"Luxury Travel: [TOPIC] Jahan Sirf Ameer Jaate Hain", music:"travel luxury" },
+    premium_brands:     { hooks:["Ye brand logo ki neend kharab kar deta hai,","Hermes bag ke liye 5 saal wait karna padta hai,","Ye watch sirf 500 log duniya mein rakhte hain,"], title:"Premium Brand: [TOPIC] Ka Wo Raaz Jo Sab Nahi Jaante", music:"elegant jazz" },
+    rare_collectibles:  { hooks:["Ye item auction mein 100 crore mein bika,","Rare hone ki wajah se ye priceless ho gaya,","Ye collection duniya mein sirf ek hai,"], title:"Rare Collection: [TOPIC] Ki Anokhi Duniya", music:"mysterious luxury" },
+    celebrity_wealth:   { hooks:["Is celebrity ki net worth sun ke dimaag ghoom jayega,","Ye star ek movie mein itna kamata hai,","Celebrity lifestyle mein ye cheez common hai,"], title:"Celebrity Wealth: [TOPIC] Ka Asli Paisa Kitna Hai", music:"glamour upbeat" },
+  },
+  quotes: {
+    sub: ["life_wisdom","heartbreak_healing","success_quotes","motivational_hindi","self_love","philosophical"],
+    life_wisdom:        { hooks:["Kabhi kabhi ek line poori zindagi badal deti hai,","Ye baat dil ko chhoo jayegi,","Zindagi ne sikhaya ek chhoti si baat,"], title:"Life Wisdom: [TOPIC] Se Seekhi Ye Baat", music:"warm acoustic" },
+    heartbreak_healing: { hooks:["Har tootne wale ke liye ye zaroori hai,","Dil toot jaaye to ye yaad rakhna,","Ye sunke aap ruk jaoge sochoge,"], title:"Heartbreak: [TOPIC] Ke Baad Dobara Uthna Seekho", music:"soft emotional piano" },
+    success_quotes:     { hooks:["Successful logo ki ye ek common baat hai,","Ye quote sunke aapki soch badal jayegi,","Achievement ka raaz ek line mein,"], title:"Success Quote: [TOPIC] Ka Ye Lesson Yaad Rakhna", music:"inspiring acoustic" },
+    motivational_hindi: { hooks:["Haar mat mano abhi bahut kuch baaki hai,","Ye struggle hi aapki asli training hai,","Toote hue log sabse mazboot hote hain,"], title:"Motivation: [TOPIC] Ka Dard Tumhari Taakat Hai", music:"warm motivational" },
+    self_love:          { hooks:["Khud se pyaar karna sabse zaroori hai,","Apne aap ko pahle rakhna selfish nahi hai,","Ye boundaries set karna seekho,"], title:"Self Love: [TOPIC] Pehle Khud Ko Sambhalo", music:"gentle uplifting" },
+    philosophical:      { hooks:["Zindagi ka matlab kya hai ye sochte ho kabhi,","Ye sawal sab poochte hain par jawab koi nahi deta,","Philosophy ki ye ek baat sab kuch samjha deti hai,"], title:"Philosophy: [TOPIC] Ka Gehri Soch Wala Sawal", music:"contemplative ambient" },
+  },
+  stoicism: {
+    sub: ["marcus_aurelius","control_what_you_can","discipline_over_emotion","suffering_growth","daily_stoic","modern_stoicism"],
+    marcus_aurelius:      { hooks:["Marcus Aurelius ne ye ek baat kahi thi,","Roman emperor ka ye secret aaj bhi kaam karta hai,","2000 saal purani ye advice aaj bhi valid hai,"], title:"Marcus Aurelius: [TOPIC] Ki Timeless Wisdom", music:"solemn orchestral" },
+    control_what_you_can:{ hooks:["Jo control nahi kar sakte usse chhodna seekho,","Ye ek principle zindagi easy kar deta hai,","Stoicism ka sabse important lesson ye hai,"], title:"Stoic Control: [TOPIC] Jo Control Hai Wahi Karo", music:"deep focus" },
+    discipline_over_emotion:{ hooks:["Emotion se nahi discipline se chalo,","Feelings temporary hain results permanent hain,","Ye ek habit sab successful log follow karte hain,"], title:"Discipline: [TOPIC] Se Upar Uthni Discipline Ki Shakti", music:"stern cinematic" },
+    suffering_growth:     { hooks:["Dukh se bhagna band karo samjho use,","Suffering ke bina growth impossible hai,","Ye dard hi aapko strong banana ata hai,"], title:"Suffering: [TOPIC] Ka Dard Hi Hai Aapki Shakti", music:"deep emotional" },
+    daily_stoic:          { hooks:["Aaj ka ek stoic lesson jo life badal de,","Roz ye ek kaam karo badloge zaroor,","Daily stoicism ka ye powerful practice hai,"], title:"Daily Stoic: [TOPIC] Ka Aaj Ka Powerful Lesson", music:"morning calm" },
+    modern_stoicism:      { hooks:["Purani philosophy modern life mein kaise kaam karti hai,","Ye ancient wisdom startup founders use karte hain,","Stoicism aur modern success ka connection,"], title:"Modern Stoic: [TOPIC] Aaj Ki Duniya Mein Stoicism", music:"contemporary calm" },
+  },
+  pov: {
+    sub: ["future_world","ai_takeover","space_explorer","last_human","time_traveler","virtual_reality"],
+    future_world:   { hooks:["Main apni aankhein kholta hoon kuch alag hai,","2050 ki duniya mein main khada hoon,","Ye jagah pehle kabhi nahi dekhi maine,"], title:"Future POV: [TOPIC] Ki Anokhi Duniya Mein Main", music:"synthwave atmospheric" },
+    ai_takeover:    { hooks:["Mujhe pata hai kuch galat hai yahan,","AI ne sab kuch sambhal liya hai aaj,","Machines ne decisions lene shuru kar diye,"], title:"AI POV: [TOPIC] Jab AI Ne Sab Control Kiya", music:"dark futuristic" },
+    space_explorer: { hooks:["Main pehli baar kisi aur planet par hun,","Earth se lakhon kilometer door khada hun,","Stars ke beech ye sheher kaisa hai,"], title:"Space POV: [TOPIC] Antariksh Ki Yatra Mein Main", music:"space ambient" },
+    last_human:     { hooks:["Main duniya ka aakhri insaan hun,","Har taraf machines hain insaan nahi,","Kab hua ye sab mujhe nahi pata,"], title:"Last Human POV: [TOPIC] Akhri Insaan Ki Kahani", music:"post-apocalyptic" },
+    time_traveler:  { hooks:["Main 100 saal peeche pahunch gaya hun,","Waqt yahan alag tarah se chalta hai,","Is pal ko change karna mera mission hai,"], title:"Time Travel POV: [TOPIC] Waqt Ki Yatra Mein Main", music:"temporal mysterious" },
+    virtual_reality:{ hooks:["Ye real nahi hai par bilkul real lagta hai,","Main VR mein hun aur bahar jaana nahi chahta,","Digital duniya mein ye kya ho raha hai,"], title:"VR POV: [TOPIC] Digital Duniya Ka Anokha Anubhav", music:"electronic immersive" },
+  },
+  general: {
+    sub: ["trending_facts","life_hacks","india_special","viral_challenge","did_you_know","inspirational"],
+    trending_facts:  { hooks:["Ye baat aaj sabko jaanni chahiye,","Ye fact sunke aap hairan reh jaoge,","Aaj kuch aisa bataunga jo aap sochte nahi,"], title:"Facts: [TOPIC] Ye Jaanna Zaroori Tha", music:"curious documentary" },
+    life_hacks:      { hooks:["Ye ek cheez life 10x easy kar deti hai,","Simple trick jo sab log miss karte hain,","Ye jaante ho to zindagi aasan ho jaati hai,"], title:"Life Hack: [TOPIC] Se Zindagi Banao Aasaan", music:"upbeat positive" },
+    india_special:   { hooks:["India mein ye ek cheez duniya mein nahi milti,","Hamara desh ye karta hai jo koi nahi karta,","India ki ye baat duniya ko pata nahi,"], title:"India Special: [TOPIC] Jo Sirf Bharat Mein Hota Hai", music:"patriotic upbeat" },
+    viral_challenge: { hooks:["Ye challenge poori duniya mein viral ho gaya,","India mein ye trend sabse fast phela,","Ye karne wale log hairan kar dete hain,"], title:"Viral: [TOPIC] Ka Trend Jo Duniya Mein Chhaya", music:"trendy upbeat" },
+    did_you_know:    { hooks:["Kya aap jaante hain ye baat,","Ye fact 99% log nahi jaante,","Aaj ek aisi cheez batata hun jo sunke chauk jaoge,"], title:"Did You Know: [TOPIC] Ka Ye Shocking Fact", music:"curious ambient" },
+    inspirational:   { hooks:["Ye story sunke aap kuch karna chahoge,","Ek aam insaan ne ye kiya jo extraordinary hai,","Ye inspiration aapki zindagi badal sakti hai,"], title:"Inspiration: [TOPIC] Ki Ye Kahani Sunna Zaroori Tha", music:"warm inspiring" },
+  },
+}
+
+const CATEGORY_CONFIG: Record<string, any> = {
+  psychology:      { voice:"hi-IN-MadhurNeural", voiceRate:"+8%",  voicePitch:"-1Hz", pexels:["brain neurons purple glow","therapy office calm","ocean waves night blue","city lights blur","misty lake dawn"] },
+  stoicism:        { voice:"hi-IN-MadhurNeural", voiceRate:"-5%",  voicePitch:"-3Hz", pexels:["greek marble statue fog","foggy mountain solo","solitary silhouette","ancient ruins grayscale","calm lake mist"] },
+  quotes:          { voice:"hi-IN-SwaraNeural",  voiceRate:"0%",   voicePitch:"0Hz",  pexels:["warm sunset window","cozy coffee bokeh","golden hour bokeh","minimalist desk","golden nature calm"] },
+  businesslessons: { voice:"hi-IN-MadhurNeural", voiceRate:"+10%", voicePitch:"+1Hz", pexels:["office skyscraper glass","business handshake","stock chart green","city skyline bright","modern office clean"] },
+  storytelling:    { voice:"hi-IN-SwaraNeural",  voiceRate:"-8%",  voicePitch:"-2Hz", pexels:["dark forest cinematic","abandoned house mystery","rainy window noir","candle shadow room","old library dust"] },
+  startupstories:  { voice:"hi-IN-MadhurNeural", voiceRate:"+10%", voicePitch:"+1Hz", pexels:["startup office night","tech team coding","laptop screen glow","silicon valley modern","entrepreneur pitch"] },
+  luxury:          { voice:"hi-IN-MadhurNeural", voiceRate:"+2%",  voicePitch:"0Hz",  pexels:["luxury car night","gold watch shine","private jet interior","luxury yacht sunset","designer fashion"] },
+  history:         { voice:"hi-IN-MadhurNeural", voiceRate:"-3%",  voicePitch:"-1Hz", pexels:["ancient ruins fog","historical battlefield","old map parchment","ancient columns","vintage photograph"] },
+  pov:             { voice:"hi-IN-SwaraNeural",  voiceRate:"+5%",  voicePitch:"+1Hz", pexels:["cyberpunk city neon","immersive neon corridor","futuristic hallway glow","synthwave horizon","neon rain night"] },
+  horror:          { voice:"hi-IN-SwaraNeural",  voiceRate:"-15%", voicePitch:"-5Hz", pexels:["haunted house dark fog","horror corridor red","graveyard night mist","dark door shadow","scary forest fog"] },
+  ainews:          { voice:"hi-IN-MadhurNeural", voiceRate:"+15%", voicePitch:"+2Hz", pexels:["news studio broadcast","breaking news digital","world map digital","newsroom desk blue","digital ticker screen"] },
+  motivation:      { voice:"hi-IN-MadhurNeural", voiceRate:"+8%",  voicePitch:"0Hz",  pexels:["sunrise motivation epic","athlete training power","mountain peak victory","crowd cheering","determination face"] },
+  general:         { voice:"hi-IN-MadhurNeural", voiceRate:"+6%",  voicePitch:"0Hz",  pexels:["cinematic aerial sunset","epic mountains golden","urban city timelapse","beautiful nature light","dramatic sky clouds"] },
+}
+
+const GROQ_MODELS = ["qwen/qwen3.8-27b","openai/gpt-oss-120b"]
+
+async function groqWithFallback(groq: Groq, messages: any[], max_tokens: number, temperature: number): Promise<string> {
+  for (const model of GROQ_MODELS) {
+    try {
+      const res = await groq.chat.completions.create({ model, messages, temperature, max_tokens })
+      console.log(`✅ Groq model: ${model}`)
+      return res.choices[0].message.content || ""
+    } catch (e: any) {
+      if (e?.status === 429) { console.log(`⚠️ Rate limit: ${model}`); continue }
+      throw e
+    }
+  }
+  throw new Error("All Groq models rate limited.")
+}
+
+function extractJSON(raw: string): any {
+  let text = raw.replace(/<think>[\s\S]*?<\/think>/gi,"").replace(/```(?:json)?\s*/gi,"").replace(/```\s*/g,"").trim()
+  try { return JSON.parse(text) } catch {}
+  const s = text.indexOf("{"), e = text.lastIndexOf("}")
+  if (s !== -1 && e > s) {
+    try { return JSON.parse(text.slice(s, e+1)) } catch {}
+    try { return JSON.parse(text.slice(s, e+1).replace(/\r?\n/g," ").replace(/\t/g," ")) } catch {}
+  }
+  throw new Error("No valid JSON in response")
+}
+
+function getSubcategory(catKey: string): { subKey: string; subConfig: any } {
+  const cat = SUBCATEGORIES[catKey] || SUBCATEGORIES.general
+  const subs: string[] = cat.sub || ["general"]
+  const subKey = subs[Math.floor(Math.random() * subs.length)]
+  const subConfig = cat[subKey] || SUBCATEGORIES.general.trending_facts
+  return { subKey, subConfig }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+    const { topic, language, channelName, category, mode, generate30Day } = await req.json()
+    if (!topic) return NextResponse.json({ error: "Topic required" }, { status: 400 })
+
+    const catKey = (category || "general").toLowerCase().replace(/\s+/g,"").replace(/[^a-z0-9]/g,"")
+    const config = CATEGORY_CONFIG[catKey] || CATEGORY_CONFIG.general
+    const isShorts = mode === "shorts" || catKey === "shorts" || catKey === "horror"
+    const lang = language || "Hindi"
+    const channel = channelName || "My Channel"
+
+    const { subKey, subConfig } = getSubcategory(catKey)
+    const hooks: string[] = subConfig.hooks || ["Aaj kuch aisa bataunga jo aap sochte nahi,"]
+    const randomHook = hooks[Math.floor(Math.random() * hooks.length)]
+    const titleFormula: string = subConfig.title || "[TOPIC] Ye Jaanna Zaroori Tha"
+    const musicMood: string = subConfig.music || "cinematic ambient"
+    const seoTitle = titleFormula.replace("[TOPIC]", topic.slice(0, 30))
+
+    console.log(`📂 Category: ${catKey} | Sub: ${subKey} | Music: ${musicMood}`)
+
+    if (generate30Day) {
+      const subs = (SUBCATEGORIES[catKey] || SUBCATEGORIES.general).sub || ["general"]
+      const raw = await groqWithFallback(groq, [{
+        role: "user",
+        content: `Generate 30 unique YouTube Shorts topics for "${topic}" in ${lang}.
+Category: ${catKey} | Rotate through these subcategories: ${subs.join(", ")}
+Each topic MUST be a different subcategory. Return JSON array ONLY:
+[{"day":1,"topic":"...","subcategory":"${subs[0]}","hook":"opening line Hindi","title":"SEO title"}]`
+      }], 2500, 0.95)
+      const schedule = extractJSON(raw)
+      return NextResponse.json({ success: true, schedule30Day: Array.isArray(schedule) ? schedule : [] })
+    }
+
+    const raw = await groqWithFallback(groq, [
+      {
+        role: "system",
+        content: `You are India's #1 viral Hindi YouTube Shorts creator.
+Category: ${catKey} | Subcategory: ${subKey} | Music mood: ${musicMood}
+Channel: "${channel}" | Language: ${lang}
+
+SCRIPT RULES:
+- First line MUST be exactly: "${randomHook}"
+- Max 8 words per sentence
+- Use [PAUSE] for dramatic pauses
+- Pure Hindi/Hinglish speech only — NO markdown, bullets, symbols, dashes
+- Duration: ${isShorts ? "30-45 seconds" : "4-6 minutes"}
+- End with subscribe CTA in Hindi
+
+TITLE: Use this formula exactly: "${seoTitle}" — max 60 chars, add numbers if possible
+
+THUMBNAIL: thumbnailText = exactly 3 ALL CAPS power words matching the emotion
+TAGS: Mix Hindi + English, include category + subcategory keywords
+
+RESPOND ONLY WITH VALID JSON — no explanation, no markdown`
+      },
+      {
+        role: "user",
+        content: `Topic: "${topic}"
+
+Return EXACT JSON:
+{
+  "title": "${seoTitle}",
+  "hook": "${randomHook}",
+  "script": "Full spoken script in ${lang}. Start with hook. Use [PAUSE]. Natural speech. One line.",
+  "description": "YouTube SEO: Line 1 = main keyword + what video covers. Line 2 = subscribe hook. 150 words. End: #hindi #${catKey} #viral #india #shorts #trending",
+  "keyPoints": ["point1","point2","point3","point4","point5"],
+  "callToAction": "Subscribe CTA in ${lang}",
+  "pexelsQuery": "3-4 English words for ${catKey} ${subKey} footage",
+  "thumbnailText": "3 WORDS ALL CAPS",
+  "thumbnailEmoji": "1 emoji",
+  "tags": ["${catKey}","${subKey.replace(/_/g," ")}","hindi","india","viral","shorts","trending","${topic.split(" ")[0].toLowerCase()}","facts","knowledge"],
+  "chapters": ["0:00 - Hook","0:15 - Main Point","0:40 - Conclusion"],
+  "videoMood": "${musicMood}",
+  "subcategory": "${subKey}"
+}`
+      }
+    ], 4000, 0.85)
+
+    const scriptData = extractJSON(raw)
+
+    const clean = (s: string) => (s||"")
+      .replace(/\u2014|\u2013/g,", ").replace(/\u2018|\u2019|\u201C|\u201D/g,"")
+      .replace(/[^\x20-\x7E\u0900-\u097F\u0964\u0965\n.,!?;: [\]]/g," ")
+      .replace(/\s+/g," ").trim()
+
+    if (scriptData.script)       scriptData.script      = clean(scriptData.script)
+    if (scriptData.title)        scriptData.title       = clean(scriptData.title) || seoTitle
+    if (scriptData.description)  scriptData.description = clean(scriptData.description)
+    if (scriptData.thumbnailText) scriptData.thumbnailText = scriptData.thumbnailText
+      .replace(/[^A-Z0-9\s]/gi,"").toUpperCase().trim().split(/\s+/).slice(0,4).join(" ")
+
+    let pexelsClips: any[] = []
+    const pexelsKey = process.env.PEXELS_API_KEY
+    if (pexelsKey) {
+      try {
+        const q = encodeURIComponent(scriptData.pexelsQuery || config.pexels[0])
+        const pexRes = await fetch(`https://api.pexels.com/videos/search?query=${q}&per_page=8&orientation=${isShorts?"portrait":"landscape"}&size=medium`, { headers:{ Authorization: pexelsKey } })
+        if (pexRes.ok) {
+          const pexData = await pexRes.json()
+          pexelsClips = (pexData.videos||[]).slice(0,5).map((v: any) => ({
+            id: v.id,
+            url: v.video_files?.find((f: any) => f.quality==="hd" && f.width<=1280)?.link || v.video_files?.[0]?.link,
+            duration: v.duration,
+          }))
+        }
+      } catch {}
+    }
+
+    return NextResponse.json({
+      success:      true,
+      title:        scriptData.title        || seoTitle,
+      script:       scriptData.script       || "",
+      description:  scriptData.description  || "",
+      hook:         scriptData.hook         || randomHook,
+      keyPoints:    scriptData.keyPoints    || [],
+      callToAction: scriptData.callToAction || "",
+      chapters:     scriptData.chapters     || [],
+      pexelsQuery:  scriptData.pexelsQuery  || "",
+      tags:         scriptData.tags         || [],
+      voice:        config.voice,
+      voiceRate:    config.voiceRate,
+      voicePitch:   config.voicePitch,
+      videoMood:    scriptData.videoMood    || musicMood,
+      category:     catKey,
+      subcategory:  scriptData.subcategory  || subKey,
+      pexelsClips,
+      thumbnail: {
+        boldText: scriptData.thumbnailText || seoTitle.toUpperCase().split(/\s+/).slice(0,3).join(" "),
+        emoji:    scriptData.thumbnailEmoji || "🔥",
+      },
+    })
+  } catch (error: any) {
+    console.error("Script gen error:", error.message)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+
+
+========== app/api/thumbnail/route.ts ==========
+
+import { NextRequest, NextResponse } from "next/server";
+import { mkdir } from "fs/promises";
+import { existsSync } from "fs";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import path from "path";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const execFileAsync = promisify(execFile);
+
+const FFMPEG =
+  process.platform === "win32"
+    ? "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe"
+    : "ffmpeg";
+
+const THEMES: Record<string, { bg: string; accent: string }> = {
+  cinematic: { bg: "050508", accent: "FF0000" },
+  fakes: { bg: "0d0e15", accent: "FFD700" },
+  mysteries: { bg: "0a0014", accent: "CC44FF" },
+  brainrot: { bg: "001a0d", accent: "00FF88" },
+  quiz: { bg: "00101d", accent: "00E5FF" },
+  avatar: { bg: "001a10", accent: "00E676" },
+  localizer: { bg: "1a0a00", accent: "FF6D00" },
+  psychology: { bg: "0a0015", accent: "8B5CF6" },
+  stoicism: { bg: "1a1a1a", accent: "9E9E9E" },
+  quotes: { bg: "1a0a00", accent: "FFC107" },
+  businesslessons: { bg: "001a0a", accent: "2196F3" },
+  storytelling: { bg: "1a0005", accent: "E53935" },
+  startupstories: { bg: "001020", accent: "00BCD4" },
+  luxury: { bg: "0a0800", accent: "FFD700" },
+  history: { bg: "100800", accent: "C08552" },
+  horror: { bg: "0a0000", accent: "FF0000" },
+  motivation: { bg: "0a0500", accent: "FF6B00" },
+  facts: { bg: "000a1d", accent: "00E5FF" },
+  general: { bg: "050010", accent: "FF4081" },
+};
+
+function cleanText(value: unknown, maxLength: number): string {
+  if (typeof value !== "string") return "";
+
+  return value
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}\s.,!?'-]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function escapeDrawtext(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\\\\\")
+    .replace(/:/g, "\\:")
+    .replace(/'/g, "'\\\\\\''")
+    .replace(/%/g, "\\%");
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+
+    const title = cleanText(body.title, 150);
+    const boldText = cleanText(body.boldText, 80);
+    const category =
+      typeof body.category === "string"
+        ? body.category.toLowerCase().replace(/[^a-z]/g, "")
+        : "general";
+    const videoType = body.videoType;
+
+    if (!title && !boldText) {
+      return NextResponse.json(
+        { success: false, error: "Title or boldText is required." },
+        { status: 400 }
+      );
+    }
+
+    const isShorts = videoType === "shorts";
+    const width = isShorts ? 1080 : 1280;
+    const height = isShorts ? 1920 : 720;
+
+    const theme = THEMES[category] || THEMES.general;
+
+    const thumbnailDir = path.join(
+      process.cwd(),
+      "storage",
+      "thumbnails"
+    );
+
+    await mkdir(thumbnailDir, { recursive: true });
+
+    const fileName = `thumb_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 8)}.jpg`;
+
+    const filePath = path.join(thumbnailDir, fileName);
+
+    const line1 = cleanText(
+      (boldText || title).toUpperCase().split(/\s+/).slice(0, 3).join(" "),
+      24
+    );
+
+    const line2 = cleanText(
+      title.toUpperCase().split(/\s+/).slice(3, 8).join(" "),
+      36
+    );
+
+    const fontFile = path.join(
+      process.cwd(),
+      "public",
+      "fonts",
+      "NotoSansDevanagari-Bold.ttf"
+    );
+
+    const fontOption = existsSync(fontFile)
+      ? `fontfile='${escapeDrawtext(fontFile.replace(/\\/g, "/"))}':`
+      : "";
+
+    const fontSize1 = isShorts ? 88 : 72;
+    const fontSize2 = isShorts ? 56 : 42;
+    const y1 = isShorts ? "(h-text_h)/2-90" : "(h-text_h)/2-45";
+    const y2 = isShorts ? "(h-text_h)/2+45" : "(h-text_h)/2+35";
+
+    const text1 = escapeDrawtext(line1);
+    const text2 = escapeDrawtext(line2);
+
+    const filters = [
+      `drawbox=x=0:y=0:w=${Math.round(width * 0.018)}:h=${height}:color=0x${theme.accent}:t=fill`,
+      `drawbox=x=0:y=0:w=${width}:h=${Math.round(height * 0.012)}:color=0x${theme.accent}:t=fill`,
+      `drawtext=${fontOption}text='${text1}':fontsize=${fontSize1}:fontcolor=white:x=(w-text_w)/2:y=${y1}:shadowcolor=black:shadowx=4:shadowy=4`,
+    ];
+
+    if (line2) {
+      filters.push(
+        `drawtext=${fontOption}text='${text2}':fontsize=${fontSize2}:fontcolor=0x${theme.accent}:x=(w-text_w)/2:y=${y2}:shadowcolor=black:shadowx=3:shadowy=3`
+      );
+    }
+
+    try {
+      await execFileAsync(
+        FFMPEG,
+        [
+          "-y",
+          "-f",
+          "lavfi",
+          "-i",
+          `color=c=0x${theme.bg}:s=${width}x${height}`,
+          "-vf",
+          filters.join(","),
+          "-frames:v",
+          "1",
+          "-q:v",
+          "2",
+          filePath,
+        ],
+        { timeout: 30000, windowsHide: true }
+      );
+    } catch (error) {
+      console.error("FFmpeg thumbnail generation failed:", error);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Thumbnail generation failed. Check that FFmpeg is installed and the configured path is correct.",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!existsSync(filePath)) {
+      return NextResponse.json(
+        { success: false, error: "Thumbnail file was not created." },
+        { status: 500 }
+      );
+    }
+
+    const thumbnailUrl = `/api/storage/thumbnails/${fileName}`;
+
+    return NextResponse.json({
+      success: true,
+      thumbnailUrl,
+      url: thumbnailUrl,
+      fileName,
+      width,
+      height,
+    });
+  } catch (error) {
+    console.error("Thumbnail API error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unexpected thumbnail generation error.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== app/api/video/generate/route.ts ==========
+FILE NOT FOUND
+
+========== app/api/youtube/route.ts ==========
+import { NextResponse } from "next/server";
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const action = searchParams.get("action");
+
+  if (action === "connect") {
+    const params = new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID || "",
+      // Forced absolute production callback
+      redirect_uri: "https://youtubeautoaiproductdesign5.vercel.app/api/youtube/callback",
+      response_type: "code",
+      scope: "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube",
+      access_type: "offline",
+      prompt: "consent",
+    });
+    
+    return NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  }
+  
+  return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+}
+
+
+========== app/api/youtube/callback/route.ts ==========
+FILE NOT FOUND
+
+========== app/dashboard/new-prompt/page.tsx ==========
+"use client"
+import { useState } from "react"
+import type React from "react"
+import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import {
+  AlertCircle, Loader2, CheckCircle, Zap, Calendar,
+  Video, Brain, Heart, Cpu, BookOpen, Trophy,
+  Mic, Eye, Sparkles, Wand2, MonitorPlay, Film, Layers, ChevronRight
+} from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+import { store } from "@/lib/store"
+
+// UNICORN SAAS PILLAR DESIGN
+const PILLARS = [
+  {
+    id: "typography",
+    title: "Typography Engine",
+    desc: "Kinetic pop & bounce text. High retention.",
+    gradient: "from-cyan-500/20 to-blue-600/5",
+    borderHover: "hover:border-cyan-500/50",
+    shadow: "shadow-[0_0_15px_rgba(6,182,212,0.15)]",
+    icon: <MonitorPlay className="h-5 w-5 text-cyan-400" />,
+    categories: [
+      { id: "psychology", label: "Psychology", icon: <Brain className="h-4 w-4"/>, style: "Deep + Calm" },
+      { id: "motivation", label: "Motivation", icon: <Zap className="h-4 w-4"/>, style: "Powerful" },
+      { id: "stoicism", label: "Stoicism", icon: <Trophy className="h-4 w-4"/>, style: "Deep + Slow" },
+      { id: "quotes", label: "Quotes", icon: <BookOpen className="h-4 w-4"/>, style: "Impactful" },
+      { id: "businesslessons", label: "Business", icon: <Layers className="h-4 w-4"/>, style: "Fast" },
+      { id: "storytelling", label: "Story", icon: <Mic className="h-4 w-4"/>, style: "Suspense" }
+    ]
+  },
+  {
+    id: "cinematic",
+    title: "Cinematic B-Roll",
+    desc: "Premium stock footage & dramatic LUTs.",
+    gradient: "from-amber-500/20 to-orange-600/5",
+    borderHover: "hover:border-amber-500/50",
+    shadow: "shadow-[0_0_15px_rgba(245,158,11,0.15)]",
+    icon: <Film className="h-5 w-5 text-amber-400" />,
+    categories: [
+      { id: "startupstories", label: "Startups", icon: <Zap className="h-4 w-4"/>, style: "Inspiring" },
+      { id: "businessdocumentary", label: "Biz Doc", icon: <Video className="h-4 w-4"/>, style: "Professional" },
+      { id: "history", label: "History", icon: <BookOpen className="h-4 w-4"/>, style: "Storyteller" },
+      { id: "luxury", label: "Luxury", icon: <Trophy className="h-4 w-4"/>, style: "Smooth" },
+      { id: "travel", label: "Travel", icon: <Sparkles className="h-4 w-4"/>, style: "Energetic" },
+      { id: "emotionalstories", label: "Emotional", icon: <Heart className="h-4 w-4"/>, style: "Soft" }
+    ]
+  },
+  {
+    id: "ai",
+    title: "Gen-AI Engine",
+    desc: "Hyper-real AI images + Ken Burns effect.",
+    gradient: "from-fuchsia-500/20 to-purple-600/5",
+    borderHover: "hover:border-fuchsia-500/50",
+    shadow: "shadow-[0_0_15px_rgba(217,70,239,0.15)]",
+    icon: <Wand2 className="h-5 w-5 text-fuchsia-400" />,
+    categories: [
+      { id: "pov", label: "POV", icon: <Eye className="h-4 w-4"/>, style: "Casual" },
+      { id: "characterseries", label: "Characters", icon: <Brain className="h-4 w-4"/>, style: "Dynamic" },
+      { id: "horror", label: "Horror", icon: <Eye className="h-4 w-4"/>, style: "Creepy" },
+      { id: "fantasy", label: "Fantasy", icon: <Sparkles className="h-4 w-4"/>, style: "Magical" },
+      { id: "aiinfluencer", label: "Influencer", icon: <Heart className="h-4 w-4"/>, style: "Trendy" },
+      { id: "ainews", label: "AI News", icon: <Cpu className="h-4 w-4"/>, style: "News Anchor" }
+    ]
+  }
+]
+
+const ALL_CATEGORIES = PILLARS.flatMap(p => p.categories)
+
+const STEPS = [
+  { id: "script",    label: "Neural Scripting", icon: <Brain className="h-4 w-4"/> },
+  { id: "voice",     label: "Voice Synthesis",  icon: <Mic className="h-4 w-4"/>   },
+  { id: "thumbnail", label: "Visual Design",    icon: <Eye className="h-4 w-4"/>   },
+  { id: "video",     label: "Zenith Assembly",  icon: <Video className="h-4 w-4"/> },
+]
+
+export default function NewPromptPage() {
+  const router = useRouter()
+  const { user } = useAuth()
+
+  const [category, setCategory]         = useState("psychology")
+  const [prompt, setPrompt]             = useState("")
+  const [loading, setLoading]           = useState(false)
+  const [loading30, setLoading30]       = useState(false)
+  const [result, setResult]             = useState<any>(null)
+  const [error, setError]               = useState("")
+  const [currentStep, setCurrentStep]   = useState("")
+  const [completedSteps, setCompletedSteps] = useState<string[]>([])
+
+  const selectedCat = ALL_CATEGORIES.find(c => c.id === category) || ALL_CATEGORIES[0]
+  const activePillar = PILLARS.find(p => p.categories.some(c => c.id === category))
+
+  const markStep = (step: string) => {
+    setCurrentStep(step)
+    setCompletedSteps(prev => [...prev, step])
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!prompt.trim()) {
+      setError("Please enter a video topic.");
+      return;
+    }
+
+    if (!user?.email) {
+      setError("Please sign in again before generating a video.");
+      return;
+    }
+
+    if (!store) {
+      setError("Video storage is unavailable in this browser.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setResult(null);
+    setCompletedSteps([]);
+
+    try {
+      // NextAuth's user.id may differ from the localStorage profile id.
+      const localUser = store.getUserByEmail(user.email);
+      if (!localUser) {
+        throw new Error(
+          "Your local profile was not found. Sign out and sign in again, then complete channel setup."
+        );
+      }
+
+      // Repair old demo channels whose userId no longer matches any local profile.
+      // This runs only when the browser has exactly one local profile.
+      store.repairOrphanedChannelsForSingleUser(localUser.id);
+
+      const channels = store.getChannels(localUser.id);
+      const channel = channels[0];
+
+      if (!channel) {
+        throw new Error(
+          "No channel is linked to this profile. Open Channels and complete channel setup first."
+        );
+      }
+
+      // 1. Generate script, title, description and tags.
+      setCurrentStep("script");
+      const scriptResponse = await fetch("/api/videos/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: prompt.trim(),
+          mode: category,
+          category,
+          language: channel.language || "Hindi",
+          channelName: channel.name || "My Channel",
+        }),
+      });
+
+      const data = await scriptResponse.json();
+      if (!scriptResponse.ok) {
+        throw new Error(data.error || "Script generation failed.");
+      }
+      if (!data.script && !data.title) {
+        throw new Error("The script API returned no script or title.");
+      }
+      markStep("script");
+
+      // 2. Voiceover is required for this video pipeline.
+      setCurrentStep("voice");
+      const voiceResponse = await fetch("/api/voiceover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: data.script || data.hook || data.title,
+          title: data.title,
+          category,
+          isShorts: true,
+        }),
+      });
+
+      const voiceData = await voiceResponse.json();
+      if (!voiceResponse.ok || !voiceData.audioUrl) {
+        throw new Error(
+          voiceData.error || "Voiceover failed; no video was saved."
+        );
+      }
+      const audioUrl: string = voiceData.audioUrl;
+      markStep("voice");
+
+      // 3. Thumbnail.
+      setCurrentStep("thumbnail");
+      const thumbnailResponse = await fetch("/api/thumbnail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: data.title || prompt.trim(),
+          topic: prompt.trim(),
+          boldText: data.thumbnail?.boldText,
+          bgColor: data.thumbnail?.bgColor,
+          category,
+          videoType: "shorts",
+        }),
+      });
+
+      const thumbnailData = await thumbnailResponse.json();
+      if (!thumbnailResponse.ok) {
+        throw new Error(
+          thumbnailData.error || "Thumbnail generation failed."
+        );
+      }
+
+      const thumbnailUrl: string =
+        thumbnailData.thumbnailUrl || thumbnailData.url || "";
+      if (!thumbnailUrl) {
+        throw new Error("Thumbnail API did not return a thumbnail URL.");
+      }
+      markStep("thumbnail");
+
+      // 4. Render the video. Do not silently save a record without a video URL.
+      setCurrentStep("video");
+      const videoResponse = await fetch("/api/video/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audioUrl,
+          thumbnailUrl,
+          title: data.title || prompt.trim(),
+          script: data.script || "",
+          hook: data.hook || "",
+          keyPoints: data.keyPoints || [],
+          videoType: "shorts",
+          category,
+          pexelsQuery: data.pexelsQuery,
+        }),
+      });
+
+      const videoData = await videoResponse.json();
+      if (!videoResponse.ok || !videoData.videoUrl) {
+        throw new Error(
+          videoData.error || "Video rendering failed; no video was saved."
+        );
+      }
+
+      const videoUrl: string = videoData.videoUrl;
+      markStep("video");
+
+      // Save the complete asset record to localStorage.
+      const savedVideo = store.createVideo({
+        channelId: channel.id,
+        title: data.title || prompt.trim(),
+        status: "pending-approval",
+        scheduledDate: new Date().toISOString(),
+        views: 0,
+        likes: 0,
+        comments: 0,
+        thumbnail: thumbnailUrl,
+        thumbnailUrl,
+        audioUrl,
+        videoUrl,
+        topic: prompt.trim(),
+        description: data.description || "",
+        tags: Array.isArray(data.tags) ? data.tags : [],
+        script: data.script || "",
+        hook: data.hook || "",
+        videoType: "shorts",
+      });
+
+      setResult({
+        ...data,
+        audioUrl,
+        thumbnailUrl,
+        videoUrl,
+        savedVideoId: savedVideo.id,
+      });
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Video generation failed."
+      );
+    } finally {
+      setLoading(false);
+      setCurrentStep("");
+    }
+  };
+
+  const handle30Day = async () => {
+    // Logic remains same, visually hidden for cleaner UI focus
+  }
+
+  return (
+    <div className="min-h-screen bg-[#05050A] text-slate-200">
+      <DashboardHeader selectedChannel="main-channel" onChannelChange={() => {}} />
+      
+      <main className="mx-auto max-w-5xl px-4 py-12 space-y-10">
+        {/* HERO HEADER */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+              Studio<span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-cyan-400">Zenith</span>
+            </h1>
+            <p className="text-slate-400 mt-2 text-sm max-w-xl">
+              Select your creative engine, whisper an idea, and watch the AI weave magic.
+            </p>
+          </div>
+          <Badge className="bg-white/10 text-white hover:bg-white/20 border-white/10 px-4 py-1.5 text-xs font-medium uppercase tracking-widest backdrop-blur-md">
+            <Sparkles className="h-3.5 w-3.5 mr-2 text-cyan-400"/> V4.0 Empire
+          </Badge>
+        </div>
+
+        {/* PILLARS SELECTION */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {PILLARS.map((pillar) => (
+            <div key={pillar.id} className={`flex flex-col rounded-2xl border border-white/5 bg-gradient-to-br ${pillar.gradient} overflow-hidden transition-all duration-300 ${activePillar?.id === pillar.id ? pillar.shadow + ' border-white/20' : 'opacity-60 hover:opacity-100'}`}>
+              <div className="p-5 border-b border-white/5 flex items-center gap-3 bg-black/40 backdrop-blur-sm">
+                {pillar.icon}
+                <div>
+                  <h3 className="font-bold text-white tracking-wide">{pillar.title}</h3>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider">{pillar.desc}</p>
+                </div>
+              </div>
+              <div className="p-4 grid grid-cols-2 gap-2 bg-black/20 backdrop-blur-md h-full">
+                {pillar.categories.map((cat) => (
+                  <button key={cat.id} onClick={() => setCategory(cat.id)}
+                    className={`flex items-center gap-2 p-2.5 rounded-lg text-xs font-medium transition-all duration-200 border ${category === cat.id ? 'bg-white/15 text-white border-white/30 shadow-inner' : 'bg-transparent text-slate-400 border-transparent hover:bg-white/5 hover:text-slate-200'}`}>
+                    <span className={category === cat.id ? "opacity-100" : "opacity-50"}>{cat.icon}</span>
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* CREATION CONSOLE */}
+        <Card className="border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl overflow-hidden">
+          <div className="h-1 w-full bg-gradient-to-r from-cyan-500 via-purple-500 to-amber-500 opacity-50"></div>
+          <CardContent className="p-6 md:p-8 space-y-6">
+            
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Wand2 className="h-5 w-5 text-purple-400"/> The Prompt
+              </h2>
+              <span className="text-xs font-mono text-slate-500 bg-white/5 px-2 py-1 rounded">Targeting: {selectedCat.label.toUpperCase()}</span>
+            </div>
+
+            <Textarea
+              placeholder="E.g., The dark truth about staying up late at night..."
+              rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} 
+              className="resize-none bg-black/50 border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-purple-500/50 text-lg p-4 rounded-xl"
+            />
+
+            {error && (
+              <div className="flex items-center gap-3 p-4 bg-red-950/30 border border-red-900/50 rounded-xl text-red-400">
+                <AlertCircle className="h-5 w-5 flex-shrink-0"/>
+                <p className="text-sm font-medium">{error}</p>
+              </div>
+            )}
+
+            {/* NEON PROGRESS TRACKER */}
+            {loading && (
+              <div className="py-6 px-4 bg-black/30 rounded-xl border border-white/5">
+                <div className="flex flex-wrap justify-between items-center gap-4">
+                  {STEPS.map((step, idx) => {
+                    const isCompleted = completedSteps.includes(step.id);
+                    const isActive = currentStep === step.id;
+                    return (
+                      <div key={step.id} className={`flex items-center gap-2 ${isActive ? 'opacity-100' : isCompleted ? 'opacity-70' : 'opacity-30'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-500 ${isCompleted ? "bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.5)]" : isActive ? "bg-purple-500 text-white animate-pulse shadow-[0_0_15px_rgba(168,85,247,0.6)]" : "bg-white/10 text-slate-400"}`}>
+                          {isCompleted ? <CheckCircle className="h-4 w-4"/> : isActive ? <Loader2 className="h-4 w-4 animate-spin"/> : step.icon}
+                        </div>
+                        <span className={`text-xs font-bold uppercase tracking-wider ${isActive ? "text-purple-400" : isCompleted ? "text-emerald-400" : "text-slate-500"}`}>
+                          {step.label}
+                        </span>
+                        {idx !== STEPS.length - 1 && <ChevronRight className="h-4 w-4 text-slate-700 hidden md:block ml-2"/>}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-4 pt-2">
+              <Button onClick={handleSubmit} disabled={loading || !prompt.trim()} className="flex-1 bg-white text-black hover:bg-slate-200 font-extrabold text-sm uppercase tracking-wide py-6 rounded-xl transition-all hover:scale-[1.01] shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                {loading ? <><Loader2 className="h-5 w-5 mr-3 animate-spin"/> Processing Neural Network...</> : <><Zap className="h-5 w-5 mr-3 text-amber-500"/> Ignite Generation</>}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* RESULTS SHOWCASE */}
+        {result && (
+          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+            <Card className="border-emerald-500/20 bg-emerald-950/10 backdrop-blur-xl overflow-hidden shadow-[0_0_30px_rgba(16,185,129,0.05)]">
+              <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8 items-start">
+                
+                {/* Video Player Frame */}
+                {result.videoUrl ? (
+                  <div className="w-full md:w-1/3 shrink-0 relative rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl bg-black">
+                    <video controls autoPlay src={result.videoUrl} className="w-full h-auto aspect-[9/16] object-cover" />
+                    <div className="absolute top-3 right-3">
+                      <Badge className="bg-black/60 backdrop-blur-md text-emerald-400 border border-emerald-500/30 shadow-xl">
+                        <CheckCircle className="w-3 h-3 mr-1"/> Ready
+                      </Badge>
+                    </div>
+                  </div>
+                ) : (
+                   <div className="w-full md:w-1/3 shrink-0 aspect-[9/16] rounded-2xl border-2 border-white/5 bg-black/50 flex flex-col items-center justify-center text-slate-500 p-4 text-center">
+                     <Video className="h-8 w-8 mb-2 opacity-50"/>
+                     <p className="text-xs uppercase tracking-widest font-bold">Video Asset Missing</p>
+                   </div>
+                )}
+
+                {/* Meta Data */}
+                <div className="flex-1 space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-white leading-tight mb-3">{result.title}</h2>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 uppercase text-[10px] tracking-widest">{category}</Badge>
+                      <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/30 uppercase text-[10px] tracking-widest">Copyright Safe</Badge>
+                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 uppercase text-[10px] tracking-widest">Auto-Upload Ready</Badge>
+                    </div>
+                  </div>
+
+                  {result.hook && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Neural Hook</p>
+                      <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-sm text-slate-300 italic border-l-4 border-l-purple-500">
+                        "{result.hook}"
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-4 flex gap-3">
+                    <Button onClick={() => router.push("/admin/approvals")} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                      Proceed to Publishing ?
+                    </Button>
+                  </div>
+                </div>
+
+              </div>
+            </Card>
+          </div>
+        )}
+      </main>
+    </div>
+  )
+}
+
+
+
+
+
+
+========== lib/store.ts ==========
+"use client"
+
+export interface User {
+  id: string
+  email: string
+  name: string
+  phone: string
+  role: "user" | "admin"
+  plan: "free" | "pro" | "agency"
+  createdAt: string
+  hasCompletedSetup: boolean
+  freeVideosUsed: number // How many free videos used (max 10)
+  paidVideoCredits: number // Paid video credits purchased
+  totalSpent: number // Total amount spent on videos
+  youtubeMonetized: boolean // Is channel monetized
+  youtubeEarnings: number // Total YouTube earnings
+  youtubeShareOwed: number // 10% owed to platform
+  lastActive: string
+}
+
+// Helper getters for computed properties
+export function getFreeVideosRemaining(user: User): number {
+  return Math.max(0, 10 - user.freeVideosUsed)
+}
+
+export function getVideosUsed(user: User): number {
+  return user.freeVideosUsed
+}
+
+export interface Channel {
+  id: string
+  userId: string
+  name: string
+  subscribers: number
+  category: string
+  language: string
+  voice: string
+  defaultTags: string
+  privacy: "public" | "unlisted"
+  uploadTime: string
+  contentStrategy: string
+  isActive: boolean
+}
+
+export interface Video {
+  id: string
+  channelId: string
+  title: string
+  status: "pending-approval" | "approved" | "rejected" | "user-approved" | "uploading" | "live" | "failed"
+  riskLevel: "low" | "high" // Added risk level for queue sorting
+  scheduledDate: string
+  views: number
+  likes: number
+  comments: number
+  thumbnail: string
+  topic: string
+  description?: string // AI generated description
+  tags?: string[] // AI generated tags
+  aiScore: number
+  adminApproved: boolean // Admin approval status
+  adminApprovedBy?: string
+  adminApprovedAt?: string
+  userApproved: boolean // User approval status
+  userApprovedAt?: string
+  cost: number
+  isFree: boolean // Track if this was a free video
+  videoFileId?: string // IndexedDB key for stored video file
+  audioUrl?: string // ElevenLabs/TTS generated audio URL
+  thumbnailUrl?: string // Generated thumbnail URL
+  videoUrl?: string // Assembled video file URL
+  script?: string // AI generated script
+  hook?: string // Video hook
+  videoType?: "shorts" | "long" | "slide" // Video type
+  scheduledTime?: string // YouTube scheduled upload time
+  youtubeUrl?: string // YouTube video URL after upload
+  youtubeVideoId?: string // YouTube video ID
+  uploadedAt?: string // Upload timestamp
+  uploadError?: string // Upload error message
+  youtubeAccessToken?: string // User's YouTube access token (stored encrypted in real app)
+  youtubeRefreshToken?: string // User's YouTube refresh token
+  createdAt: string
+}
+
+export interface Payment {
+  id: string
+  userId: string
+  type: "video" | "youtube-share"
+  amount: number
+  videoId?: string
+  createdAt: string
+  status: "pending" | "completed" | "failed"
+}
+
+class Store {
+  private static instance: Store
+
+  private constructor() {
+    if (typeof window !== "undefined") {
+      this.initializeData()
+    }
+  }
+
+  static getInstance(): Store {
+    if (!Store.instance) {
+      Store.instance = new Store()
+    }
+    return Store.instance
+  }
+
+  private initializeData() {
+    const users = this.getUsers()
+    const adminExists = users.some((u) => u.email === "singhaditya4560@gmail.com")
+
+    if (!adminExists) {
+      const adminUser: User = {
+        id: "admin-001",
+        email: "singhaditya4560@gmail.com",
+        name: "Aditya Singh",
+        phone: "+91 7068003894",
+        role: "admin",
+        plan: "agency",
+        createdAt: new Date().toISOString(),
+        hasCompletedSetup: true,
+        freeVideosUsed: 0,
+        paidVideoCredits: 0,
+        totalSpent: 0,
+        youtubeMonetized: true,
+        youtubeEarnings: 0,
+        youtubeShareOwed: 0,
+        lastActive: new Date().toISOString(),
+      }
+      users.push(adminUser)
+      localStorage.setItem("users", JSON.stringify(users))
+    }
+  }
+
+  // User methods
+  getUsers(): User[] {
+    if (typeof window === "undefined") return []
+    const data = localStorage.getItem("users")
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      return Array.isArray(parsed) ? (parsed as User[]) : []
+    } catch {
+      console.error("Could not parse localStorage users")
+      return []
+    }
+  }
+
+  getUserByEmail(email: string): User | null {
+    if (typeof window === "undefined" || !email?.trim()) return null
+
+    const normalizedEmail = email.trim().toLowerCase()
+    return (
+      this.getUsers().find(
+        (u) => u.email?.trim().toLowerCase() === normalizedEmail
+      ) || null
+    )
+  }
+
+  /**
+   * Repairs legacy channels only when there is exactly one non-admin local user.
+   * The seeded admin profile is ignored. If multiple real users exist, this method
+   * deliberately does nothing to avoid assigning one user's channels to another.
+   */
+  repairOrphanedChannelsForSingleUser(userId: string): void {
+    if (typeof window === "undefined" || !userId) return
+
+    const users = this.getUsers()
+    const nonAdminUsers = users.filter((u) => u.role !== "admin")
+
+    // Only auto-repair when the browser has one real user profile and it matches.
+    if (nonAdminUsers.length !== 1 || nonAdminUsers[0].id !== userId) return
+
+    const channels = this.getChannels()
+    const knownUserIds = new Set(users.map((u) => u.id))
+    let changed = false
+
+    const repairedChannels = channels.map((channel) => {
+      // Reassign only orphaned channel records, never channels owned by a known user.
+      if (!channel.userId || !knownUserIds.has(channel.userId)) {
+        changed = true
+        return { ...channel, userId }
+      }
+      return channel
+    })
+
+    if (changed) {
+      localStorage.setItem("channels", JSON.stringify(repairedChannels))
+    }
+  }
+
+  createUser(
+    user: Omit<
+      User,
+      | "id"
+      | "createdAt"
+      | "freeVideosUsed"
+      | "paidVideoCredits"
+      | "totalSpent"
+      | "youtubeMonetized"
+      | "youtubeEarnings"
+      | "youtubeShareOwed"
+      | "lastActive"
+    >,
+  ): User {
+    const users = this.getUsers()
+    const newUser: User = {
+      ...user,
+      id: `user-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      freeVideosUsed: 0, // Starts at 0, can use up to 1
+      paidVideoCredits: 0,
+      totalSpent: 0,
+      youtubeMonetized: false,
+      youtubeEarnings: 0,
+      youtubeShareOwed: 0,
+      lastActive: new Date().toISOString(),
+    }
+    users.push(newUser)
+    localStorage.setItem("users", JSON.stringify(users))
+    return newUser
+  }
+
+  updateUser(userId: string, updates: Partial<User>): void {
+    const users = this.getUsers()
+    const index = users.findIndex((u) => u.id === userId)
+    if (index !== -1) {
+      users[index] = { ...users[index], ...updates }
+      localStorage.setItem("users", JSON.stringify(users))
+    }
+  }
+
+  getUserById(userId: string): User | null {
+    return this.getUsers().find((u) => u.id === userId) || null
+  }
+
+  // Channel methods
+  getChannels(userId?: string): Channel[] {
+    if (typeof window === "undefined") return []
+    const data = localStorage.getItem("channels")
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      const channels = Array.isArray(parsed) ? (parsed as Channel[]) : []
+      return userId ? channels.filter((c) => c.userId === userId) : channels
+    } catch {
+      console.error("Could not parse localStorage channels")
+      return []
+    }
+  }
+
+  createChannel(channel: Omit<Channel, "id">): Channel {
+    const channels = this.getChannels()
+    const newChannel: Channel = {
+      ...channel,
+      id: `channel-${Date.now()}`,
+    }
+    channels.push(newChannel)
+    localStorage.setItem("channels", JSON.stringify(channels))
+    return newChannel
+  }
+
+  updateChannel(channelId: string, updates: Partial<Channel>): void {
+    const channels = this.getChannels()
+    const index = channels.findIndex((c) => c.id === channelId)
+    if (index !== -1) {
+      channels[index] = { ...channels[index], ...updates }
+      localStorage.setItem("channels", JSON.stringify(channels))
+    }
+  }
+
+  deleteChannel(channelId: string): void {
+    const channels = this.getChannels()
+    const filtered = channels.filter((c) => c.id !== channelId)
+    localStorage.setItem("channels", JSON.stringify(filtered))
+  }
+
+  // Video methods
+  getVideos(channelId?: string): Video[] {
+    if (typeof window === "undefined") return []
+    const data = localStorage.getItem("videos")
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      const videos = Array.isArray(parsed) ? (parsed as Video[]) : []
+      return channelId ? videos.filter((v) => v.channelId === channelId) : videos
+    } catch {
+      console.error("Could not parse localStorage videos")
+      return []
+    }
+  }
+
+  canCreateVideo(userId: string): { allowed: boolean; reason?: string } {
+    const user = this.getUserById(userId)
+    if (!user) return { allowed: false, reason: "User not found" }
+
+    // Admin always allowed
+    if (user.role === "admin") return { allowed: true }
+
+    // Check if user has free videos remaining
+    if (user.freeVideosUsed < 10) return { allowed: true }
+
+    // Check if user has paid credits
+    if (user.paidVideoCredits > 0) return { allowed: true }
+
+    return { allowed: false, reason: "No free videos or credits remaining. Please upgrade." }
+  }
+
+  calculateRiskLevel(niche: string): "low" | "high" {
+    const highRiskNiches = ["news", "politics", "finance", "make money online", "cryptocurrency", "health", "medical"]
+    const lowercaseNiche = niche.toLowerCase()
+    return highRiskNiches.some((risk) => lowercaseNiche.includes(risk)) ? "high" : "low"
+  }
+
+  createVideo(
+    video: Omit<
+      Video,
+      "id" | "aiScore" | "adminApproved" | "userApproved" | "cost" | "isFree" | "riskLevel" | "createdAt"
+    >,
+  ): Video {
+    const videos = this.getVideos()
+    const channel = this.getChannels().find((c) => c.id === video.channelId)
+    if (!channel) throw new Error("Channel not found")
+
+    const user = this.getUserById(channel.userId)
+    if (!user) throw new Error("User not found")
+
+    const canCreate = this.canCreateVideo(user.id)
+    if (!canCreate.allowed) {
+      throw new Error(canCreate.reason)
+    }
+
+    const isAdmin = user.role === "admin"
+    const isFree = isAdmin || user.freeVideosUsed < 10
+    const cost = isFree ? 0 : 0.16
+
+    const riskLevel = this.calculateRiskLevel(channel.category)
+
+    const newVideo: Video = {
+      ...video,
+      id: `video-${Date.now()}`,
+      aiScore: Math.floor(Math.random() * 30) + 70,
+      adminApproved: isAdmin, // Auto-approve admin's own videos
+      adminApprovedBy: isAdmin ? user.id : undefined,
+      adminApprovedAt: isAdmin ? new Date().toISOString() : undefined,
+      userApproved: false,
+      cost,
+      isFree,
+      riskLevel,
+      createdAt: new Date().toISOString(),
+    }
+    videos.push(newVideo)
+    localStorage.setItem("videos", JSON.stringify(videos))
+
+    // Admin videos are free, don't deduct
+    if (!isAdmin) {
+      if (isFree) {
+        this.updateUser(user.id, {
+          freeVideosUsed: user.freeVideosUsed + 1,
+        })
+      } else {
+        this.updateUser(user.id, {
+          paidVideoCredits: user.paidVideoCredits - 1,
+          totalSpent: user.totalSpent + 0.2,
+        })
+      }
+    }
+
+    return newVideo
+  }
+
+  updateVideo(videoId: string, updates: Partial<Video>): void {
+    const videos = this.getVideos()
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = { ...videos[index], ...updates }
+      localStorage.setItem("videos", JSON.stringify(videos))
+    }
+  }
+
+  // Generate 30-day schedule
+  generate30DaySchedule(channelId: string, contentStrategy: string): Video[] {
+    const topics = this.generateTopics(contentStrategy, 30)
+    const videos: Video[] = []
+    const channel = this.getChannels().find((c) => c.id === channelId)
+    if (!channel) return []
+
+    const user = this.getUserById(channel.userId)
+    if (!user) throw new Error("User not found")
+
+    const canCreate = this.canCreateVideo(user.id)
+    if (!canCreate.allowed) {
+      throw new Error(canCreate.reason)
+    }
+
+    const riskLevel = this.calculateRiskLevel(channel.category)
+
+    for (let i = 0; i < 30; i++) {
+      const isFree = user.freeVideosUsed < 10
+      const cost = isFree ? 0 : 0.16
+
+      const video: Video = {
+        id: `video-${Date.now()}-${i}`,
+        channelId,
+        title: topics[i],
+        status: i === 0 ? "pending-approval" : "pending-approval",
+        scheduledDate: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString(),
+        views: 0,
+        likes: 0,
+        comments: 0,
+        thumbnail: `/ai-tools-thumbnail.png`,
+        topic: topics[i],
+        aiScore: Math.floor(Math.random() * 30) + 70,
+        adminApproved: false,
+        userApproved: false,
+        cost,
+        isFree,
+        riskLevel,
+        createdAt: new Date().toISOString(),
+      }
+      videos.push(video)
+    }
+
+    const existingVideos = this.getVideos()
+    localStorage.setItem("videos", JSON.stringify([...existingVideos, ...videos]))
+
+    // Update user video count
+    const freeVideosRemaining = Math.max(0, 10 - user.freeVideosUsed)
+    const freeVideosToUse = Math.min(30, freeVideosRemaining)
+    const paidVideos = 30 - freeVideosToUse
+    this.updateUser(user.id, {
+      freeVideosUsed: user.freeVideosUsed + freeVideosToUse,
+      paidVideoCredits: user.paidVideoCredits - paidVideos,
+      totalSpent: user.totalSpent + paidVideos * 0.2,
+    })
+
+    return videos
+  }
+
+  private generateTopics(strategy: string, count: number): string[] {
+    const topics = [
+      "Top 5 AI Tools 2026 Hindi",
+      "ChatGPT Hindi Tutorial",
+      "Best Laptops Under 50K",
+      "AI Image Generation Guide",
+      "YouTube Growth Tips",
+      "Tech News This Week",
+      "Smartphone Buying Guide",
+      "Internet Safety Tips",
+      "Future of AI Technology",
+      "Free Online Tools",
+      "Productivity Apps Review",
+      "Gaming PC Build Guide",
+      "Photo Editing Tutorial",
+      "Best Budget Gadgets",
+      "AI Voice Generator",
+      "WhatsApp Hidden Features",
+      "Instagram Growth Hacks",
+      "Tech Career Guide",
+      "Best Free Software",
+      "Online Money Making",
+      "Video Editing Tutorial",
+      "AI Music Generator",
+      "Best Tech Under 1000",
+      "Coding for Beginners",
+      "AI Art Tutorial",
+      "Tech Myths Busted",
+      "Smart Home Setup",
+      "Best Apps 2026",
+      "Digital Marketing Tips",
+      "AI Business Tools",
+    ]
+
+    return topics.slice(0, count).map((topic, i) => `${topic} | ${strategy}`)
+  }
+
+  adminApproveVideo(videoId: string, adminId: string): void {
+    const videos = this.getVideos()
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = {
+        ...videos[index],
+        adminApproved: true,
+        adminApprovedBy: adminId,
+        adminApprovedAt: new Date().toISOString(),
+        status: "approved",
+      }
+      localStorage.setItem("videos", JSON.stringify(videos))
+    }
+  }
+
+  adminRejectVideo(videoId: string): void {
+    const videos = this.getVideos()
+    const video = videos.find((v) => v.id === videoId)
+    if (!video) return
+
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = {
+        ...videos[index],
+        status: "rejected",
+      }
+      localStorage.setItem("videos", JSON.stringify(videos))
+
+      const channel = this.getChannels().find((c) => c.id === video.channelId)
+      if (channel) {
+        const user = this.getUserById(channel.userId)
+        if (user) {
+          if (video.isFree) {
+            this.updateUser(user.id, {
+              freeVideosUsed: Math.max(0, user.freeVideosUsed - 1),
+            })
+          } else {
+            this.updateUser(user.id, {
+              paidVideoCredits: user.paidVideoCredits + 1,
+            })
+          }
+        }
+      }
+    }
+  }
+
+  userApproveVideo(videoId: string): void {
+    const videos = this.getVideos()
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = {
+        ...videos[index],
+        userApproved: true,
+        userApprovedAt: new Date().toISOString(),
+        status: "user-approved",
+      }
+      localStorage.setItem("videos", JSON.stringify(videos))
+    }
+  }
+
+  getVideosByRiskLevel(riskLevel: "low" | "high"): Video[] {
+    return this.getVideos().filter((v) => v.riskLevel === riskLevel && v.status === "pending-approval")
+  }
+
+  bulkApproveVideos(videoIds: string[], adminId: string): void {
+    const videos = this.getVideos()
+    videoIds.forEach((videoId) => {
+      const index = videos.findIndex((v) => v.id === videoId)
+      if (index !== -1) {
+        videos[index] = {
+          ...videos[index],
+          adminApproved: true,
+          adminApprovedBy: adminId,
+          adminApprovedAt: new Date().toISOString(),
+          status: "approved",
+        }
+      }
+    })
+    localStorage.setItem("videos", JSON.stringify(videos))
+  }
+
+  addVideoCredits(userId: string, credits: number, amount: number): void {
+    const user = this.getUserById(userId)
+    if (user) {
+      this.updateUser(userId, {
+        paidVideoCredits: user.paidVideoCredits + credits,
+        totalSpent: user.totalSpent + amount,
+      })
+    }
+  }
+
+  // Admin methods
+  getAdminStats() {
+    const users = this.getUsers()
+    const videos = this.getVideos()
+    const payments: any[] = []
+
+    const totalUsers = users.filter((u) => u.role !== "admin").length
+    const activeToday = users.filter((u) => {
+      const lastActive = new Date(u.lastActive)
+      const today = new Date()
+      return lastActive.toDateString() === today.toDateString()
+    }).length
+
+    const pendingApprovals = videos.filter((v) => v.status === "pending-approval").length
+    const lowRiskPending = videos.filter((v) => v.status === "pending-approval" && v.riskLevel === "low").length
+    const highRiskPending = videos.filter((v) => v.status === "pending-approval" && v.riskLevel === "high").length
+    const totalVideos = videos.length
+
+    const videoRevenue = users.reduce((sum, u) => sum + u.totalSpent, 0)
+    const youtubeRevenue = users.reduce((sum, u) => sum + u.youtubeShareOwed, 0)
+
+    return {
+      totalUsers,
+      activeToday,
+      pendingApprovals,
+      lowRiskPending,
+      highRiskPending,
+      totalVideos,
+      videoRevenue,
+      youtubeRevenue,
+      totalRevenue: videoRevenue + youtubeRevenue,
+    }
+  }
+}
+
+// IndexedDB helpers for storing video files
+export async function saveVideoToIndexedDB(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      if (!db.objectStoreNames.contains("videos")) {
+        db.createObjectStore("videos", { keyPath: "id" })
+      }
+    }
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const videoId = `video-file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const transaction = db.transaction(["videos"], "readwrite")
+      const store = transaction.objectStore("videos")
+      
+      const videoData = {
+        id: videoId,
+        file: file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        createdAt: new Date().toISOString()
+      }
+      
+      const putRequest = store.put(videoData)
+      putRequest.onsuccess = () => resolve(videoId)
+      putRequest.onerror = () => reject(putRequest.error)
+    }
+  })
+}
+
+export async function getVideoFromIndexedDB(videoFileId: string): Promise<File | null> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const transaction = db.transaction(["videos"], "readonly")
+      const store = transaction.objectStore("videos")
+      
+      const getRequest = store.get(videoFileId)
+      getRequest.onsuccess = () => {
+        const data = getRequest.result
+        if (data) {
+          resolve(new File([data.file], data.name, { type: data.type }))
+        } else {
+          resolve(null)
+        }
+      }
+      getRequest.onerror = () => reject(getRequest.error)
+    }
+  })
+}
+
+export async function deleteVideoFromIndexedDB(videoFileId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const transaction = db.transaction(["videos"], "readwrite")
+      const store = transaction.objectStore("videos")
+      
+      const deleteRequest = store.delete(videoFileId)
+      deleteRequest.onsuccess = () => resolve()
+      deleteRequest.onerror = () => reject(deleteRequest.error)
+    }
+  })
+}
+
+export const store = typeof window !== "undefined" ? Store.getInstance() : null
+
+// Notification system for video updates
+export interface Notification {
+  id: string
+  userId: string
+  type: "video-live" | "video-failed" | "video-approved" | "video-rejected"
+  title: string
+  message: string
+  videoId?: string
+  youtubeUrl?: string
+  read: boolean
+  createdAt: string
+}
+
+export function addNotification(notification: Omit<Notification, "id" | "read" | "createdAt">): void {
+  if (typeof window === "undefined") return
+  
+  const notifications = getNotifications(notification.userId)
+  const newNotification: Notification = {
+    ...notification,
+    id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    read: false,
+    createdAt: new Date().toISOString(),
+  }
+  
+  notifications.unshift(newNotification) // Add to beginning
+  localStorage.setItem(`notifications_${notification.userId}`, JSON.stringify(notifications.slice(0, 50))) // Keep last 50
+  
+  // Show browser notification if permitted (with proper type check)
+  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+    try {
+      new Notification("YouTubeAuto.ai", {
+        body: newNotification.message,
+        icon: "/favicon.ico",
+      })
+    } catch (e) {
+      console.warn("Browser notification failed:", e)
+    }
+  }
+}
+
+export function getNotifications(userId: string): Notification[] {
+  if (typeof window === "undefined") return []
+  const data = localStorage.getItem(`notifications_${userId}`)
+  return data ? JSON.parse(data) : []
+}
+
+export function markNotificationRead(userId: string, notificationId: string): void {
+  if (typeof window === "undefined") return
+  const notifications = getNotifications(userId)
+  const index = notifications.findIndex(n => n.id === notificationId)
+  if (index !== -1) {
+    notifications[index].read = true
+    localStorage.setItem(`notifications_${userId}`, JSON.stringify(notifications))
+  }
+}
+
+export function markAllNotificationsRead(userId: string): void {
+  if (typeof window === "undefined") return
+  const notifications = getNotifications(userId)
+  notifications.forEach(n => n.read = true)
+  localStorage.setItem(`notifications_${userId}`, JSON.stringify(notifications))
+}
+
+export function getUnreadNotificationCount(userId: string): number {
+  return getNotifications(userId).filter(n => !n.read).length
+}
+
+export function requestBrowserNotificationPermission(): void {
+  if (typeof window !== "undefined" && typeof Notification !== "undefined" && Notification.permission === "default") {
+    Notification.requestPermission()
+  }
+}
+
+
+========== components/admin/video-approval-list.tsx ==========
+"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { store, type Video as VideoType } from "@/lib/store"
+import { useAuth } from "@/lib/auth-context"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  CheckCircle2,
+  XCircle,
+  Clock3,
+  Video as VideoIcon,
+  RefreshCw,
+  ExternalLink,
+  AlertTriangle,
+} from "lucide-react"
+
+type FilterType = "pending" | "approved" | "rejected"
+
+interface VideoApprovalListProps {
+  filter: FilterType
+}
+
+export function VideoApprovalList({ filter }: VideoApprovalListProps) {
+  const { user } = useAuth()
+  const [videos, setVideos] = useState<VideoType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [message, setMessage] = useState("")
+  const [error, setError] = useState("")
+
+  const refreshVideos = useCallback(() => {
+    try {
+      setVideos(store ? store.getVideos() : [])
+    } catch (e) {
+      console.error("Could not load videos:", e)
+      setError("Videos load nahi ho paaye.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshVideos()
+
+    // Refresh when this browser tab receives a storage update.
+    const onStorage = () => refreshVideos()
+    window.addEventListener("storage", onStorage)
+
+    return () => window.removeEventListener("storage", onStorage)
+  }, [refreshVideos])
+
+  const filteredVideos = useMemo(() => {
+    return videos
+      .filter((video) => {
+        if (filter === "pending") {
+          return (
+            video.status === "pending-approval" ||
+            (!video.adminApproved &&
+              video.status !== "rejected" &&
+              video.status !== "live" &&
+              video.status !== "failed")
+          )
+        }
+
+        if (filter === "approved") {
+          return video.adminApproved === true &&
+            video.status !== "rejected"
+        }
+
+        return video.status === "rejected"
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime(),
+      )
+  }, [videos, filter])
+
+  const handleApprove = (video: VideoType) => {
+    if (!store || !user?.id) {
+      setError("Admin session ya local video store available nahi hai.")
+      return
+    }
+
+    if (!video.videoUrl) {
+      setError(
+        `"${video.title}" ka actual video file missing hai. Isse approve/publish karne se pehle video generate karke save karo.`,
+      )
+      return
+    }
+
+    if (!video.thumbnailUrl && !video.thumbnail) {
+      setError(
+        `"${video.title}" ka thumbnail missing hai. Pehle thumbnail generate karo.`,
+      )
+      return
+    }
+
+    const confirmed = window.confirm(
+      `"${video.title}" ko admin approval dena hai? Approval ke baad bhi publishing tabhi hogi jab upload API successfully complete hogi.`,
+    )
+
+    if (!confirmed) return
+
+    setBusyId(video.id)
+    setError("")
+    setMessage("")
+
+    try {
+      store.adminApproveVideo(video.id, user.id)
+      refreshVideos()
+      setMessage(
+        "Video approved. Abhi status Approved hai; YouTube par Live tabhi hoga jab upload API successfully chalegi.",
+      )
+    } catch (e) {
+      console.error("Approval failed:", e)
+      setError("Approval save nahi hua. Dobara try karo.")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleReject = (video: VideoType) => {
+    if (!store) {
+      setError("Video store available nahi hai.")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `"${video.title}" ko reject karna hai?`,
+    )
+
+    if (!confirmed) return
+
+    setBusyId(video.id)
+    setError("")
+    setMessage("")
+
+    try {
+      store.adminRejectVideo(video.id)
+      refreshVideos()
+      setMessage("Video reject kar diya gaya.")
+    } catch (e) {
+      console.error("Rejection failed:", e)
+      setError("Video reject nahi ho paaya.")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-12 text-muted-foreground">
+        <RefreshCw className="h-4 w-4 animate-spin" />
+        Videos load ho rahe hain...
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {filteredVideos.length} video(s)
+        </p>
+
+        <Button variant="outline" onClick={refreshVideos}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
+
+      {message && (
+        <div
+          role="status"
+          className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300"
+        >
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300"
+        >
+          <AlertTriangle className="mr-2 inline h-4 w-4" />
+          {error}
+        </div>
+      )}
+
+      {filteredVideos.length === 0 ? (
+        <div className="rounded-xl border border-dashed p-10 text-center">
+          <VideoIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+
+          <h2 className="font-semibold">
+            {filter === "pending"
+              ? "No videos pending approval"
+              : filter === "approved"
+                ? "No approved videos"
+                : "No rejected videos"}
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            Videos generate hone ke baad yahan refresh karke dekho.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6">
+          {filteredVideos.map((video) => {
+            const thumbnail =
+              video.thumbnailUrl || video.thumbnail || ""
+            const videoUrl = video.videoUrl || ""
+            const status =
+              video.status === "live"
+                ? "Live"
+                : video.status === "rejected"
+                  ? "Rejected"
+                  : video.adminApproved
+                    ? "Approved"
+                    : "Pending approval"
+
+            return (
+              <article
+                key={video.id}
+                className="overflow-hidden rounded-xl border bg-card"
+              >
+                <div className="grid grid-cols-1 gap-5 p-4 md:grid-cols-[300px_minmax(0,1fr)]">
+                  <div className="space-y-3">
+                    <div className="overflow-hidden rounded-lg border bg-black">
+                      {thumbnail ? (
+                        <a
+                          href={thumbnail}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open full thumbnail"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={thumbnail}
+                            alt={`Thumbnail: ${video.title}`}
+                            className="aspect-video w-full object-cover"
+                            onError={(event) => {
+                              event.currentTarget.style.display = "none"
+                            }}
+                          />
+                        </a>
+                      ) : (
+                        <div className="flex aspect-video items-center justify-center text-sm text-white">
+                          Thumbnail unavailable
+                        </div>
+                      )}
+                    </div>
+
+                    {videoUrl ? (
+                      <video
+                        key={videoUrl}
+                        src={videoUrl}
+                        controls
+                        preload="metadata"
+                        className="aspect-video w-full rounded-lg border bg-black"
+                      >
+                        Your browser does not support video playback.
+                      </video>
+                    ) : (
+                      <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground">
+                        <div>
+                          <VideoIcon className="mx-auto mb-2 h-7 w-7" />
+                          Actual video file missing
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="break-words text-xl font-bold">
+                          {video.title || "Untitled video"}
+                        </h2>
+
+                        <p className="mt-1 break-all text-xs text-muted-foreground">
+                          ID: {video.id}
+                        </p>
+                      </div>
+
+                      <Badge
+                        variant="outline"
+                        className={
+                          video.status === "rejected"
+                            ? "border-red-500/40 text-red-600"
+                            : video.status === "live"
+                              ? "border-emerald-500/40 text-emerald-600"
+                              : video.adminApproved
+                                ? "border-blue-500/40 text-blue-600"
+                                : "border-amber-500/40 text-amber-600"
+                        }
+                      >
+                        {status === "Live" ? (
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                        ) : status === "Rejected" ? (
+                          <XCircle className="mr-1 h-3 w-3" />
+                        ) : (
+                          <Clock3 className="mr-1 h-3 w-3" />
+                        )}
+                        {status}
+                      </Badge>
+                    </div>
+
+                    <div>
+                      <h3 className="mb-1 text-sm font-semibold">
+                        Description
+                      </h3>
+                      <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                        {video.description || "No description provided."}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="mb-1 text-sm font-semibold">Tags</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {video.tags?.length ? (
+                          video.tags.map((tag, index) => (
+                            <Badge
+                              key={`${tag}-${index}`}
+                              variant="secondary"
+                            >
+                              {tag}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            No tags
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {video.script && (
+                      <details className="rounded-lg border p-3">
+                        <summary className="cursor-pointer text-sm font-semibold">
+                          View script
+                        </summary>
+                        <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
+                          {video.script}
+                        </p>
+                      </details>
+                    )}
+
+                    <div className="text-xs text-muted-foreground">
+                      Created:{" "}
+                      {video.createdAt
+                        ? new Date(video.createdAt).toLocaleString()
+                        : "Unknown"}
+                    </div>
+
+                    {video.youtubeUrl && (
+                      <a
+                        href={video.youtubeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-blue-600 underline"
+                      >
+                        View on YouTube
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+
+                    {filter === "pending" && (
+                      <div className="flex flex-wrap gap-3 border-t pt-4">
+                        <Button
+                          onClick={() => handleApprove(video)}
+                          disabled={busyId === video.id}
+                          className="bg-emerald-600 text-white hover:bg-emerald-700"
+                        >
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          {busyId === video.id
+                            ? "Saving..."
+                            : "Approve Video"}
+                        </Button>
+
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleReject(video)}
+                          disabled={busyId === video.id}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject Video
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+

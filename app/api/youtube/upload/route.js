@@ -1,124 +1,398 @@
-﻿import { NextResponse } from "next/server";
+﻿
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getValidAccessToken } from "@/lib/youtube-token";
-import { statSync, existsSync, createReadStream } from "fs";
-import { mkdir, writeFile } from "fs/promises";
+import {
+  existsSync,
+  statSync,
+  createReadStream,
+} from "fs";
+import {
+  mkdir,
+  writeFile,
+  unlink,
+  readdir,
+} from "fs/promises";
 import path from "path";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+const jsonError = (error, status = 500) =>
+  NextResponse.json({ success: false, error }, { status });
 
 export async function POST(request) {
   try {
-    const cookieStore = await cookies();
-    let accessToken, newToken;
-    try {
-      const result = await getValidAccessToken(cookieStore);
-      accessToken = result.accessToken;
-      newToken = result.newToken;
-    } catch (err) {
-      if (err.message === "NOT_CONNECTED") return NextResponse.json({ error: "YouTube not connected" }, { status: 401 });
-      throw err;
+    // 1. Server-side admin authentication
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+      return jsonError("Please log in first.", 401);
     }
 
-    const { videoUrl, title, description, tags, categoryId, privacyStatus, scheduledTime, language } = await request.json();
-    if (!videoUrl || !title) return NextResponse.json({ error: "videoUrl and title required" }, { status: 400 });
+    if (session.user.role !== "admin") {
+      return jsonError("Admin permission required.", 403);
+    }
 
-    const localPath = videoUrl.replace(/https?:\/\/[^\/]+/, "").replace("/storage/", "");
-    const filePath = path.join(process.cwd(), "storage", localPath);
-    
-    if (!existsSync(filePath)) return NextResponse.json({ error: "Video file missing on server." }, { status: 404 });
+    // 2. Verify YouTube OAuth
+    const cookieStore = await cookies();
+    let accessToken;
+    let newToken;
 
-    const videoSize = statSync(filePath).size;
-    console.log("Starting Memory-Safe upload for size:", (videoSize/1024/1024).toFixed(2), "MB");
+    try {
+      const tokenResult = await getValidAccessToken(cookieStore);
+      accessToken = tokenResult.accessToken;
+      newToken = tokenResult.newToken;
+    } catch (error) {
+      if (error?.message === "NOT_CONNECTED") {
+        return jsonError("YouTube account is not connected.", 401);
+      }
 
-    const videoMetadata = {
+      throw error;
+    }
+
+    if (!accessToken) {
+      return jsonError("YouTube access token is unavailable.", 401);
+    }
+
+    // 3. Validate request body
+    const body = await request.json();
+
+    const {
+      videoUrl,
+      title,
+      description,
+      tags,
+      categoryId,
+      privacyStatus,
+      scheduledTime,
+      language,
+    } = body;
+
+    if (
+      typeof videoUrl !== "string" ||
+      typeof title !== "string" ||
+      !title.trim()
+    ) {
+      return jsonError("Valid videoUrl and title are required.", 400);
+    }
+
+    if (title.trim().length > 100) {
+      return jsonError("YouTube titles cannot exceed 100 characters.", 400);
+    }
+
+    const allowedPrivacy = ["private", "unlisted", "public"];
+    const privacy = scheduledTime ? "private" : (privacyStatus || "private");
+
+    if (!allowedPrivacy.includes(privacy)) {
+      return jsonError("Invalid privacyStatus.", 400);
+    }
+
+    let fileName;
+
+    try {
+      const parsedUrl = new URL(videoUrl, "http://localhost");
+      fileName = path.basename(decodeURIComponent(parsedUrl.pathname));
+    } catch {
+      return jsonError("Invalid video URL.", 400);
+    }
+
+    if (
+      !fileName ||
+      fileName === "." ||
+      fileName === ".." ||
+      !/\.(mp4|mov|webm|m4v)$/i.test(fileName)
+    ) {
+      return jsonError("Invalid video filename or format.", 400);
+    }
+
+    // Only upload files from the local video storage directory.
+    const videoDirectory = path.resolve(process.cwd(), "storage", "videos");
+    const filePath = path.resolve(videoDirectory, fileName);
+
+    if (!filePath.startsWith(videoDirectory + path.sep)) {
+      return jsonError("Invalid video file path.", 400);
+    }
+
+    if (!existsSync(filePath)) {
+      return jsonError(
+        "Video file missing on server. Generate or save the video first.",
+        404
+      );
+    }
+
+    const videoStats = statSync(filePath);
+
+    if (!videoStats.isFile() || videoStats.size <= 0) {
+      return jsonError("Video file is empty or invalid.", 400);
+    }
+
+    // 4. Validate scheduled publishing time
+    let publishAt;
+
+    if (scheduledTime) {
+      publishAt = new Date(scheduledTime);
+
+      if (
+        Number.isNaN(publishAt.getTime()) ||
+        publishAt.getTime() <= Date.now()
+      ) {
+        return jsonError(
+          "Scheduled publishing time must be a valid future date.",
+          400
+        );
+      }
+    }
+
+    const metadata = {
       snippet: {
-        title: title.slice(0, 100),
-        description: (description || "Generated by YouTubeAuto.ai") + "\n\n#viral #trending",
-        tags: tags ? tags.slice(0, 15) : [],
-        categoryId: categoryId || "22",
+        title: title.trim(),
+        description: (
+          typeof description === "string" && description.trim()
+            ? description.trim()
+            : "Generated by YouTubeAuto.ai"
+        ).slice(0, 5000),
+        tags: Array.isArray(tags)
+          ? tags
+              .filter((tag) => typeof tag === "string")
+              .map((tag) => tag.trim())
+              .filter(Boolean)
+              .slice(0, 15)
+          : [],
+        categoryId: String(categoryId || "22"),
         defaultLanguage: language || "hi",
       },
-      status: { privacyStatus: scheduledTime ? "private" : (privacyStatus || "private"), selfDeclaredMadeForKids: false },
-    };
-    if (scheduledTime) videoMetadata.status.publishAt = new Date(scheduledTime).toISOString();
-
-    const initResponse = await fetch("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + accessToken,
-        "Content-Type": "application/json",
-        "X-Upload-Content-Type": "video/mp4",
-        "X-Upload-Content-Length": videoSize.toString(),
+      status: {
+        privacyStatus: privacy,
+        selfDeclaredMadeForKids: false,
       },
-      body: JSON.stringify(videoMetadata),
-      signal: AbortSignal.timeout(30000),
-    });
+    };
+
+    if (publishAt) {
+      metadata.status.publishAt = publishAt.toISOString();
+    }
+
+    // 5. Start a resumable YouTube upload
+    const initResponse = await fetch(
+      "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "X-Upload-Content-Type": "video/mp4",
+          "X-Upload-Content-Length": String(videoStats.size),
+        },
+        body: JSON.stringify(metadata),
+        signal: AbortSignal.timeout(30000),
+      }
+    );
 
     if (!initResponse.ok) {
-      const errData = await initResponse.json().catch(() => ({}));
-      const errReason = errData?.error?.errors?.[0]?.reason || "";
-      if (errReason === "uploadLimitExceeded" || initResponse.status === 400) {
-        const queueDir = path.join(process.cwd(), "storage", "ready_to_upload");
-        if (!existsSync(queueDir)) await mkdir(queueDir, { recursive: true });
-        const queueFile = path.join(queueDir, `queued_${Date.now()}.json`);
-        await writeFile(queueFile, JSON.stringify({ videoUrl, title, description, tags, categoryId, privacyStatus, scheduledTime, language, queuedAt: new Date().toISOString() }));
-        return NextResponse.json({ success: true, queued: true, message: "YouTube Quota full. Queued locally for 24hrs." });
+      const errorData = await initResponse.json().catch(() => ({}));
+      const reason = errorData?.error?.errors?.[0]?.reason || "";
+      const message =
+        errorData?.error?.message || "YouTube rejected the upload request.";
+
+      // Queue only recognized quota errors, not every HTTP 400.
+      const quotaReasons = [
+        "uploadLimitExceeded",
+        "quotaExceeded",
+        "dailyLimitExceeded",
+      ];
+
+      if (quotaReasons.includes(reason)) {
+        const queueDirectory = path.join(
+          process.cwd(),
+          "storage",
+          "ready_to_upload"
+        );
+
+        await mkdir(queueDirectory, { recursive: true });
+
+        const queueFile = path.join(
+          queueDirectory,
+          `queued_${Date.now()}.json`
+        );
+
+        await writeFile(
+          queueFile,
+          JSON.stringify(
+            {
+              videoUrl,
+              title: title.trim(),
+              description,
+              tags,
+              categoryId,
+              privacyStatus: privacy,
+              scheduledTime: scheduledTime || null,
+              language,
+              queuedAt: new Date().toISOString(),
+              reason,
+            },
+            null,
+            2
+          ),
+          "utf8"
+        );
+
+        return NextResponse.json({
+          success: false,
+          queued: true,
+          status: "queued",
+          message:
+            "YouTube quota limit reached. Video was queued locally; it is not live.",
+        });
       }
-      throw new Error(JSON.stringify(errData));
+
+      console.error("[YouTube upload initialization failed]", {
+        status: initResponse.status,
+        reason,
+        message,
+      });
+
+      return jsonError(message, initResponse.status >= 400 &&
+        initResponse.status < 600 ? initResponse.status : 502);
     }
 
     const uploadUrl = initResponse.headers.get("Location");
-    if (!uploadUrl) throw new Error("No upload URL received");
 
-    // RAM SAFE: Node Stream -> Readable Web Stream for fetch
-    const fileStream = createReadStream(filePath, { highWaterMark: 1 * 1024 * 1024 });
+    if (!uploadUrl) {
+      return jsonError("YouTube did not return an upload URL.", 502);
+    }
+
+    // 6. Stream the file instead of loading the whole video into memory.
+    const fileStream = createReadStream(filePath, {
+      highWaterMark: 1024 * 1024,
+    });
+
     const iterator = fileStream[Symbol.asyncIterator]();
+
     const stream = new ReadableStream({
       async pull(controller) {
-        const { value, done } = await iterator.next();
-        if (done) { controller.close(); } else { controller.enqueue(value); }
-      }
+        try {
+          const { value, done } = await iterator.next();
+
+          if (done) {
+            controller.close();
+          } else {
+            controller.enqueue(value);
+          }
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+      async cancel() {
+        fileStream.destroy();
+      },
     });
 
-    const uploadResponse = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": "video/mp4", "Content-Length": videoSize.toString() },
-      body: stream,
-      duplex: 'half' // Required for Node 18+ streams in fetch
-    });
+    let uploadResponse;
+
+    try {
+      uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "video/mp4",
+          "Content-Length": String(videoStats.size),
+        },
+        body: stream,
+        duplex: "half",
+        signal: AbortSignal.timeout(300000),
+      });
+    } catch (error) {
+      fileStream.destroy();
+      throw error;
+    }
 
     if (!uploadResponse.ok) {
-        const errText = await uploadResponse.text();
-        throw new Error("Upload Stream failed: " + errText);
+      const errorText = await uploadResponse.text();
+
+      console.error("[YouTube video upload failed]", {
+        status: uploadResponse.status,
+        error: errorText,
+      });
+
+      return jsonError(
+        `YouTube upload failed (${uploadResponse.status}): ${errorText.slice(0, 1000)}`,
+        502
+      );
     }
+
     const uploadedVideo = await uploadResponse.json();
 
-    // Auto cleanup temp files after upload
-    try {
-      const { unlink } = await import("fs/promises")
-      const tempFiles = [filePath.replace("videos/", "temp/video_") ]
-      // Clean ASS subtitles older than 1hr
-      const { readdir } = await import("fs/promises")
-      const subsDir = path.join(process.cwd(), "storage", "subtitles")
-      const subFiles = await readdir(subsDir).catch(() => [])
-      for (const f of subFiles) {
-        const fp = path.join(subsDir, f)
-        try { const s = statSync(fp); if (Date.now() - s.mtimeMs > 3600000) await unlink(fp) } catch {}
-      }
-      console.log("🧹 Cleanup done")
-    } catch {}
+    if (!uploadedVideo?.id) {
+      return jsonError(
+        "YouTube did not return a video ID. Upload status needs verification.",
+        502
+      );
+    }
 
-    const finalResponse = NextResponse.json({
-      success: true, videoId: uploadedVideo.id,
-      youtubeUrl: "https://www.youtube.com/watch?v=" + uploadedVideo.id,
-      status: uploadedVideo.status ? uploadedVideo.status.privacyStatus : "private",
+    // 7. Clean up old subtitle files only.
+    try {
+      const subtitlesDirectory = path.join(
+        process.cwd(),
+        "storage",
+        "subtitles"
+      );
+
+      if (existsSync(subtitlesDirectory)) {
+        const files = await readdir(subtitlesDirectory);
+
+        for (const file of files) {
+          const fullPath = path.join(subtitlesDirectory, file);
+
+          try {
+            const stats = statSync(fullPath);
+
+            if (Date.now() - stats.mtimeMs > 60 * 60 * 1000) {
+              await unlink(fullPath);
+            }
+          } catch {
+            // Ignore individual subtitle cleanup failures.
+          }
+        }
+      }
+    } catch {
+      // Subtitle cleanup must not invalidate a successful upload.
+    }
+
+    const youtubeUrl = `https://www.youtube.com/watch?v=${uploadedVideo.id}`;
+    const returnedPrivacy =
+      uploadedVideo.status?.privacyStatus || privacy;
+
+    const response = NextResponse.json({
+      success: true,
+      queued: false,
+      status: returnedPrivacy,
+      videoId: uploadedVideo.id,
+      youtubeUrl,
+      message:
+        returnedPrivacy === "public"
+          ? "Upload completed. YouTube reports the video as public."
+          : `Upload completed, but the video is ${returnedPrivacy}. It is not publicly live.`,
     });
-    if (newToken) finalResponse.cookies.set("yt_access_token", newToken, { httpOnly: true, maxAge: 3600, path: "/", sameSite: "lax" });
-    return finalResponse;
+
+    if (newToken) {
+      response.cookies.set("yt_access_token", newToken, {
+        httpOnly: true,
+        maxAge: 3600,
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      });
+    }
+
+    return response;
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("[YouTube upload route error]", error);
+
+    return jsonError(
+      error instanceof Error ? error.message : "Unexpected upload error.",
+      500
+    );
   }
 }
-

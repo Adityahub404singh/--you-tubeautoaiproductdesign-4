@@ -1,64 +1,215 @@
-﻿import NextAuth from "next-auth"
-import CredentialsProvider from "next-auth/providers/credentials"
-import bcrypt from "bcryptjs"
-import { createClient } from "@libsql/client"
 
-const handler = NextAuth({
-  secret: process.env.NEXTAUTH_SECRET || "fallback_super_secret_for_vercel_123",
-  session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+import NextAuth, { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+
+export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+  },
+  pages: {
+    signIn: "/login",
+  },
+
   providers: [
+    GoogleProvider({
+      clientId:
+        process.env.GOOGLE_CLIENT_ID ||
+        process.env.YOUTUBE_CLIENT_ID ||
+        "",
+      clientSecret:
+        process.env.GOOGLE_CLIENT_SECRET ||
+        process.env.YOUTUBE_CLIENT_SECRET ||
+        "",
+    }),
+
     CredentialsProvider({
       name: "credentials",
+
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        email: {
+          label: "Email",
+          type: "email",
+        },
+        password: {
+          label: "Password",
+          type: "password",
+        },
       },
+
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null
+        if (
+          !credentials?.email ||
+          !credentials?.password
+        ) {
+          return null;
+        }
+
         try {
-          const db = createClient({
-            url: process.env.DATABASE_URL || "",
-            authToken: process.env.TURSO_AUTH_TOKEN || "",
-          })
-          const result = await db.execute({
-            sql: "SELECT * FROM User WHERE email=?",
-            args: [credentials.email.toLowerCase().trim()]
-          })
-          if (result.rows.length === 0) return null
-          const u = result.rows[0] as any
-          if (u.password) {
-            const valid = await bcrypt.compare(credentials.password, String(u.password))
-            if (!valid) return null
+          const cleanEmail = credentials.email
+            .toLowerCase()
+            .trim();
+
+          const user = await prisma.user.findUnique({
+            where: {
+              email: cleanEmail,
+            },
+          });
+
+          // User must exist and have a password hash.
+          if (!user || !user.password) {
+            return null;
           }
+
+          const valid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!valid) {
+            return null;
+          }
+
           return {
-            id: String(u.id),
-            email: String(u.email),
-            name: String(u.name),
-            role: String(u.role || "user"),
-            plan: String(u.plan || "free"),
-          }
-        } catch { return null }
-      }
-    })
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role || "user",
+            plan: user.plan || "free",
+          };
+        } catch (error: unknown) {
+          console.error(
+            "[NEXTAUTH AUTHORIZE ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+
+          return null;
+        }
+      },
+    }),
   ],
+
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = (user as any).role as string
-        token.plan = (user as any).plan as string
+    async signIn({ user, account }) {
+      if (account?.provider === "google" && user.email) {
+        try {
+          const cleanEmail = user.email
+            .toLowerCase()
+            .trim();
+
+          const existingUser = await prisma.user.findUnique({
+            where: {
+              email: cleanEmail,
+            },
+          });
+
+          if (!existingUser) {
+            await prisma.user.create({
+              data: {
+                email: cleanEmail,
+                name: user.name || "Google User",
+                role: "user",
+                plan: "free",
+              },
+            });
+          }
+        } catch (error: unknown) {
+          console.error(
+            "[NEXTAUTH GOOGLE SIGNIN DB ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+        }
       }
-      return token
+
+      return true;
     },
+
+    async jwt({ token, user, account }) {
+      // Credentials login supplies the database user.
+      if (user && account?.provider === "credentials") {
+        token.id = user.id;
+        token.role = (user as any).role || "user";
+        token.plan = (user as any).plan || "free";
+      }
+
+      // Resolve Google user's database record.
+      if (
+        account?.provider === "google" &&
+        user?.email
+      ) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: {
+              email: user.email.toLowerCase().trim(),
+            },
+          });
+
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role || "user";
+            token.plan = dbUser.plan || "free";
+          }
+        } catch (error) {
+          console.error(
+            "[NEXTAUTH JWT DB ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+        }
+      }
+
+      // Refresh database-backed role and plan for existing sessions.
+      if (!user && token.email) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: {
+              email: token.email.toLowerCase().trim(),
+            },
+          });
+
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role || "user";
+            token.plan = dbUser.plan || "free";
+          }
+        } catch (error) {
+          console.error(
+            "[NEXTAUTH JWT REFRESH ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+        }
+      }
+
+      return token;
+    },
+
     async session({ session, token }) {
       if (session.user) {
-        (session.user as any).role = token.role as string
-        (session.user as any).plan = token.plan as string
-        (session.user as any).id = token.sub
-      }
-      return session
-    }
-  }
-})
+        (session.user as any).id =
+          token.id || token.sub;
 
-export { handler as GET, handler as POST }
+        (session.user as any).role =
+          token.role || "user";
+
+        (session.user as any).plan =
+          token.plan || "free";
+      }
+
+      return session;
+    },
+  },
+};
+
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };

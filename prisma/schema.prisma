@@ -4,29 +4,32 @@ generator client {
 
 datasource db {
   provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id                String           @id @default(cuid())
-  email             String           @unique
+  id                String             @id @default(cuid())
+  email             String             @unique
   password          String?
   name              String
-  phone             String           @default("")
-  role              String           @default("user")
-  plan              String           @default("free")
-  hasCompletedSetup Boolean          @default(false)
-  freeVideosUsed    Int              @default(0)
-  paidVideoCredits  Int              @default(0)
-  totalSpent        Float            @default(0)
-  youtubeMonetized  Boolean          @default(false)
-  youtubeEarnings   Float            @default(0)
-  youtubeShareOwed  Float            @default(0)
-  lastActive        DateTime         @default(now())
-  createdAt         DateTime         @default(now())
+  phone             String             @default("")
+  role              String             @default("user")
+  plan              String             @default("free")
+  hasCompletedSetup Boolean            @default(false)
+  freeVideosUsed    Int                @default(0)
+  paidVideoCredits  Int                @default(0)
+  totalSpent        Float              @default(0)
+  youtubeMonetized  Boolean            @default(false)
+  youtubeEarnings   Float              @default(0)
+  youtubeShareOwed  Float              @default(0)
+  lastActive        DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  autopilotSettings AutopilotSettings?
   channels          Channel[]
-  videos            Video[]
-  payments          Payment[]
   conceptHistory    ConceptHistory[]
+  creditLedgers     CreditLedger[]
+  payments          Payment[]
+  videos            Video[]
 }
 
 model Channel {
@@ -84,8 +87,8 @@ model Video {
   uploadError     String?
   videoFileUrl    String?
   createdAt       DateTime  @default(now())
-  channel         Channel   @relation(fields: [channelId], references: [id])
   user            User      @relation(fields: [userId], references: [id])
+  channel         Channel   @relation(fields: [channelId], references: [id])
 }
 
 model Payment {
@@ -108,4 +111,28 @@ model ConceptHistory {
   hook        String
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id])
+}
+
+model AutopilotSettings {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  category      String   @default("cinematic")
+  subCategory   String   @default("sigma")
+  cronSchedule  String   @default("0 18 * * *")
+  isAutoApprove Boolean  @default(false)
+  language      String   @default("en")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CreditLedger {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Float
+  type        String
+  description String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
