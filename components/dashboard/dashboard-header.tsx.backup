@@ -1,0 +1,874 @@
+"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import Image from "next/image"
+import { usePathname, useRouter } from "next/navigation"
+import {
+  Bell,
+  Settings,
+  User,
+  Youtube,
+  LayoutDashboard,
+  Video,
+  Shield,
+  Menu,
+  X,
+  CreditCard,
+  LogOut,
+  CheckCheck,
+  ExternalLink,
+  ChevronDown,
+  Radio,
+  Instagram,
+  RefreshCw,
+  CircleCheck,
+  AlertCircle,
+} from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
+import { useAuth } from "@/lib/auth-context"
+import {
+  store,
+  type Channel,
+  getNotifications,
+  getUnreadNotificationCount,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from "@/lib/store"
+
+interface DashboardHeaderProps {
+  selectedChannel: string
+  onChannelChange: (channel: string) => void
+}
+
+type NotificationItem = {
+  id: string
+  title?: string
+  message?: string
+  read?: boolean
+  youtubeUrl?: string
+  createdAt?: string | number
+}
+
+type ConnectedAccount = {
+  connected: boolean
+  platform: "youtube" | "instagram"
+  channelId?: string
+  accountId?: string
+  channelName?: string
+  username?: string | null
+  avatarUrl?: string | null
+  subscribers?: number
+  followers?: number
+  videoCount?: number
+  mediaCount?: number
+  error?: string
+}
+
+type ChannelWithOptionalPlatform = Channel & {
+  platform?: string
+  type?: string
+  channelType?: string
+}
+
+const navigationItems = [
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    label: "My Videos",
+    href: "/dashboard/my-videos",
+    icon: Video,
+  },
+  {
+    label: "Channels",
+    href: "/dashboard/channels",
+    icon: Radio,
+  },
+]
+
+function normalizePlatform(channel: ChannelWithOptionalPlatform): string {
+  const value = [
+    channel.platform,
+    channel.type,
+    channel.channelType,
+    channel.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+
+  if (value.includes("instagram")) return "instagram"
+  if (value.includes("youtube")) return "youtube"
+
+  return "other"
+}
+
+function getChannelLabel(
+  channel: ChannelWithOptionalPlatform,
+  youtubeAccount: ConnectedAccount | null,
+  instagramAccount: ConnectedAccount | null
+): string {
+  const platform = normalizePlatform(channel)
+
+  if (platform === "youtube" && youtubeAccount?.connected) {
+    return youtubeAccount.channelName || channel.name || "YouTube Channel"
+  }
+
+  if (platform === "instagram" && instagramAccount?.connected) {
+    return instagramAccount.channelName || channel.name || "Instagram Account"
+  }
+
+  return channel.name || "My Channel"
+}
+
+function getChannelPlatformIcon(platform: string) {
+  if (platform === "youtube") return Youtube
+  if (platform === "instagram") return Instagram
+  return Radio
+}
+
+function AccountCard({
+  account,
+}: {
+  account: ConnectedAccount | null
+}) {
+  if (!account) return null
+
+  const isYouTube = account.platform === "youtube"
+  const PlatformIcon = isYouTube ? Youtube : Instagram
+  const platformName = isYouTube ? "YouTube" : "Instagram"
+  const displayName =
+    account.channelName || (isYouTube ? "YouTube Channel" : "Instagram Account")
+
+  return (
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-border/70 bg-card/70 p-3 transition-colors hover:bg-muted/40">
+      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-muted">
+        {account.avatarUrl ? (
+          <Image
+            src={account.avatarUrl}
+            alt={`${displayName} profile`}
+            width={44}
+            height={44}
+            unoptimized
+            className="h-full w-full rounded-full object-cover"
+          />
+        ) : (
+          <PlatformIcon
+            className={`h-5 w-5 ${
+              isYouTube ? "text-red-500" : "text-pink-500"
+            }`}
+          />
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-sm font-semibold">{displayName}</p>
+          {account.connected && (
+            <CircleCheck className="h-4 w-4 shrink-0 text-emerald-500" />
+          )}
+        </div>
+
+        <p className="truncate text-xs text-muted-foreground">
+          {account.username || `${platformName} account`}
+        </p>
+
+        {account.connected && (
+          <p className="mt-1 text-[11px] text-emerald-500">
+            Connected
+          </p>
+        )}
+      </div>
+
+      <PlatformIcon
+        className={`h-4 w-4 shrink-0 ${
+          isYouTube ? "text-red-500" : "text-pink-500"
+        }`}
+      />
+    </div>
+  )
+}
+
+export function DashboardHeader({
+  selectedChannel,
+  onChannelChange,
+}: DashboardHeaderProps) {
+  const { user, logout } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const [channels, setChannels] = useState<Channel[]>([])
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const [youtubeAccount, setYoutubeAccount] =
+    useState<ConnectedAccount | null>(null)
+  const [instagramAccount, setInstagramAccount] =
+    useState<ConnectedAccount | null>(null)
+
+  const [accountsLoading, setAccountsLoading] = useState(true)
+  const [accountsError, setAccountsError] = useState("")
+
+  const refreshNotifications = useCallback(() => {
+    if (!user?.id) {
+      setNotifications([])
+      setUnreadCount(0)
+      return
+    }
+
+    try {
+      const items = getNotifications(user.id) as NotificationItem[]
+      setNotifications(items.slice(0, 10))
+      setUnreadCount(getUnreadNotificationCount(user.id))
+    } catch (error) {
+      console.error("Could not load notifications:", error)
+    }
+  }, [user?.id])
+
+  const refreshChannels = useCallback(() => {
+  if (!user?.id || !store) {
+    setChannels([]);
+    return;
+  }
+
+  try {
+    const items = store.getChannels(user.id) || [];
+    setChannels(items);
+  } catch (error) {
+    console.error("Could not load channels:", error);
+    setChannels([]);
+  }
+}, [user?.id]);
+
+  const refreshConnectedAccounts = useCallback(async () => {
+    setAccountsLoading(true)
+    setAccountsError("")
+
+    try {
+      const [youtubeResponse, instagramResponse] = await Promise.all([
+        fetch("/api/youtube/status", { cache: "no-store" }),
+        fetch("/api/instagram/status", { cache: "no-store" }),
+      ])
+
+      const [youtubeData, instagramData] = await Promise.all([
+        youtubeResponse.json(),
+        instagramResponse.json(),
+      ])
+
+      if (!youtubeResponse.ok && !instagramResponse.ok) {
+        throw new Error("Could not load connected account details.")
+      }
+
+      setYoutubeAccount({
+        ...youtubeData,
+        platform: "youtube",
+        connected: Boolean(youtubeResponse.ok && youtubeData.connected),
+      })
+
+      setInstagramAccount({
+        ...instagramData,
+        platform: "instagram",
+        connected: Boolean(instagramResponse.ok && instagramData.connected),
+      })
+    } catch (error) {
+      console.error("Could not load connected accounts:", error)
+      setAccountsError("Account details could not be refreshed.")
+    } finally {
+      setAccountsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshChannels()
+  }, [refreshChannels])
+
+  useEffect(() => {
+    refreshNotifications()
+  }, [refreshNotifications])
+
+  useEffect(() => {
+    void refreshConnectedAccounts()
+  }, [refreshConnectedAccounts])
+
+  useEffect(() => {
+    const handleStorage = () => {
+      refreshNotifications()
+      refreshChannels()
+    }
+
+    const handleFocus = () => {
+      handleStorage()
+      void refreshConnectedAccounts()
+    }
+
+    window.addEventListener("storage", handleStorage)
+    window.addEventListener("focus", handleFocus)
+
+    return () => {
+      window.removeEventListener("storage", handleStorage)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [refreshNotifications, refreshChannels, refreshConnectedAccounts])
+
+  useEffect(() => {
+    setMobileMenuOpen(false)
+  }, [pathname])
+
+  const uniqueChannels = useMemo(() => {
+    const seen = new Set<string>()
+
+    return (channels as ChannelWithOptionalPlatform[]).filter((channel) => {
+      const platform = normalizePlatform(channel)
+      const name = (channel.name || "").trim().toLowerCase()
+
+      // Preserve IDs used by the existing video-generation workflow,
+      // while filtering repeated entries for the same platform and name.
+      const identity =
+        platform !== "other"
+          ? `${platform}:${name}`
+          : `other:${String(channel.id)}`
+
+      if (seen.has(identity)) return false
+      seen.add(identity)
+      return true
+    })
+  }, [channels])
+
+  const effectiveSelectedChannel = uniqueChannels.some(
+    (channel) => channel.id === selectedChannel
+  )
+    ? selectedChannel
+    : uniqueChannels[0]?.id || ""
+
+  const handleChannelChange = (channelId: string) => {
+    onChannelChange(channelId)
+  }
+
+  const handleNotificationClick = (notification: NotificationItem) => {
+    if (!user?.id || notification.read) return
+
+    try {
+      markNotificationRead(user.id, notification.id)
+      refreshNotifications()
+    } catch (error) {
+      console.error("Could not mark notification as read:", error)
+    }
+  }
+
+  const handleMarkAllRead = () => {
+    if (!user?.id) return
+
+    try {
+      markAllNotificationsRead(user.id)
+      refreshNotifications()
+    } catch (error) {
+      console.error("Could not mark all notifications as read:", error)
+    }
+  }
+
+  const handleLogout = async () => {
+    setMobileMenuOpen(false)
+
+    try {
+      await Promise.resolve(logout())
+      router.push("/login")
+    } catch (error) {
+      console.error("Logout failed:", error)
+    }
+  }
+
+  const isActive = (href: string) => {
+    if (href === "/dashboard") return pathname === href
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
+
+  const renderChannelSelect = (mobile = false) => {
+    if (uniqueChannels.length === 0) return null
+
+    return (
+      <Select
+        value={effectiveSelectedChannel}
+        onValueChange={handleChannelChange}
+      >
+        <SelectTrigger
+          className={mobile ? "w-full" : "hidden w-[190px] sm:flex"}
+          aria-label="Select channel"
+        >
+          <SelectValue placeholder="Select channel" />
+        </SelectTrigger>
+
+        <SelectContent>
+          {uniqueChannels.map((channel) => {
+            const platform = normalizePlatform(
+              channel as ChannelWithOptionalPlatform
+            )
+            const Icon = getChannelPlatformIcon(platform)
+            const label = getChannelLabel(
+              channel as ChannelWithOptionalPlatform,
+              youtubeAccount,
+              instagramAccount
+            )
+
+            const account =
+              platform === "youtube"
+                ? youtubeAccount
+                : platform === "instagram"
+                  ? instagramAccount
+                  : null
+
+            return (
+              <SelectItem key={channel.id} value={channel.id}>
+                <span className="flex min-w-0 items-center gap-2">
+                  {account?.avatarUrl ? (
+                    <Image
+                      src={account.avatarUrl}
+                      alt=""
+                      width={20}
+                      height={20}
+                      unoptimized
+                      className="h-5 w-5 rounded-full object-cover"
+                    />
+                  ) : (
+                    <Icon className="h-4 w-4 shrink-0" />
+                  )}
+
+                  <span className="truncate">{label}</span>
+
+                  {account?.username && (
+                    <span className="max-w-28 truncate text-xs text-muted-foreground">
+                      {account.username}
+                    </span>
+                  )}
+                </span>
+              </SelectItem>
+            )
+          })}
+        </SelectContent>
+      </Select>
+    )
+  }
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-xl">
+      <div className="mx-auto max-w-[1600px] px-4 sm:px-6 lg:px-8">
+        <div className="flex h-16 items-center justify-between gap-3">
+          <Link
+            href="/dashboard"
+            className="flex shrink-0 items-center gap-2.5"
+            aria-label="YouTubeAuto.ai dashboard"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/10">
+              <Youtube className="h-5 w-5 text-red-500" />
+            </span>
+
+            <span className="text-lg font-bold tracking-tight sm:text-xl">
+              YouTubeAuto<span className="text-primary">.ai</span>
+            </span>
+          </Link>
+
+          <nav className="hidden items-center gap-1 lg:flex">
+            {navigationItems.map((item) => {
+              const Icon = item.icon
+              const active = isActive(item.href)
+
+              return (
+                <Button
+                  key={item.href}
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  className={
+                    active
+                      ? "bg-primary/10 text-primary hover:bg-primary/15"
+                      : "text-muted-foreground"
+                  }
+                >
+                  <Link
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {item.label}
+                  </Link>
+                </Button>
+              )
+            })}
+
+            {user?.role === "admin" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                asChild
+                className={
+                  isActive("/admin")
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground"
+                }
+              >
+                <Link href="/admin">
+                  <Shield className="mr-2 h-4 w-4" />
+                  Admin
+                </Link>
+              </Button>
+            )}
+          </nav>
+
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+            {renderChannelSelect()}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative shrink-0 rounded-xl"
+                  aria-label={`Notifications, ${unreadCount} unread`}
+                >
+                  <Bell className="h-5 w-5" />
+
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-background bg-red-500 px-1 text-[10px] font-bold text-white">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent
+                align="end"
+                className="w-[min(360px,calc(100vw-24px))] p-0"
+              >
+                <div className="flex items-center justify-between gap-3 p-4">
+                  <div>
+                    <DropdownMenuLabel className="p-0 text-sm font-semibold">
+                      Notifications
+                    </DropdownMenuLabel>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {unreadCount} unread
+                    </p>
+                  </div>
+
+                  {unreadCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleMarkAllRead}
+                      className="h-8 text-xs"
+                    >
+                      <CheckCheck className="mr-1.5 h-3.5 w-3.5" />
+                      Mark all read
+                    </Button>
+                  )}
+                </div>
+
+                <DropdownMenuSeparator />
+
+                <div className="max-h-[min(420px,65vh)] overflow-y-auto p-1">
+                  {notifications.length === 0 ? (
+                    <div className="px-4 py-10 text-center">
+                      <Bell className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                      <p className="text-sm font-medium">All caught up</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Your notifications will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    notifications.map((notification) => (
+                      <DropdownMenuItem
+                        key={notification.id}
+                        className={`flex cursor-pointer flex-col items-stretch gap-2 whitespace-normal rounded-lg p-3 ${
+                          !notification.read ? "bg-primary/5" : ""
+                        }`}
+                        onSelect={() => handleNotificationClick(notification)}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span
+                            className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                              !notification.read
+                                ? "bg-primary"
+                                : "bg-transparent"
+                            }`}
+                          />
+
+                          <div className="min-w-0 flex-1">
+                            <p className="break-words text-sm font-medium">
+                              {notification.title || "Notification"}
+                            </p>
+                            <p className="mt-1 line-clamp-3 break-words text-xs leading-5 text-muted-foreground">
+                              {notification.message || ""}
+                            </p>
+                          </div>
+                        </div>
+
+                        {notification.youtubeUrl && (
+                          <a
+                            href={notification.youtubeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-4 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            View on YouTube
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-10 gap-2 rounded-xl px-2 sm:px-3"
+                  aria-label="Open account menu"
+                >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                    <User className="h-4 w-4 text-primary" />
+                  </span>
+
+                  <span className="hidden max-w-[120px] truncate text-sm font-medium md:block">
+                    {user?.name || "Account"}
+                  </span>
+
+                  <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground md:block" />
+                </Button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel className="py-3">
+                  <p className="truncate text-sm font-semibold">
+                    {user?.name || "User"}
+                  </p>
+                  <p className="mt-1 truncate text-xs font-normal text-muted-foreground">
+                    {user?.email || ""}
+                  </p>
+
+                  {user?.role === "admin" && (
+                    <span className="mt-2 inline-flex rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                      Administrator
+                    </span>
+                  )}
+                </DropdownMenuLabel>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/settings">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/billing">
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Billing & plans
+                  </Link>
+                </DropdownMenuItem>
+
+                {user?.role === "admin" && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin">
+                      <Shield className="mr-2 h-4 w-4" />
+                      Admin panel
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    void handleLogout()
+                  }}
+                  className="text-red-500 focus:text-red-500"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 rounded-xl lg:hidden"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"}
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {mobileMenuOpen && (
+          <nav className="space-y-1 border-t py-3 lg:hidden">
+            <div className="space-y-3 px-2 pb-3 sm:hidden">
+              <div>
+                <label className="mb-2 block text-xs text-muted-foreground">
+                  Active channel
+                </label>
+                {renderChannelSelect(true)}
+              </div>
+            </div>
+
+            {navigationItems.map((item) => {
+              const Icon = item.icon
+              const active = isActive(item.href)
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition ${
+                    active
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              )
+            })}
+
+            {user?.role === "admin" && (
+              <Link
+                href="/admin"
+                className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition ${
+                  isActive("/admin")
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <Shield className="h-4 w-4" />
+                Admin
+              </Link>
+            )}
+          </nav>
+        )}
+
+        {/* Connected social accounts */}
+        <div className="border-t border-border/50 py-3">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold">Connected accounts</p>
+              <p className="text-xs text-muted-foreground">
+                Your linked social media profiles
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 shrink-0 text-xs"
+              onClick={() => void refreshConnectedAccounts()}
+              disabled={accountsLoading}
+            >
+              <RefreshCw
+                className={`mr-1.5 h-3.5 w-3.5 ${
+                  accountsLoading ? "animate-spin" : ""
+                }`}
+              />
+              Refresh
+            </Button>
+          </div>
+
+          {accountsError && (
+            <p className="mb-3 flex items-center gap-2 text-xs text-amber-500">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {accountsError}
+            </p>
+          )}
+
+          {accountsLoading &&
+          !youtubeAccount &&
+          !instagramAccount ? (
+            <p className="py-3 text-sm text-muted-foreground">
+              Loading connected accounts...
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {youtubeAccount?.connected ? (
+                <AccountCard account={youtubeAccount} />
+              ) : (
+                <Link
+                  href="/api/auth/youtube?action=connect"
+                  className="flex items-center gap-3 rounded-xl border border-dashed border-border p-3 transition-colors hover:bg-muted/40"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-500/10">
+                    <Youtube className="h-5 w-5 text-red-500" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">
+                      YouTube
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Connect your channel
+                    </span>
+                  </span>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </Link>
+              )}
+
+              {instagramAccount?.connected ? (
+                <AccountCard account={instagramAccount} />
+              ) : (
+                <Link
+                  href="/api/auth/instagram?action=connect"
+                  className="flex items-center gap-3 rounded-xl border border-dashed border-border p-3 transition-colors hover:bg-muted/40"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pink-500/10">
+                    <Instagram className="h-5 w-5 text-pink-500" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">
+                      Instagram
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Connect your account
+                    </span>
+                  </span>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </header>
+  )
+}

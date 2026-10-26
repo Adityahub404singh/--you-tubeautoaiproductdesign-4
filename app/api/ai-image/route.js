@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
@@ -6,7 +6,7 @@ import path from "path";
 const REPLICATE_TOKEN = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY;
 const HF_TOKEN = process.env.HUGGINGFACE_API_KEY;
 
-const STYLES: Record<string, string> = {
+const STYLES = {
   cinematic:   "cinematic dark dramatic lighting, lone man suit, rain street 8k photorealistic",
   fakes:       "dark mode smartphone chat screen UI, verified badge, high contrast modern design",
   mysteries:   "mysterious dark ancient ruins, glowing red eyes fog, eerie atmosphere 8k",
@@ -143,3 +143,4 @@ export async function POST(req: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

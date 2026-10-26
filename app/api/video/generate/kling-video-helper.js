@@ -1,170 +1,398 @@
-﻿import { exec } from "child_process";
+﻿
 import { promisify } from "util";
-import { existsSync, statSync, writeFileSync } from "fs";
-import { writeFile } from "fs/promises";
+import { execFile } from "child_process";
+import { existsSync, statSync } from "fs";
+import { mkdir, writeFile, unlink } from "fs/promises";
 import path from "path";
 
-const execAsync = promisify(exec);
-const FFMPEG = "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe";
-const KLING_BASE = "https://api-singapore.klingai.com/v1/videos/text2video";
+const execFileAsync = promisify(execFile);
+
+const FFMPEG =
+  process.env.FFMPEG_PATH ||
+  "C:\\Users\\alc\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe";
+
+const KLING_BASE =
+  "https://api-singapore.klingai.com/v1/videos/text2video";
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function createKlingTask(prompt, aspectRatio, apiKey) {
-  try {
-    const res = await fetch(KLING_BASE, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model_name: "kling-v1",
-        prompt: prompt.slice(0, 500),
-        negative_prompt: "blurry, low quality, distorted, text, watermark",
-        duration: "5",
-        mode: "std",
-        aspect_ratio: aspectRatio,
-      }),
-      signal: AbortSignal.timeout(30000),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      console.log("  Kling create err:", JSON.stringify(data).slice(0, 200));
-      return null;
-    }
-    return data?.data?.task_id || null;
-  } catch (e) {
-    console.log("  Kling create fetch err:", e.message.slice(0, 100));
-    return null;
+  const response = await fetch(KLING_BASE, {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model_name: "kling-v1",
+      prompt: prompt.slice(0, 500),
+      negative_prompt:
+        "blurry, low quality, distorted, text, watermark, flicker",
+      duration: "5",
+      mode: "std",
+      aspect_ratio: aspectRatio,
+    }),
+    signal: AbortSignal.timeout(30000),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      `Kling task creation failed (${response.status}): ${JSON.stringify(data).slice(0, 500)}`
+    );
   }
+
+  const taskId = data?.data?.task_id;
+
+  if (!taskId) {
+    throw new Error("Kling API did not return a task ID.");
+  }
+
+  return taskId;
 }
 
-async function pollKlingTask(taskId, apiKey, maxWaitMs = 180000) {
+async function pollKlingTask(taskId, apiKey, maxWaitMs = 240000) {
   const start = Date.now();
+  const statusUrl = `${KLING_BASE}/${encodeURIComponent(taskId)}`;
+
   while (Date.now() - start < maxWaitMs) {
-    try {
-      const res = await fetch(`${KLING_BASE}/${taskId}`, {
-        headers: { "Authorization": `Bearer ${apiKey}` },
-        signal: AbortSignal.timeout(20000),
-      });
-      const data = await res.json();
-      const status = data?.data?.task_status;
-      if (status === "succeed") {
-        const url = data?.data?.task_result?.videos?.[0]?.url;
-        return url || null;
-      }
-      if (status === "failed") {
-        console.log("  Kling task failed:", JSON.stringify(data).slice(0, 150));
-        return null;
-      }
-      await new Promise(r => setTimeout(r, 8000));
-    } catch (e) {
-      console.log("  Kling poll err:", e.message.slice(0, 100));
-      await new Promise(r => setTimeout(r, 8000));
+    const response = await fetch(statusUrl, {
+      headers: {
+        Authorization: "Bearer " + apiKey,
+      },
+      signal: AbortSignal.timeout(20000),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        `Kling status check failed (${response.status}): ${JSON.stringify(data).slice(0, 300)}`
+      );
     }
+
+    const task = data?.data;
+    const status = task?.task_status;
+
+    console.log(`Kling task ${taskId}: ${status || "pending"}`);
+
+    if (status === "succeed") {
+      const url = task?.task_result?.videos?.[0]?.url;
+
+      if (!url) {
+        throw new Error("Kling task succeeded but returned no video URL.");
+      }
+
+      return url;
+    }
+
+    if (status === "failed") {
+      throw new Error(
+        `Kling generation failed: ${JSON.stringify(task).slice(0, 400)}`
+      );
+    }
+
+    await sleep(8000);
   }
-  console.log("  Kling task timeout");
-  return null;
+
+  throw new Error(`Kling task timed out: ${taskId}`);
 }
 
-async function downloadFile(url, destPath) {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(60000) });
-    if (!res.ok) return false;
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length < 10000) return false;
-    writeFileSync(destPath, buf);
-    return true;
-  } catch (e) {
-    console.log("  Download err:", e.message.slice(0, 100));
-    return false;
+async function downloadVideo(url, destination) {
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(90000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Video download failed (${response.status}).`);
   }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+
+  if (buffer.length < 10000) {
+    throw new Error("Downloaded video is unexpectedly small.");
+  }
+
+  await writeFile(destination, buffer);
+
+  return destination;
 }
 
-function splitIntoScenes(script, sceneCount) {
-  const clean = (script || "").replace(/\[.*?\]/g, "").replace(/\*\*/g, "").trim();
+function splitIntoScenes(script, sceneCount = 2) {
+  const clean = String(script || "")
+    .replace(/\[PAUSE\]/gi, "")
+    .replace(/\[.*?\]/g, "")
+    .replace(/\*\*/g, "")
+    .trim();
+
   const words = clean.split(/\s+/).filter(Boolean);
-  const perScene = Math.max(1, Math.ceil(words.length / sceneCount));
-  const scenes = [];
-  for (let i = 0; i < sceneCount; i++) {
-    const chunk = words.slice(i * perScene, (i + 1) * perScene).join(" ");
-    if (chunk) scenes.push(chunk);
+
+  if (!words.length) {
+    return ["Cinematic establishing shot related to the video title"];
   }
-  return scenes.length ? scenes : [script || "scene"];
+
+  const count = Math.min(sceneCount, words.length);
+  const scenes = [];
+  const perScene = Math.ceil(words.length / count);
+
+  for (let i = 0; i < words.length; i += perScene) {
+    scenes.push(words.slice(i, i + perScene).join(" "));
+  }
+
+  return scenes.slice(0, sceneCount);
 }
 
-export async function renderKlingVideo(hindiScript, title, catKey, W, H, duration, mixedPath, outputPath, conf, storageDir, videoId) {
-  const apiKey = process.env.KLING_API_KEY;
-  if (!apiKey) {
-    console.log("Kling: no API key set, skipping");
-    return false;
+async function runFFmpeg(args, timeout = 180000) {
+  if (!existsSync(FFMPEG)) {
+    throw new Error(`FFmpeg executable not found: ${FFMPEG}`);
   }
 
+  await execFileAsync(FFMPEG, args, {
+    timeout,
+    windowsHide: true,
+    maxBuffer: 10 * 1024 * 1024,
+  });
+}
+
+export async function renderKlingVideo(
+  hindiScript,
+  title,
+  catKey,
+  W,
+  H,
+  duration,
+  mixedPath,
+  outputPath,
+  conf,
+  storageDir,
+  videoId
+) {
+  const apiKey = process.env.KLING_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("KLING_API_KEY is missing from the environment.");
+  }
+
+  if (!existsSync(mixedPath)) {
+    throw new Error(`Voiceover/audio file not found: ${mixedPath}`);
+  }
+
+  const tempDir = path.join(storageDir, "temp");
+  const subtitlesDir = path.join(storageDir, "subtitles");
+
+  await mkdir(tempDir, { recursive: true });
+  await mkdir(subtitlesDir, { recursive: true });
+  await mkdir(path.dirname(outputPath), { recursive: true });
+
+  const aspectRatio = W === 1080 ? "9:16" : "16:9";
+  const scenes = splitIntoScenes(hindiScript, 2);
+  const queries =
+    Array.isArray(conf?.queries) && conf.queries.length
+      ? conf.queries
+      : ["cinematic environment"];
+
+  const stylePrefix =
+    `${catKey || "general"} theme, cinematic composition, ` +
+    "detailed visuals, natural motion, dramatic lighting, no text";
+
+  const clipPaths = [];
+
+  console.log(`Starting Kling AI generation for ${videoId}`);
+  console.log(`Scene count: ${scenes.length}`);
+
   try {
-    console.log(`Kling AI Video Render starting for [${videoId}]...`);
-
-    const MAX_SCENES = 2;
-    const scenes = splitIntoScenes(hindiScript, MAX_SCENES);
-    const aspectRatio = W === 1080 ? "9:16" : "16:9";
-    const queries = (conf.queries && conf.queries.length) ? conf.queries : ["cinematic scene"];
-    const stylePrefix = `${catKey} theme, cinematic, highly detailed, dramatic lighting`;
-
-    const clipPaths = [];
     for (let i = 0; i < scenes.length; i++) {
-      const q = queries[i % queries.length];
-      const prompt = `${q}, ${stylePrefix}`;
-      console.log(`  Kling scene ${i}: requesting...`);
+      const visualQuery = queries[i % queries.length];
 
-      const taskId = await createKlingTask(prompt, aspectRatio, apiKey);
-      if (!taskId) continue;
+      // Include the actual video title and corresponding script segment.
+      const prompt =
+        `Video topic: ${title}. ` +
+        `Scene description: ${scenes[i]}. ` +
+        `Visual direction: ${visualQuery}, ${stylePrefix}`;
 
-      console.log(`  Kling scene ${i}: task ${taskId}, polling...`);
+      console.log(`Requesting Kling scene ${i + 1}/${scenes.length}`);
+
+      const taskId = await createKlingTask(
+        prompt,
+        aspectRatio,
+        apiKey
+      );
+
+      console.log(`Kling task created: ${taskId}`);
+
       const videoUrl = await pollKlingTask(taskId, apiKey);
-      if (!videoUrl) continue;
 
-      const rawPath = path.join(storageDir, "temp", `${videoId}_kling${i}.mp4`);
-      const ok = await downloadFile(videoUrl, rawPath);
-      if (ok && existsSync(rawPath) && statSync(rawPath).size > 10000) {
-        clipPaths.push(rawPath);
-        console.log(`  Kling scene ${i}: downloaded OK`);
+      const clipPath = path.join(
+        tempDir,
+        `${videoId}_kling_${i}.mp4`
+      );
+
+      await downloadVideo(videoUrl, clipPath);
+
+      if (!existsSync(clipPath) || statSync(clipPath).size < 10000) {
+        throw new Error(`Kling scene ${i + 1} failed file validation.`);
       }
+
+      clipPaths.push(clipPath);
+      console.log(`Scene ${i + 1} downloaded successfully.`);
     }
 
-    if (clipPaths.length === 0) {
-      console.log("Kling: no clips generated, aborting");
-      return false;
+    if (!clipPaths.length) {
+      throw new Error("Kling did not generate any video scenes.");
     }
-    console.log(`Kling: ${clipPaths.length}/${scenes.length} scenes generated`);
 
-    const listPath = path.join(storageDir, "temp", `${videoId}_klinglist.txt`);
-    const listContent = clipPaths.map(p => `file '${p.replace(/\\/g, "/")}'`).join("\n");
-    await writeFile(listPath, listContent);
+    // Normalize each clip to the target dimensions and frame rate.
+    const normalizedPaths = [];
 
-    const assPath = path.join(storageDir, "subtitles", `${videoId}.ass`);
-    const hasSubs = existsSync(assPath);
-    const escapedAssPath = assPath.replace(/\\/g, "/").replace(/:/g, "\\:");
+    for (let i = 0; i < clipPaths.length; i++) {
+      const normalizedPath = path.join(
+        tempDir,
+        `${videoId}_normalized_${i}.mp4`
+      );
 
-    const scaleVf = `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1`;
-    const colorGrade = "eq=contrast=1.1:saturation=1.15";
-    const vfFinal = hasSubs ? `${scaleVf},${colorGrade},ass='${escapedAssPath}'` : `${scaleVf},${colorGrade}`;
+      await runFFmpeg(
+        [
+          "-y",
+          "-i",
+          clipPaths[i],
+          "-vf",
+          `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,fps=30`,
+          "-an",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "veryfast",
+          "-crf",
+          "23",
+          "-pix_fmt",
+          "yuv420p",
+          "-movflags",
+          "+faststart",
+          normalizedPath,
+        ],
+        180000
+      );
 
-    const concatOut = path.join(storageDir, "temp", `${videoId}_klingconcat.mp4`);
-    await execAsync(
-      `"${FFMPEG}" -y -f concat -safe 0 -i "${listPath}" -vf "${vfFinal}" -c:v libx264 -preset veryfast -crf 23 -an "${concatOut}"`,
-      { timeout: 180000 }
+      if (
+        !existsSync(normalizedPath) ||
+        statSync(normalizedPath).size < 10000
+      ) {
+        throw new Error(`Failed to normalize scene ${i + 1}.`);
+      }
+
+      normalizedPaths.push(normalizedPath);
+    }
+
+    // Build a concat list using FFmpeg's concat demuxer.
+    const listPath = path.join(tempDir, `${videoId}_concat.txt`);
+
+    const listContent = normalizedPaths
+      .map((file) => {
+        const safePath = file.replace(/\\/g, "/").replace(/'/g, "'\\''");
+        return `file '${safePath}'`;
+      })
+      .join("\n");
+
+    await writeFile(listPath, listContent, "utf8");
+
+    const silentVideoPath = path.join(
+      tempDir,
+      `${videoId}_joined.mp4`
     );
 
-    if (!existsSync(concatOut)) {
-      console.log("Kling: concat failed");
-      return false;
-    }
-
-    await execAsync(
-      `"${FFMPEG}" -y -stream_loop -1 -i "${concatOut}" -i "${mixedPath}" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -t ${duration} "${outputPath}"`,
-      { timeout: 120000 }
+    await runFFmpeg(
+      [
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        listPath,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",
+        "-an",
+        "-movflags",
+        "+faststart",
+        silentVideoPath,
+      ],
+      180000
     );
 
-    const ok = existsSync(outputPath) && statSync(outputPath).size > 100000;
-    if (ok) console.log(`Kling AI render DONE: ${clipPaths.length} scenes used`);
-    return ok;
-  } catch (err) {
-    console.error("Kling Render Error:", err.message);
-    return false;
+    if (
+      !existsSync(silentVideoPath) ||
+      statSync(silentVideoPath).size < 10000
+    ) {
+      throw new Error("FFmpeg could not concatenate the generated scenes.");
+    }
+
+    // Add the generated voiceover and trim to its requested duration.
+    await runFFmpeg(
+      [
+        "-y",
+        "-i",
+        silentVideoPath,
+        "-i",
+        mixedPath,
+        "-map",
+        "0:v:0",
+        "-map",
+        "1:a:0",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "23",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-t",
+        String(Math.max(1, Number(duration) || 5)),
+        "-pix_fmt",
+        "yuv420p",
+        "-movflags",
+        "+faststart",
+        outputPath,
+      ],
+      180000
+    );
+
+    if (!existsSync(outputPath) || statSync(outputPath).size < 50000) {
+      throw new Error("Final MP4 was not created or failed file validation.");
+    }
+
+    console.log(
+      `Kling AI render completed: ${outputPath} (${clipPaths.length} scenes)`
+    );
+
+    return true;
+  } catch (error) {
+    // Remove an incomplete output so it cannot be mistaken for a success.
+    try {
+      if (existsSync(outputPath)) {
+        await unlink(outputPath);
+      }
+    } catch {}
+
+    console.error("Kling video rendering failed:", error.message);
+
+    // Propagate the error; do not silently pretend that generation succeeded.
+    throw error;
+  } finally {
+    // Remove temporary scene files, retaining the final MP4.
+    for (const file of clipPaths) {
+      try {
+        if (existsSync(file)) await unlink(file);
+      } catch {}
+    }
   }
 }

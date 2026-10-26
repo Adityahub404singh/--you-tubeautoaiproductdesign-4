@@ -1,0 +1,104 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+type Settings = {
+  category: string;
+  subCategory: string;
+  cronSchedule: string;
+  isAutoApprove: boolean;
+  language: string;
+  isActive: boolean;
+};
+
+const initial: Settings = {
+  category: "cinematic",
+  subCategory: "sigma",
+  cronSchedule: "0 18 * * *",
+  isAutoApprove: false,
+  language: "hi",
+  isActive: false,
+};
+
+export default function AutopilotPage() {
+  const [settings, setSettings] = useState<Settings>(initial);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/autopilot/settings", { cache: "no-store" })
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Could not load settings.");
+        if (live && data.settings) setSettings({ ...initial, ...data.settings });
+      })
+      .catch((e) => live && setMessage(e.message))
+      .finally(() => live && setLoading(false));
+    return () => { live = false; };
+  }, []);
+
+  function update<K extends keyof Settings>(key: K, value: Settings[K]) {
+    setSettings((current) => ({ ...current, [key]: value }));
+  }
+
+  async function save() {
+    setSaving(true); setMessage("");
+    try {
+      const response = await fetch("/api/autopilot/settings", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Settings could not be saved.");
+      setSettings({ ...initial, ...data.settings });
+      setMessage("Settings saved. Scheduled publishing will run only after the server scheduler is configured.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Settings could not be saved.");
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <main className="mx-auto min-h-screen max-w-3xl space-y-6 px-4 py-10">
+      <div>
+        <Link href="/dashboard" className="text-sm underline">← Dashboard</Link>
+        <h1 className="mt-4 text-3xl font-bold">Autopilot</h1>
+        <p className="mt-2 text-muted-foreground">Set your channel niche, language and publishing schedule.</p>
+      </div>
+      {loading ? <p>Loading settings…</p> : (
+        <div className="space-y-5 rounded-xl border p-5">
+          <div className="space-y-2">
+            <label htmlFor="category" className="text-sm font-medium">Category</label>
+            <select id="category" className="w-full rounded-md border bg-background p-2" value={settings.category} onChange={(e) => update("category", e.target.value)}>
+              {[["cinematic","Cinematic"],["facts","Facts"],["motivation","Motivation"],["tech","Technology"],["history","History"],["horror","Horror"],["psychology","Psychology"],["story","Stories"],["general","General"]].map(([value,label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="subCategory" className="text-sm font-medium">Subcategory / niche</label>
+            <input id="subCategory" className="w-full rounded-md border bg-background p-2" value={settings.subCategory} maxLength={80} onChange={(e) => update("subCategory", e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="language" className="text-sm font-medium">Content language</label>
+            <select id="language" className="w-full rounded-md border bg-background p-2" value={settings.language} onChange={(e) => update("language", e.target.value)}>
+              <option value="hi">Hindi</option><option value="en">English</option><option value="hinglish">Hinglish</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="cronSchedule" className="text-sm font-medium">Schedule (5-field cron, server timezone)</label>
+            <input id="cronSchedule" className="w-full rounded-md border bg-background p-2 font-mono" value={settings.cronSchedule} onChange={(e) => update("cronSchedule", e.target.value)} />
+            <p className="text-xs text-muted-foreground">Example: <code>0 18 * * *</code> = daily at 6 PM. Save does not itself start a scheduler.</p>
+          </div>
+          <label className="flex items-center gap-3"><input type="checkbox" checked={settings.isActive} onChange={(e) => update("isActive", e.target.checked)} /> Enable Autopilot for my account</label>
+          <label className="flex items-center gap-3"><input type="checkbox" checked={settings.isAutoApprove} onChange={(e) => update("isAutoApprove", e.target.checked)} /> Allow automatic publishing without manual approval</label>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => { window.location.href = "/api/auth/youtube?action=connect"; }} className="rounded-md border px-4 py-2">Connect YouTube</button>
+            <button type="button" disabled={saving} onClick={save} className="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">{saving ? "Saving…" : "Save settings"}</button>
+          </div>
+          {message && <p role="status" className="rounded-md border p-3 text-sm">{message}</p>}
+        </div>
+      )}
+      <p className="text-sm text-muted-foreground">Safety: leave automatic publishing off until you have tested a generated video and confirmed the correct YouTube channel is connected.</p>
+    </main>
+  );
+}

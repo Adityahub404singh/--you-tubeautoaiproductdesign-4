@@ -1,0 +1,635 @@
+FINAL CHECK - 10/25/2026 21:58:48
+
+========== app/api/auth/[...nextauth]/route.ts ==========
+
+import NextAuth, { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+
+export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+  },
+  pages: {
+    signIn: "/login",
+  },
+
+  providers: [
+    GoogleProvider({
+      clientId:
+        process.env.GOOGLE_CLIENT_ID ||
+        process.env.YOUTUBE_CLIENT_ID ||
+        "",
+      clientSecret:
+        process.env.GOOGLE_CLIENT_SECRET ||
+        process.env.YOUTUBE_CLIENT_SECRET ||
+        "",
+    }),
+
+    CredentialsProvider({
+      name: "credentials",
+
+      credentials: {
+        email: {
+          label: "Email",
+          type: "email",
+        },
+        password: {
+          label: "Password",
+          type: "password",
+        },
+      },
+
+      async authorize(credentials) {
+        if (
+          !credentials?.email ||
+          !credentials?.password
+        ) {
+          return null;
+        }
+
+        try {
+          const cleanEmail = credentials.email
+            .toLowerCase()
+            .trim();
+
+          const user = await prisma.user.findUnique({
+            where: {
+              email: cleanEmail,
+            },
+          });
+
+          // User must exist and have a password hash.
+          if (!user || !user.password) {
+            return null;
+          }
+
+          const valid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!valid) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role || "user",
+            plan: user.plan || "free",
+          };
+        } catch (error: unknown) {
+          console.error(
+            "[NEXTAUTH AUTHORIZE ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+
+          return null;
+        }
+      },
+    }),
+  ],
+
+  callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === "google" && user.email) {
+        try {
+          const cleanEmail = user.email
+            .toLowerCase()
+            .trim();
+
+          const existingUser = await prisma.user.findUnique({
+            where: {
+              email: cleanEmail,
+            },
+          });
+
+          if (!existingUser) {
+            await prisma.user.create({
+              data: {
+                email: cleanEmail,
+                name: user.name || "Google User",
+                role: "user",
+                plan: "free",
+              },
+            });
+          }
+        } catch (error: unknown) {
+          console.error(
+            "[NEXTAUTH GOOGLE SIGNIN DB ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+        }
+      }
+
+      return true;
+    },
+
+    async jwt({ token, user, account }) {
+      // Credentials login supplies the database user.
+      if (user && account?.provider === "credentials") {
+        token.id = user.id;
+        token.role = (user as any).role || "user";
+        token.plan = (user as any).plan || "free";
+      }
+
+      // Resolve Google user's database record.
+      if (
+        account?.provider === "google" &&
+        user?.email
+      ) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: {
+              email: user.email.toLowerCase().trim(),
+            },
+          });
+
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role || "user";
+            token.plan = dbUser.plan || "free";
+          }
+        } catch (error) {
+          console.error(
+            "[NEXTAUTH JWT DB ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+        }
+      }
+
+      // Refresh database-backed role and plan for existing sessions.
+      if (!user && token.email) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: {
+              email: token.email.toLowerCase().trim(),
+            },
+          });
+
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role || "user";
+            token.plan = dbUser.plan || "free";
+          }
+        } catch (error) {
+          console.error(
+            "[NEXTAUTH JWT REFRESH ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+        }
+      }
+
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).id =
+          token.id || token.sub;
+
+        (session.user as any).role =
+          token.role || "user";
+
+        (session.user as any).plan =
+          token.plan || "free";
+      }
+
+      return session;
+    },
+  },
+};
+
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };
+
+
+========== app/api/db/videos/route.ts ==========
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/db";
+
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const where: any = {};
+
+    const channelId = searchParams.get("channelId");
+    const userId = searchParams.get("userId");
+    const status = searchParams.get("status");
+
+    if (channelId) where.channelId = channelId;
+    if (userId) where.userId = userId;
+    if (status) where.status = status;
+
+    const videos = await prisma.video.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(videos);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to fetch videos" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const data = await req.json();
+
+    if (Array.isArray(data.tags)) {
+      data.tags = JSON.stringify(data.tags);
+    }
+
+    const video = await prisma.video.create({ data });
+    return NextResponse.json(video);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to create video" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, ...updates } = await req.json();
+
+    if (Array.isArray(updates.tags)) {
+      updates.tags = JSON.stringify(updates.tags);
+    }
+
+    const video = await prisma.video.update({
+      where: { id },
+      data: updates,
+    });
+
+    return NextResponse.json(video);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to update video" },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== app/api/auth/signup/route.ts ==========
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(req: NextRequest) {
+  try {
+    const { name, email, password, phone } = await req.json();
+    if (!name || !email || !password) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    const existing = await prisma.user.findUnique({
+      where: { email: cleanEmail }
+    });
+
+    if (existing) {
+      return NextResponse.json({ error: "Email already registered" }, { status: 409 });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await prisma.user.create({
+      data: {
+        email: cleanEmail,
+        name,
+        phone: phone || "",
+        password: hashedPassword,
+        role: "user",
+        plan: "free",
+        hasCompletedSetup: false,
+        freeVideosUsed: 0,
+        paidVideoCredits: 0
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        phone: newUser.phone || "",
+        role: newUser.role,
+        plan: newUser.plan,
+        hasCompletedSetup: false,
+        freeVideosUsed: 0,
+        paidVideoCredits: 0
+      }
+    });
+  } catch (error: any) {
+    console.error("Signup Error:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+========== app/api/auth/login/route.ts ==========
+
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(req: NextRequest) {
+  try {
+    const { email, password } = await req.json();
+
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      !email.trim() ||
+      !password
+    ) {
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 }
+      );
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    const user = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+    });
+
+    // Reject unknown users and accounts without a password.
+    if (!user || !user.password) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+
+    if (!valid) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone || "",
+        role: user.role,
+        plan: user.plan,
+        hasCompletedSetup: !!user.hasCompletedSetup,
+        freeVideosUsed: user.freeVideosUsed || 0,
+        paidVideoCredits: user.paidVideoCredits || 0,
+      },
+    });
+  } catch (error: unknown) {
+    console.error("Login Error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to process login right now" },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== lib/prisma.ts ==========
+
+import { PrismaClient } from "@prisma/client";
+import { PrismaLibSQL } from "@prisma/adapter-libsql";
+import path from "path";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+function createPrismaClient(): PrismaClient {
+  const dbPath = path
+    .join(process.cwd(), "prisma", "dev.db")
+    .replace(/\\/g, "/");
+
+  const adapter = new PrismaLibSQL({
+    url: `file:${dbPath}`,
+  });
+
+  return new PrismaClient({
+    adapter,
+    log: ["error"],
+  });
+}
+
+export const prisma =
+  globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
+
+========== lib/db.ts ==========
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
+
+export const prisma =
+  globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
+export default prisma;
+
+
+========== prisma/schema.prisma ==========
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  password          String?
+  name              String
+  phone             String             @default("")
+  role              String             @default("user")
+  plan              String             @default("free")
+  hasCompletedSetup Boolean            @default(false)
+  freeVideosUsed    Int                @default(0)
+  paidVideoCredits  Int                @default(0)
+  totalSpent        Float              @default(0)
+  youtubeMonetized  Boolean            @default(false)
+  youtubeEarnings   Float              @default(0)
+  youtubeShareOwed  Float              @default(0)
+  lastActive        DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  autopilotSettings AutopilotSettings?
+  channels          Channel[]
+  conceptHistory    ConceptHistory[]
+  creditLedgers     CreditLedger[]
+  payments          Payment[]
+  videos            Video[]
+  socialAccounts    SocialAccount[]
+}
+
+model Channel {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  subscribers     Int      @default(0)
+  category        String   @default("tech")
+  language        String   @default("hi")
+  voice           String   @default("hi-IN-Wavenet-B")
+  defaultTags     String   @default("")
+  privacy         String   @default("public")
+  uploadTime      String   @default("10:00")
+  contentStrategy String   @default("")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id])
+  videos          Video[]
+}
+
+model Video {
+  id              String    @id @default(cuid())
+  channelId       String
+  userId          String
+  title           String
+  status          String    @default("pending-approval")
+  riskLevel       String    @default("low")
+  scheduledDate   DateTime  @default(now())
+  views           Int       @default(0)
+  likes           Int       @default(0)
+  comments        Int       @default(0)
+  retentionRate   Float     @default(0.0)
+  thumbnail       String    @default("")
+  topic           String
+  subCategory     String    @default("general")
+  description     String    @default("")
+  tags            String    @default("[]")
+  aiScore         Int       @default(75)
+  adminApproved   Boolean   @default(false)
+  adminApprovedBy String?
+  adminApprovedAt DateTime?
+  userApproved    Boolean   @default(false)
+  userApprovedAt  DateTime?
+  cost            Float     @default(0)
+  isFree          Boolean   @default(true)
+  audioUrl        String    @default("")
+  thumbnailUrl    String    @default("")
+  script          String    @default("")
+  hook            String    @default("")
+  videoType       String    @default("long")
+  scheduledTime   String?
+  youtubeUrl      String?
+  youtubeVideoId  String?
+  uploadedAt      DateTime?
+  uploadError     String?
+  videoFileUrl    String?
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id])
+  channel         Channel   @relation(fields: [channelId], references: [id])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  amount    Float
+  videoId   String?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ConceptHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  category    String
+  subCategory String
+  topic       String
+  hook        String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model AutopilotSettings {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  category      String   @default("cinematic")
+  subCategory   String   @default("sigma")
+  cronSchedule  String   @default("0 18 * * *")
+  isAutoApprove Boolean  @default(false)
+  language      String   @default("en")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CreditLedger {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Float
+  type        String
+  description String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SocialAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  platformUserId    String
+  accountName       String
+  accessToken       String
+  refreshToken      String?
+  accessTokenExpiry DateTime?
+  scopes            String   @default("")
+  isConnected       Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, platformUserId])
+  @@index([userId, provider])
+}
+

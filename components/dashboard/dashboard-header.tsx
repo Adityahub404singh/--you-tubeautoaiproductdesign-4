@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
@@ -20,6 +20,7 @@ import {
   ExternalLink,
   ChevronDown,
   Radio,
+  Zap,
   Instagram,
   RefreshCw,
   CircleCheck,
@@ -103,6 +104,11 @@ const navigationItems = [
     label: "Channels",
     href: "/dashboard/channels",
     icon: Radio,
+  },
+  {
+    label: "Autopilot",
+    href: "/dashboard/autopilot",
+    icon: Zap,
   },
 ]
 
@@ -872,3 +878,4 @@ export function DashboardHeader({
     </header>
   )
 }
+

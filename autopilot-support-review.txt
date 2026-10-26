@@ -1,0 +1,1981 @@
+SUPPORTING CODE REVIEW - 10/25/2026 21:55:11
+
+
+========== lib/auth-context.tsx ==========
+"use client"
+import type React from "react"
+import { createContext, useContext, useState, useEffect } from "react"
+import { signIn, signOut, useSession } from "next-auth/react"
+
+interface User {
+  id: string; email: string; name: string; phone: string
+  role: string; plan: string; hasCompletedSetup: boolean
+  freeVideosUsed: number; paidVideoCredits: number
+}
+
+interface AuthContextType {
+  user: User | null
+  login: (email: string, password: string) => Promise<boolean>
+  signup: (name: string, email: string, password: string, phone: string) => Promise<boolean>
+  logout: () => void
+  isLoading: boolean
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession()
+  const [extraData, setExtraData] = useState<Partial<User>>({})
+
+  const user: User | null = session?.user ? {
+    id: (session.user as any).id || "",
+    email: session.user.email || "",
+    name: session.user.name || "",
+    phone: extraData.phone || "",
+    role: (session.user as any).role || "user",
+    plan: (session.user as any).plan || "free",
+    hasCompletedSetup: extraData.hasCompletedSetup ?? true,
+    freeVideosUsed: extraData.freeVideosUsed || 0,
+    paidVideoCredits: extraData.paidVideoCredits || 0,
+  } : null
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    const result = await signIn("credentials", { email, password, redirect: false })
+    return !result?.error
+  }
+
+  const signup = async (name: string, email: string, password: string, phone: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, phone })
+      })
+      const data = await res.json()
+      if (!data.success) return false
+      const result = await signIn("credentials", { email, password, redirect: false })
+      return !result?.error
+    } catch { return false }
+  }
+
+  const logout = () => signOut({ callbackUrl: "/login" })
+
+  return (
+    <AuthContext.Provider value={{ user, login, signup, logout, isLoading: status === "loading" }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider")
+  return ctx
+}
+
+
+
+========== lib/auth-context.ts ==========
+FILE NOT FOUND
+
+
+========== lib/store.ts ==========
+"use client"
+
+export interface User {
+  id: string
+  email: string
+  name: string
+  phone: string
+  role: "user" | "admin"
+  plan: "free" | "pro" | "agency"
+  createdAt: string
+  hasCompletedSetup: boolean
+  freeVideosUsed: number // How many free videos used (max 10)
+  paidVideoCredits: number // Paid video credits purchased
+  totalSpent: number // Total amount spent on videos
+  youtubeMonetized: boolean // Is channel monetized
+  youtubeEarnings: number // Total YouTube earnings
+  youtubeShareOwed: number // 10% owed to platform
+  lastActive: string
+}
+
+// Helper getters for computed properties
+export function getFreeVideosRemaining(user: User): number {
+  return Math.max(0, 10 - user.freeVideosUsed)
+}
+
+export function getVideosUsed(user: User): number {
+  return user.freeVideosUsed
+}
+
+export interface Channel {
+  id: string
+  userId: string
+  name: string
+  subscribers: number
+  category: string
+  language: string
+  voice: string
+  defaultTags: string
+  privacy: "public" | "unlisted"
+  uploadTime: string
+  contentStrategy: string
+  isActive: boolean
+}
+
+export interface Video {
+  id: string
+  channelId: string
+  title: string
+  status: "pending-approval" | "approved" | "rejected" | "user-approved" | "uploading" | "live" | "failed"
+  riskLevel: "low" | "high" // Added risk level for queue sorting
+  scheduledDate: string
+  views: number
+  likes: number
+  comments: number
+  thumbnail: string
+  topic: string
+  description?: string // AI generated description
+  tags?: string[] // AI generated tags
+  aiScore: number
+  adminApproved: boolean // Admin approval status
+  adminApprovedBy?: string
+  adminApprovedAt?: string
+  userApproved: boolean // User approval status
+  userApprovedAt?: string
+  cost: number
+  isFree: boolean // Track if this was a free video
+  videoFileId?: string // IndexedDB key for stored video file
+  audioUrl?: string // ElevenLabs/TTS generated audio URL
+  thumbnailUrl?: string // Generated thumbnail URL
+  videoUrl?: string // Assembled video file URL
+  script?: string // AI generated script
+  hook?: string // Video hook
+  videoType?: "shorts" | "long" | "slide" // Video type
+  scheduledTime?: string // YouTube scheduled upload time
+  youtubeUrl?: string // YouTube video URL after upload
+  youtubeVideoId?: string // YouTube video ID
+  uploadedAt?: string // Upload timestamp
+  uploadError?: string // Upload error message
+  youtubeAccessToken?: string // User's YouTube access token (stored encrypted in real app)
+  youtubeRefreshToken?: string // User's YouTube refresh token
+  createdAt: string
+}
+
+export interface Payment {
+  id: string
+  userId: string
+  type: "video" | "youtube-share"
+  amount: number
+  videoId?: string
+  createdAt: string
+  status: "pending" | "completed" | "failed"
+}
+
+class Store {
+  private static instance: Store
+
+  private constructor() {
+    if (typeof window !== "undefined") {
+      this.initializeData()
+    }
+  }
+
+  static getInstance(): Store {
+    if (!Store.instance) {
+      Store.instance = new Store()
+    }
+    return Store.instance
+  }
+
+  private initializeData() {
+    const users = this.getUsers()
+    const adminExists = users.some((u) => u.email === "singhaditya4560@gmail.com")
+
+    if (!adminExists) {
+      const adminUser: User = {
+        id: "admin-001",
+        email: "singhaditya4560@gmail.com",
+        name: "Aditya Singh",
+        phone: "+91 7068003894",
+        role: "admin",
+        plan: "agency",
+        createdAt: new Date().toISOString(),
+        hasCompletedSetup: true,
+        freeVideosUsed: 0,
+        paidVideoCredits: 0,
+        totalSpent: 0,
+        youtubeMonetized: true,
+        youtubeEarnings: 0,
+        youtubeShareOwed: 0,
+        lastActive: new Date().toISOString(),
+      }
+      users.push(adminUser)
+      localStorage.setItem("users", JSON.stringify(users))
+    }
+  }
+
+  // User methods
+  getUsers(): User[] {
+    if (typeof window === "undefined") return []
+    const data = localStorage.getItem("users")
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      return Array.isArray(parsed) ? (parsed as User[]) : []
+    } catch {
+      console.error("Could not parse localStorage users")
+      return []
+    }
+  }
+
+  getUserByEmail(email: string): User | null {
+    if (typeof window === "undefined" || !email?.trim()) return null
+
+    const normalizedEmail = email.trim().toLowerCase()
+    return (
+      this.getUsers().find(
+        (u) => u.email?.trim().toLowerCase() === normalizedEmail
+      ) || null
+    )
+  }
+
+  /**
+   * Repairs legacy channels only when there is exactly one non-admin local user.
+   * The seeded admin profile is ignored. If multiple real users exist, this method
+   * deliberately does nothing to avoid assigning one user's channels to another.
+   */
+  repairOrphanedChannelsForSingleUser(userId: string): void {
+    if (typeof window === "undefined" || !userId) return
+
+    const users = this.getUsers()
+    const nonAdminUsers = users.filter((u) => u.role !== "admin")
+
+    // Only auto-repair when the browser has one real user profile and it matches.
+    if (nonAdminUsers.length !== 1 || nonAdminUsers[0].id !== userId) return
+
+    const channels = this.getChannels()
+    const knownUserIds = new Set(users.map((u) => u.id))
+    let changed = false
+
+    const repairedChannels = channels.map((channel) => {
+      // Reassign only orphaned channel records, never channels owned by a known user.
+      if (!channel.userId || !knownUserIds.has(channel.userId)) {
+        changed = true
+        return { ...channel, userId }
+      }
+      return channel
+    })
+
+    if (changed) {
+      localStorage.setItem("channels", JSON.stringify(repairedChannels))
+    }
+  }
+
+  createUser(
+    user: Omit<
+      User,
+      | "id"
+      | "createdAt"
+      | "freeVideosUsed"
+      | "paidVideoCredits"
+      | "totalSpent"
+      | "youtubeMonetized"
+      | "youtubeEarnings"
+      | "youtubeShareOwed"
+      | "lastActive"
+    >,
+  ): User {
+    const users = this.getUsers()
+    const newUser: User = {
+      ...user,
+      id: `user-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      freeVideosUsed: 0, // Starts at 0, can use up to 1
+      paidVideoCredits: 0,
+      totalSpent: 0,
+      youtubeMonetized: false,
+      youtubeEarnings: 0,
+      youtubeShareOwed: 0,
+      lastActive: new Date().toISOString(),
+    }
+    users.push(newUser)
+    localStorage.setItem("users", JSON.stringify(users))
+    return newUser
+  }
+
+  updateUser(userId: string, updates: Partial<User>): void {
+    const users = this.getUsers()
+    const index = users.findIndex((u) => u.id === userId)
+    if (index !== -1) {
+      users[index] = { ...users[index], ...updates }
+      localStorage.setItem("users", JSON.stringify(users))
+    }
+  }
+
+  getUserById(userId: string): User | null {
+    return this.getUsers().find((u) => u.id === userId) || null
+  }
+
+  // Channel methods
+  getChannels(userId?: string): Channel[] {
+    if (typeof window === "undefined") return []
+    const data = localStorage.getItem("channels")
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      const channels = Array.isArray(parsed) ? (parsed as Channel[]) : []
+      return userId ? channels.filter((c) => c.userId === userId) : channels
+    } catch {
+      console.error("Could not parse localStorage channels")
+      return []
+    }
+  }
+
+  createChannel(channel: Omit<Channel, "id">): Channel {
+    const channels = this.getChannels()
+    const newChannel: Channel = {
+      ...channel,
+      id: `channel-${Date.now()}`,
+    }
+    channels.push(newChannel)
+    localStorage.setItem("channels", JSON.stringify(channels))
+    return newChannel
+  }
+
+  updateChannel(channelId: string, updates: Partial<Channel>): void {
+    const channels = this.getChannels()
+    const index = channels.findIndex((c) => c.id === channelId)
+    if (index !== -1) {
+      channels[index] = { ...channels[index], ...updates }
+      localStorage.setItem("channels", JSON.stringify(channels))
+    }
+  }
+
+  deleteChannel(channelId: string): void {
+    const channels = this.getChannels()
+    const filtered = channels.filter((c) => c.id !== channelId)
+    localStorage.setItem("channels", JSON.stringify(filtered))
+  }
+
+  // Video methods
+  getVideos(channelId?: string): Video[] {
+    if (typeof window === "undefined") return []
+    const data = localStorage.getItem("videos")
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      const videos = Array.isArray(parsed) ? (parsed as Video[]) : []
+      return channelId ? videos.filter((v) => v.channelId === channelId) : videos
+    } catch {
+      console.error("Could not parse localStorage videos")
+      return []
+    }
+  }
+
+  canCreateVideo(userId: string): { allowed: boolean; reason?: string } {
+    const user = this.getUserById(userId)
+    if (!user) return { allowed: false, reason: "User not found" }
+
+    // Admin always allowed
+    if (user.role === "admin") return { allowed: true }
+
+    // Check if user has free videos remaining
+    if (user.freeVideosUsed < 10) return { allowed: true }
+
+    // Check if user has paid credits
+    if (user.paidVideoCredits > 0) return { allowed: true }
+
+    return { allowed: false, reason: "No free videos or credits remaining. Please upgrade." }
+  }
+
+  calculateRiskLevel(niche: string): "low" | "high" {
+    const highRiskNiches = ["news", "politics", "finance", "make money online", "cryptocurrency", "health", "medical"]
+    const lowercaseNiche = niche.toLowerCase()
+    return highRiskNiches.some((risk) => lowercaseNiche.includes(risk)) ? "high" : "low"
+  }
+
+  createVideo(
+    video: Omit<
+      Video,
+      "id" | "aiScore" | "adminApproved" | "userApproved" | "cost" | "isFree" | "riskLevel" | "createdAt"
+    >,
+  ): Video {
+    const videos = this.getVideos()
+    const channel = this.getChannels().find((c) => c.id === video.channelId)
+    if (!channel) throw new Error("Channel not found")
+
+    const user = this.getUserById(channel.userId)
+    if (!user) throw new Error("User not found")
+
+    const canCreate = this.canCreateVideo(user.id)
+    if (!canCreate.allowed) {
+      throw new Error(canCreate.reason)
+    }
+
+    const isAdmin = user.role === "admin"
+    const isFree = isAdmin || user.freeVideosUsed < 10
+    const cost = isFree ? 0 : 0.16
+
+    const riskLevel = this.calculateRiskLevel(channel.category)
+
+    const newVideo: Video = {
+      ...video,
+      id: `video-${Date.now()}`,
+      aiScore: Math.floor(Math.random() * 30) + 70,
+      adminApproved: isAdmin, // Auto-approve admin's own videos
+      adminApprovedBy: isAdmin ? user.id : undefined,
+      adminApprovedAt: isAdmin ? new Date().toISOString() : undefined,
+      userApproved: false,
+      cost,
+      isFree,
+      riskLevel,
+      createdAt: new Date().toISOString(),
+    }
+    videos.push(newVideo)
+    localStorage.setItem("videos", JSON.stringify(videos))
+
+    // Admin videos are free, don't deduct
+    if (!isAdmin) {
+      if (isFree) {
+        this.updateUser(user.id, {
+          freeVideosUsed: user.freeVideosUsed + 1,
+        })
+      } else {
+        this.updateUser(user.id, {
+          paidVideoCredits: user.paidVideoCredits - 1,
+          totalSpent: user.totalSpent + 0.2,
+        })
+      }
+    }
+
+    return newVideo
+  }
+
+  updateVideo(videoId: string, updates: Partial<Video>): void {
+    const videos = this.getVideos()
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = { ...videos[index], ...updates }
+      localStorage.setItem("videos", JSON.stringify(videos))
+    }
+  }
+
+  // Generate 30-day schedule
+  generate30DaySchedule(channelId: string, contentStrategy: string): Video[] {
+    const topics = this.generateTopics(contentStrategy, 30)
+    const videos: Video[] = []
+    const channel = this.getChannels().find((c) => c.id === channelId)
+    if (!channel) return []
+
+    const user = this.getUserById(channel.userId)
+    if (!user) throw new Error("User not found")
+
+    const canCreate = this.canCreateVideo(user.id)
+    if (!canCreate.allowed) {
+      throw new Error(canCreate.reason)
+    }
+
+    const riskLevel = this.calculateRiskLevel(channel.category)
+
+    for (let i = 0; i < 30; i++) {
+      const isFree = user.freeVideosUsed < 10
+      const cost = isFree ? 0 : 0.16
+
+      const video: Video = {
+        id: `video-${Date.now()}-${i}`,
+        channelId,
+        title: topics[i],
+        status: i === 0 ? "pending-approval" : "pending-approval",
+        scheduledDate: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString(),
+        views: 0,
+        likes: 0,
+        comments: 0,
+        thumbnail: `/ai-tools-thumbnail.png`,
+        topic: topics[i],
+        aiScore: Math.floor(Math.random() * 30) + 70,
+        adminApproved: false,
+        userApproved: false,
+        cost,
+        isFree,
+        riskLevel,
+        createdAt: new Date().toISOString(),
+      }
+      videos.push(video)
+    }
+
+    const existingVideos = this.getVideos()
+    localStorage.setItem("videos", JSON.stringify([...existingVideos, ...videos]))
+
+    // Update user video count
+    const freeVideosRemaining = Math.max(0, 10 - user.freeVideosUsed)
+    const freeVideosToUse = Math.min(30, freeVideosRemaining)
+    const paidVideos = 30 - freeVideosToUse
+    this.updateUser(user.id, {
+      freeVideosUsed: user.freeVideosUsed + freeVideosToUse,
+      paidVideoCredits: user.paidVideoCredits - paidVideos,
+      totalSpent: user.totalSpent + paidVideos * 0.2,
+    })
+
+    return videos
+  }
+
+  private generateTopics(strategy: string, count: number): string[] {
+    const topics = [
+      "Top 5 AI Tools 2026 Hindi",
+      "ChatGPT Hindi Tutorial",
+      "Best Laptops Under 50K",
+      "AI Image Generation Guide",
+      "YouTube Growth Tips",
+      "Tech News This Week",
+      "Smartphone Buying Guide",
+      "Internet Safety Tips",
+      "Future of AI Technology",
+      "Free Online Tools",
+      "Productivity Apps Review",
+      "Gaming PC Build Guide",
+      "Photo Editing Tutorial",
+      "Best Budget Gadgets",
+      "AI Voice Generator",
+      "WhatsApp Hidden Features",
+      "Instagram Growth Hacks",
+      "Tech Career Guide",
+      "Best Free Software",
+      "Online Money Making",
+      "Video Editing Tutorial",
+      "AI Music Generator",
+      "Best Tech Under 1000",
+      "Coding for Beginners",
+      "AI Art Tutorial",
+      "Tech Myths Busted",
+      "Smart Home Setup",
+      "Best Apps 2026",
+      "Digital Marketing Tips",
+      "AI Business Tools",
+    ]
+
+    return topics.slice(0, count).map((topic, i) => `${topic} | ${strategy}`)
+  }
+
+  adminApproveVideo(videoId: string, adminId: string): void {
+    const videos = this.getVideos()
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = {
+        ...videos[index],
+        adminApproved: true,
+        adminApprovedBy: adminId,
+        adminApprovedAt: new Date().toISOString(),
+        status: "approved",
+      }
+      localStorage.setItem("videos", JSON.stringify(videos))
+    }
+  }
+
+  adminRejectVideo(videoId: string): void {
+    const videos = this.getVideos()
+    const video = videos.find((v) => v.id === videoId)
+    if (!video) return
+
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = {
+        ...videos[index],
+        status: "rejected",
+      }
+      localStorage.setItem("videos", JSON.stringify(videos))
+
+      const channel = this.getChannels().find((c) => c.id === video.channelId)
+      if (channel) {
+        const user = this.getUserById(channel.userId)
+        if (user) {
+          if (video.isFree) {
+            this.updateUser(user.id, {
+              freeVideosUsed: Math.max(0, user.freeVideosUsed - 1),
+            })
+          } else {
+            this.updateUser(user.id, {
+              paidVideoCredits: user.paidVideoCredits + 1,
+            })
+          }
+        }
+      }
+    }
+  }
+
+  userApproveVideo(videoId: string): void {
+    const videos = this.getVideos()
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = {
+        ...videos[index],
+        userApproved: true,
+        userApprovedAt: new Date().toISOString(),
+        status: "user-approved",
+      }
+      localStorage.setItem("videos", JSON.stringify(videos))
+    }
+  }
+
+  getVideosByRiskLevel(riskLevel: "low" | "high"): Video[] {
+    return this.getVideos().filter((v) => v.riskLevel === riskLevel && v.status === "pending-approval")
+  }
+
+  bulkApproveVideos(videoIds: string[], adminId: string): void {
+    const videos = this.getVideos()
+    videoIds.forEach((videoId) => {
+      const index = videos.findIndex((v) => v.id === videoId)
+      if (index !== -1) {
+        videos[index] = {
+          ...videos[index],
+          adminApproved: true,
+          adminApprovedBy: adminId,
+          adminApprovedAt: new Date().toISOString(),
+          status: "approved",
+        }
+      }
+    })
+    localStorage.setItem("videos", JSON.stringify(videos))
+  }
+
+  addVideoCredits(userId: string, credits: number, amount: number): void {
+    const user = this.getUserById(userId)
+    if (user) {
+      this.updateUser(userId, {
+        paidVideoCredits: user.paidVideoCredits + credits,
+        totalSpent: user.totalSpent + amount,
+      })
+    }
+  }
+
+  // Admin methods
+  getAdminStats() {
+    const users = this.getUsers()
+    const videos = this.getVideos()
+    const payments: any[] = []
+
+    const totalUsers = users.filter((u) => u.role !== "admin").length
+    const activeToday = users.filter((u) => {
+      const lastActive = new Date(u.lastActive)
+      const today = new Date()
+      return lastActive.toDateString() === today.toDateString()
+    }).length
+
+    const pendingApprovals = videos.filter((v) => v.status === "pending-approval").length
+    const lowRiskPending = videos.filter((v) => v.status === "pending-approval" && v.riskLevel === "low").length
+    const highRiskPending = videos.filter((v) => v.status === "pending-approval" && v.riskLevel === "high").length
+    const totalVideos = videos.length
+
+    const videoRevenue = users.reduce((sum, u) => sum + u.totalSpent, 0)
+    const youtubeRevenue = users.reduce((sum, u) => sum + u.youtubeShareOwed, 0)
+
+    return {
+      totalUsers,
+      activeToday,
+      pendingApprovals,
+      lowRiskPending,
+      highRiskPending,
+      totalVideos,
+      videoRevenue,
+      youtubeRevenue,
+      totalRevenue: videoRevenue + youtubeRevenue,
+    }
+  }
+}
+
+// IndexedDB helpers for storing video files
+export async function saveVideoToIndexedDB(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      if (!db.objectStoreNames.contains("videos")) {
+        db.createObjectStore("videos", { keyPath: "id" })
+      }
+    }
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const videoId = `video-file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const transaction = db.transaction(["videos"], "readwrite")
+      const store = transaction.objectStore("videos")
+      
+      const videoData = {
+        id: videoId,
+        file: file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        createdAt: new Date().toISOString()
+      }
+      
+      const putRequest = store.put(videoData)
+      putRequest.onsuccess = () => resolve(videoId)
+      putRequest.onerror = () => reject(putRequest.error)
+    }
+  })
+}
+
+export async function getVideoFromIndexedDB(videoFileId: string): Promise<File | null> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const transaction = db.transaction(["videos"], "readonly")
+      const store = transaction.objectStore("videos")
+      
+      const getRequest = store.get(videoFileId)
+      getRequest.onsuccess = () => {
+        const data = getRequest.result
+        if (data) {
+          resolve(new File([data.file], data.name, { type: data.type }))
+        } else {
+          resolve(null)
+        }
+      }
+      getRequest.onerror = () => reject(getRequest.error)
+    }
+  })
+}
+
+export async function deleteVideoFromIndexedDB(videoFileId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const transaction = db.transaction(["videos"], "readwrite")
+      const store = transaction.objectStore("videos")
+      
+      const deleteRequest = store.delete(videoFileId)
+      deleteRequest.onsuccess = () => resolve()
+      deleteRequest.onerror = () => reject(deleteRequest.error)
+    }
+  })
+}
+
+export const store = typeof window !== "undefined" ? Store.getInstance() : null
+
+// Notification system for video updates
+export interface Notification {
+  id: string
+  userId: string
+  type: "video-live" | "video-failed" | "video-approved" | "video-rejected"
+  title: string
+  message: string
+  videoId?: string
+  youtubeUrl?: string
+  read: boolean
+  createdAt: string
+}
+
+export function addNotification(notification: Omit<Notification, "id" | "read" | "createdAt">): void {
+  if (typeof window === "undefined") return
+  
+  const notifications = getNotifications(notification.userId)
+  const newNotification: Notification = {
+    ...notification,
+    id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    read: false,
+    createdAt: new Date().toISOString(),
+  }
+  
+  notifications.unshift(newNotification) // Add to beginning
+  localStorage.setItem(`notifications_${notification.userId}`, JSON.stringify(notifications.slice(0, 50))) // Keep last 50
+  
+  // Show browser notification if permitted (with proper type check)
+  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+    try {
+      new Notification("YouTubeAuto.ai", {
+        body: newNotification.message,
+        icon: "/favicon.ico",
+      })
+    } catch (e) {
+      console.warn("Browser notification failed:", e)
+    }
+  }
+}
+
+export function getNotifications(userId: string): Notification[] {
+  if (typeof window === "undefined") return []
+  const data = localStorage.getItem(`notifications_${userId}`)
+  return data ? JSON.parse(data) : []
+}
+
+export function markNotificationRead(userId: string, notificationId: string): void {
+  if (typeof window === "undefined") return
+  const notifications = getNotifications(userId)
+  const index = notifications.findIndex(n => n.id === notificationId)
+  if (index !== -1) {
+    notifications[index].read = true
+    localStorage.setItem(`notifications_${userId}`, JSON.stringify(notifications))
+  }
+}
+
+export function markAllNotificationsRead(userId: string): void {
+  if (typeof window === "undefined") return
+  const notifications = getNotifications(userId)
+  notifications.forEach(n => n.read = true)
+  localStorage.setItem(`notifications_${userId}`, JSON.stringify(notifications))
+}
+
+export function getUnreadNotificationCount(userId: string): number {
+  return getNotifications(userId).filter(n => !n.read).length
+}
+
+export function requestBrowserNotificationPermission(): void {
+  if (typeof window !== "undefined" && typeof Notification !== "undefined" && Notification.permission === "default") {
+    Notification.requestPermission()
+  }
+}
+
+
+
+========== lib/prisma.ts ==========
+
+import { PrismaClient } from "@prisma/client";
+import { PrismaLibSQL } from "@prisma/adapter-libsql";
+import path from "path";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+function createPrismaClient(): PrismaClient {
+  const dbPath = path
+    .join(process.cwd(), "prisma", "dev.db")
+    .replace(/\\/g, "/");
+
+  const adapter = new PrismaLibSQL({
+    url: `file:${dbPath}`,
+  });
+
+  return new PrismaClient({
+    adapter,
+    log: ["error"],
+  });
+}
+
+export const prisma =
+  globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
+
+
+========== lib/db.ts ==========
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
+
+export const prisma =
+  globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
+export default prisma;
+
+
+
+========== prisma/schema.prisma ==========
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  password          String?
+  name              String
+  phone             String             @default("")
+  role              String             @default("user")
+  plan              String             @default("free")
+  hasCompletedSetup Boolean            @default(false)
+  freeVideosUsed    Int                @default(0)
+  paidVideoCredits  Int                @default(0)
+  totalSpent        Float              @default(0)
+  youtubeMonetized  Boolean            @default(false)
+  youtubeEarnings   Float              @default(0)
+  youtubeShareOwed  Float              @default(0)
+  lastActive        DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  autopilotSettings AutopilotSettings?
+  channels          Channel[]
+  conceptHistory    ConceptHistory[]
+  creditLedgers     CreditLedger[]
+  payments          Payment[]
+  videos            Video[]
+  socialAccounts    SocialAccount[]
+}
+
+model Channel {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  subscribers     Int      @default(0)
+  category        String   @default("tech")
+  language        String   @default("hi")
+  voice           String   @default("hi-IN-Wavenet-B")
+  defaultTags     String   @default("")
+  privacy         String   @default("public")
+  uploadTime      String   @default("10:00")
+  contentStrategy String   @default("")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id])
+  videos          Video[]
+}
+
+model Video {
+  id              String    @id @default(cuid())
+  channelId       String
+  userId          String
+  title           String
+  status          String    @default("pending-approval")
+  riskLevel       String    @default("low")
+  scheduledDate   DateTime  @default(now())
+  views           Int       @default(0)
+  likes           Int       @default(0)
+  comments        Int       @default(0)
+  retentionRate   Float     @default(0.0)
+  thumbnail       String    @default("")
+  topic           String
+  subCategory     String    @default("general")
+  description     String    @default("")
+  tags            String    @default("[]")
+  aiScore         Int       @default(75)
+  adminApproved   Boolean   @default(false)
+  adminApprovedBy String?
+  adminApprovedAt DateTime?
+  userApproved    Boolean   @default(false)
+  userApprovedAt  DateTime?
+  cost            Float     @default(0)
+  isFree          Boolean   @default(true)
+  audioUrl        String    @default("")
+  thumbnailUrl    String    @default("")
+  script          String    @default("")
+  hook            String    @default("")
+  videoType       String    @default("long")
+  scheduledTime   String?
+  youtubeUrl      String?
+  youtubeVideoId  String?
+  uploadedAt      DateTime?
+  uploadError     String?
+  videoFileUrl    String?
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id])
+  channel         Channel   @relation(fields: [channelId], references: [id])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  amount    Float
+  videoId   String?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ConceptHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  category    String
+  subCategory String
+  topic       String
+  hook        String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model AutopilotSettings {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  category      String   @default("cinematic")
+  subCategory   String   @default("sigma")
+  cronSchedule  String   @default("0 18 * * *")
+  isAutoApprove Boolean  @default(false)
+  language      String   @default("en")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CreditLedger {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Float
+  type        String
+  description String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SocialAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  platformUserId    String
+  accountName       String
+  accessToken       String
+  refreshToken      String?
+  accessTokenExpiry DateTime?
+  scopes            String   @default("")
+  isConnected       Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, platformUserId])
+  @@index([userId, provider])
+}
+
+
+
+========== app/api/auth/[...nextauth]/route.ts ==========
+FILE NOT FOUND
+
+
+========== app/admin/approvals/page.tsx ==========
+"use client"
+
+import { AdminHeader } from "@/components/admin/admin-header"
+import { AdminRoute } from "@/components/auth/admin-route"
+import { VideoApprovalList } from "@/components/admin/video-approval-list"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
+
+export default function ApprovalsPage() {
+  return (
+    <AdminRoute>
+      <div className="min-h-screen bg-background">
+        <AdminHeader />
+
+        <main className="mx-auto max-w-7xl space-y-8 px-4 py-8">
+          <header>
+            <h1 className="text-3xl font-bold">Video Approvals</h1>
+            <p className="mt-2 text-muted-foreground">
+              Har video ka thumbnail aur actual video review karo.
+              Admin approval ke bina publishing nahi honi chahiye.
+            </p>
+          </header>
+
+          <Tabs defaultValue="pending" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="pending">
+                Pending Approval
+              </TabsTrigger>
+              <TabsTrigger value="approved">
+                Approved
+              </TabsTrigger>
+              <TabsTrigger value="rejected">
+                Rejected
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="pending">
+              <VideoApprovalList filter="pending" />
+            </TabsContent>
+
+            <TabsContent value="approved">
+              <VideoApprovalList filter="approved" />
+            </TabsContent>
+
+            <TabsContent value="rejected">
+              <VideoApprovalList filter="rejected" />
+            </TabsContent>
+          </Tabs>
+        </main>
+      </div>
+    </AdminRoute>
+  )
+}
+
+
+
+========== components/admin/video-approval-list.tsx ==========
+"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { store, type Video as VideoType } from "@/lib/store"
+import { useAuth } from "@/lib/auth-context"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  CheckCircle2,
+  XCircle,
+  Clock3,
+  Video as VideoIcon,
+  RefreshCw,
+  ExternalLink,
+  AlertTriangle,
+} from "lucide-react"
+
+type FilterType = "pending" | "approved" | "rejected"
+
+interface VideoApprovalListProps {
+  filter: FilterType
+}
+
+interface UploadResult {
+  success?: boolean
+  queued?: boolean
+  error?: string
+  message?: string
+  videoId?: string
+  youtubeUrl?: string
+  status?: string
+}
+
+export function VideoApprovalList({ filter }: VideoApprovalListProps) {
+  const { user } = useAuth()
+  const [videos, setVideos] = useState<VideoType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [message, setMessage] = useState("")
+  const [error, setError] = useState("")
+
+  const refreshVideos = useCallback(() => {
+    try {
+      setVideos(store ? store.getVideos() : [])
+    } catch (e) {
+      console.error("Could not load videos:", e)
+      setError("Videos load nahi ho paaye.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshVideos()
+
+    const onStorage = () => refreshVideos()
+    window.addEventListener("storage", onStorage)
+
+    return () => window.removeEventListener("storage", onStorage)
+  }, [refreshVideos])
+
+  const filteredVideos = useMemo(() => {
+    return videos
+      .filter((video) => {
+        if (filter === "pending") {
+          return (
+            video.status === "pending-approval" ||
+            (!video.adminApproved &&
+              video.status !== "rejected" &&
+              video.status !== "live" &&
+              video.status !== "failed")
+          )
+        }
+
+        if (filter === "approved") {
+          return video.adminApproved === true && video.status !== "rejected"
+        }
+
+        return video.status === "rejected"
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime(),
+      )
+  }, [videos, filter])
+
+  const handleApprove = async (video: VideoType) => {
+    if (!store || !user?.id) {
+      setError("Admin session ya local video store available nahi hai.")
+      return
+    }
+
+    if (!video.videoUrl) {
+      setError(
+        `"${video.title}" ki video file missing hai. Pehle video generate karke save karo.`,
+      )
+      return
+    }
+
+    if (!video.thumbnailUrl && !video.thumbnail) {
+      setError(
+        `"${video.title}" ka thumbnail missing hai. Pehle thumbnail generate karo.`,
+      )
+      return
+    }
+
+    if (video.status === "live" && video.youtubeUrl) {
+      setMessage("Yeh video pehle se YouTube par publish ho chuka hai.")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `"${video.title}" ko approve karke YouTube par PUBLIC publish karna hai? Agar upload successful hua, video public ho sakta hai.`,
+    )
+
+    if (!confirmed) return
+
+    setBusyId(video.id)
+    setError("")
+    setMessage("YouTube par video upload ho raha hai. Is window ko band mat karo.")
+
+    try {
+      // Save admin approval first. Upload success is tracked separately.
+      store.adminApproveVideo(video.id, user.id)
+      refreshVideos()
+
+      const response = await fetch("/api/youtube/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          videoUrl: video.videoUrl,
+          title: video.title,
+          description: video.description || "",
+          tags: video.tags || [],
+          categoryId: "22",
+          privacyStatus: "public",
+          language: "hi",
+        }),
+      })
+
+      const result = (await response.json().catch(() => ({}))) as UploadResult
+
+      if (!response.ok || !result.success) {
+        if (result.queued) {
+          setMessage(
+            result.message ||
+              "Video upload queue mein add hua hai; abhi Live nahi hai.",
+          )
+          refreshVideos()
+          return
+        }
+
+        throw new Error(result.error || result.message || `Upload failed (${response.status})`)
+      }
+
+      if (!result.videoId || !result.youtubeUrl) {
+        throw new Error(
+          "Upload API ne success response diya, lekin YouTube video ID/link nahi mila. YouTube par status verify karo.",
+        )
+      }
+
+      // Mark Live only when the API confirms public status.
+      if (result.status?.toLowerCase() === "public") {
+        store.updateVideo(video.id, {
+          status: "live",
+          youtubeUrl: result.youtubeUrl,
+          adminApproved: true,
+        })
+
+        setMessage(
+          `Video YouTube par publish ho gaya: ${result.youtubeUrl}`,
+        )
+      } else {
+        store.updateVideo(video.id, {
+          youtubeUrl: result.youtubeUrl,
+          adminApproved: true,
+          status: "approved",
+        })
+
+        setMessage(
+          `YouTube upload complete hai, lekin visibility "${result.status || "unknown"}" hai. Video ko Live mark nahi kiya gaya.`,
+        )
+      }
+
+      refreshVideos()
+    } catch (e) {
+      console.error("Approval/upload failed:", e)
+      const details =
+        e instanceof Error ? e.message : "Unknown error"
+
+      setError(
+        `Approval save ho sakta hai, lekin YouTube upload/publish confirm nahi hua: ${details}`,
+      )
+      refreshVideos()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleReject = (video: VideoType) => {
+    if (!store) {
+      setError("Video store available nahi hai.")
+      return
+    }
+
+    const confirmed = window.confirm(`"${video.title}" ko reject karna hai?`)
+    if (!confirmed) return
+
+    setBusyId(video.id)
+    setError("")
+    setMessage("")
+
+    try {
+      store.adminRejectVideo(video.id)
+      refreshVideos()
+      setMessage("Video reject kar diya gaya.")
+    } catch (e) {
+      console.error("Rejection failed:", e)
+      setError("Video reject nahi ho paaya.")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-12 text-muted-foreground">
+        <RefreshCw className="h-4 w-4 animate-spin" />
+        Videos load ho rahe hain...
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {filteredVideos.length} video(s)
+        </p>
+
+        <Button variant="outline" onClick={refreshVideos}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
+
+      {message && (
+        <div
+          role="status"
+          className="break-words rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300"
+        >
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          className="break-words rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300"
+        >
+          <AlertTriangle className="mr-2 inline h-4 w-4" />
+          {error}
+        </div>
+      )}
+
+      {filteredVideos.length === 0 ? (
+        <div className="rounded-xl border border-dashed p-10 text-center">
+          <VideoIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+
+          <h2 className="font-semibold">
+            {filter === "pending"
+              ? "No videos pending approval"
+              : filter === "approved"
+                ? "No approved videos"
+                : "No rejected videos"}
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            Videos generate hone ke baad yahan refresh karke dekho.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6">
+          {filteredVideos.map((video) => {
+            const thumbnail = video.thumbnailUrl || video.thumbnail || ""
+            const videoUrl = video.videoUrl || ""
+
+            const status =
+              video.status === "live"
+                ? "Live"
+                : video.status === "rejected"
+                  ? "Rejected"
+                  : video.adminApproved
+                    ? "Approved"
+                    : "Pending approval"
+
+            return (
+              <article
+                key={video.id}
+                className="overflow-hidden rounded-xl border bg-card"
+              >
+                <div className="grid grid-cols-1 gap-5 p-4 md:grid-cols-[300px_minmax(0,1fr)]">
+                  <div className="space-y-3">
+                    <div className="overflow-hidden rounded-lg border bg-black">
+                      {thumbnail ? (
+                        <a
+                          href={thumbnail}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open full thumbnail"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={thumbnail}
+                            alt={`Thumbnail: ${video.title}`}
+                            className="aspect-video w-full object-cover"
+                            onError={(event) => {
+                              event.currentTarget.style.display = "none"
+                            }}
+                          />
+                        </a>
+                      ) : (
+                        <div className="flex aspect-video items-center justify-center text-sm text-white">
+                          Thumbnail unavailable
+                        </div>
+                      )}
+                    </div>
+
+                    {videoUrl ? (
+                      <video
+                        key={videoUrl}
+                        src={videoUrl}
+                        controls
+                        preload="metadata"
+                        className="aspect-video w-full rounded-lg border bg-black"
+                      >
+                        Your browser does not support video playback.
+                      </video>
+                    ) : (
+                      <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground">
+                        <div>
+                          <VideoIcon className="mx-auto mb-2 h-7 w-7" />
+                          Actual video file missing
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="break-words text-xl font-bold">
+                          {video.title || "Untitled video"}
+                        </h2>
+
+                        <p className="mt-1 break-all text-xs text-muted-foreground">
+                          ID: {video.id}
+                        </p>
+                      </div>
+
+                      <Badge
+                        variant="outline"
+                        className={
+                          video.status === "rejected"
+                            ? "border-red-500/40 text-red-600"
+                            : video.status === "live"
+                              ? "border-emerald-500/40 text-emerald-600"
+                              : video.adminApproved
+                                ? "border-blue-500/40 text-blue-600"
+                                : "border-amber-500/40 text-amber-600"
+                        }
+                      >
+                        {status === "Live" ? (
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                        ) : status === "Rejected" ? (
+                          <XCircle className="mr-1 h-3 w-3" />
+                        ) : (
+                          <Clock3 className="mr-1 h-3 w-3" />
+                        )}
+                        {status}
+                      </Badge>
+                    </div>
+
+                    <div>
+                      <h3 className="mb-1 text-sm font-semibold">
+                        Description
+                      </h3>
+                      <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                        {video.description || "No description provided."}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="mb-1 text-sm font-semibold">Tags</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {video.tags?.length ? (
+                          video.tags.map((tag, index) => (
+                            <Badge
+                              key={`${tag}-${index}`}
+                              variant="secondary"
+                            >
+                              {tag}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            No tags
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {video.script && (
+                      <details className="rounded-lg border p-3">
+                        <summary className="cursor-pointer text-sm font-semibold">
+                          View script
+                        </summary>
+                        <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
+                          {video.script}
+                        </p>
+                      </details>
+                    )}
+
+                    <div className="text-xs text-muted-foreground">
+                      Created:{" "}
+                      {video.createdAt
+                        ? new Date(video.createdAt).toLocaleString()
+                        : "Unknown"}
+                    </div>
+
+                    {video.youtubeUrl && (
+                      <a
+                        href={video.youtubeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 break-all text-sm text-blue-600 underline"
+                      >
+                        View on YouTube
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    )}
+
+                    {filter === "pending" && (
+                      <div className="flex flex-wrap gap-3 border-t pt-4">
+                        <Button
+                          onClick={() => handleApprove(video)}
+                          disabled={busyId === video.id}
+                          className="bg-emerald-600 text-white hover:bg-emerald-700"
+                        >
+                          {busyId === video.id ? (
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                          )}
+                          {busyId === video.id
+                            ? "Uploading..."
+                            : "Approve & Publish"}
+                        </Button>
+
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleReject(video)}
+                          disabled={busyId === video.id}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject Video
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+
+========== app/api/autopilot/settings/route.ts ==========
+
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const defaults = {
+  category: "cinematic",
+  subCategory: "sigma",
+  cronSchedule: "0 18 * * *",
+  isAutoApprove: false,
+  language: "en",
+  isActive: false,
+};
+
+function validCron(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 100) {
+    return false;
+  }
+
+  const fields = value.trim().split(/\s+/);
+
+  return (
+    fields.length === 5 &&
+    fields.every((field) => /^[0-9*/,-]+$/.test(field))
+  );
+}
+
+async function getUserId(): Promise<string | null> {
+  const session = await getServerSession(authOptions);
+
+  const userId = (session?.user as { id?: string } | undefined)?.id;
+
+  return typeof userId === "string" && userId.length > 0
+    ? userId
+    : null;
+}
+
+export async function GET() {
+  try {
+    const userId = await getUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Please log in first." },
+        { status: 401 }
+      );
+    }
+
+    const settings = await prisma.autopilotSettings.findUnique({
+      where: { userId },
+    });
+
+    return NextResponse.json({
+      settings: settings ?? { ...defaults },
+    });
+  } catch (error) {
+    console.error("Autopilot settings GET error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to load autopilot settings." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const userId = await getUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Please log in first." },
+        { status: 401 }
+      );
+    }
+
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON request body." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      Array.isArray(body)
+    ) {
+      return NextResponse.json(
+        { error: "Request body must be a JSON object." },
+        { status: 400 }
+      );
+    }
+
+    const data = body as Record<string, unknown>;
+
+    const category = typeof data.category === "string" ? data.category.trim().toLowerCase() : defaults.category;
+
+    const subCategory =
+      typeof data.subCategory === "string"
+        ? data.subCategory.trim()
+        : defaults.subCategory;
+
+    const language =
+      typeof data.language === "string"
+        ? data.language.trim()
+        : defaults.language;
+
+    const cronSchedule =
+      data.cronSchedule ?? defaults.cronSchedule;
+
+    if (!category || category.length > 50 || !/^[a-z0-9 _-]+$/.test(category)) {
+      return NextResponse.json({ error: "Invalid category." }, { status: 400 });
+    }
+
+    if (!subCategory || subCategory.length > 80) {
+      return NextResponse.json(
+        { error: "Invalid subCategory." },
+        { status: 400 }
+      );
+    }
+
+    if (!language || language.length > 20) {
+      return NextResponse.json(
+        { error: "Invalid language." },
+        { status: 400 }
+      );
+    }
+
+    if (!validCron(cronSchedule)) {
+      return NextResponse.json(
+        { error: "Schedule must contain five valid-format cron fields." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      data.isActive !== undefined &&
+      typeof data.isActive !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "isActive must be true or false." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      data.isAutoApprove !== undefined &&
+      typeof data.isAutoApprove !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "isAutoApprove must be true or false." },
+        { status: 400 }
+      );
+    }
+
+    const settings = await prisma.autopilotSettings.upsert({
+      where: { userId },
+
+      create: {
+        userId,
+        category,
+        subCategory,
+        language,
+        cronSchedule: cronSchedule.trim(),
+        isAutoApprove: data.isAutoApprove ?? false,
+        isActive: data.isActive ?? false,
+      },
+
+      update: {
+        category,
+        subCategory,
+        language,
+        cronSchedule: cronSchedule.trim(),
+
+        ...(data.isAutoApprove !== undefined && {
+          isAutoApprove: data.isAutoApprove,
+        }),
+
+        ...(data.isActive !== undefined && {
+          isActive: data.isActive,
+        }),
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      settings,
+    });
+  } catch (error) {
+    console.error("Autopilot settings POST error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to save autopilot settings." },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+========== app/api/autopilot/run/route.ts ==========
+import { NextResponse } from "next/server";
+import { createReadStream, existsSync, statSync } from "node:fs";
+import path from "node:path";
+import { prisma } from "@/lib/prisma";
+import { decryptSocialToken, encryptSocialToken } from "@/lib/social-account-crypto";
+import { refreshAccessToken } from "@/lib/youtube-token";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
+type CronParts = { minute: number; hour: number; day: number; month: number; weekday: number };
+
+function getTimeParts(date: Date, timeZone: string): CronParts {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, minute: "2-digit", hour: "2-digit", day: "2-digit", month: "2-digit", weekday: "short", hourCycle: "h23",
+  }).formatToParts(date);
+  const v = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  const days: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { minute: Number(v.minute), hour: Number(v.hour), day: Number(v.day), month: Number(v.month), weekday: days[v.weekday] ?? date.getDay() };
+}
+
+function fieldMatches(field: string, value: number, min: number, max: number): boolean {
+  if (field === "*") return true;
+  return field.split(",").some((part) => {
+    const [base, stepText] = part.split("/");
+    const step = stepText ? Number(stepText) : 1;
+    if (!Number.isInteger(step) || step < 1) return false;
+    let low = min, high = max;
+    if (base && base !== "*") {
+      if (base.includes("-")) {
+        const pair = base.split("-").map(Number);
+        if (pair.length !== 2) return false;
+        [low, high] = pair;
+      } else {
+        low = Number(base); high = low;
+      }
+    }
+    return Number.isInteger(low) && Number.isInteger(high) && low >= min && high <= max && value >= low && value <= high && (value - low) % step === 0;
+  });
+}
+
+function matchesSchedule(expression: string, date: Date, timeZone: string): boolean {
+  const fields = expression.trim().split(/\s+/);
+  if (fields.length !== 5) return false;
+  const t = getTimeParts(date, timeZone);
+  return fieldMatches(fields[0], t.minute, 0, 59) && fieldMatches(fields[1], t.hour, 0, 23) &&
+    fieldMatches(fields[2], t.day, 1, 31) && fieldMatches(fields[3], t.month, 1, 12) && fieldMatches(fields[4], t.weekday, 0, 6);
+}
+
+async function callJson(baseUrl: string, route: string, body: Record<string, unknown>) {
+  const response = await fetch(`${baseUrl}${route}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.success === false || data.error) throw new Error(data.error || `${route} failed (${response.status})`);
+  return data;
+}
+
+async function uploadToYouTube(filePath: string, token: string, metadata: { title: string; description: string; tags: string[] }) {
+  const size = statSync(filePath).size;
+  const init = await fetch("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "X-Upload-Content-Type": "video/mp4", "X-Upload-Content-Length": String(size) },
+    body: JSON.stringify({ snippet: { title: metadata.title.slice(0, 100), description: metadata.description.slice(0, 4900), tags: metadata.tags.slice(0, 20), categoryId: "22" }, status: { privacyStatus: "public", selfDeclaredMadeForKids: false } }),
+  });
+  const initData = await init.json().catch(() => ({}));
+  if (!init.ok) throw new Error(initData?.error?.message || `YouTube upload initialization failed (${init.status})`);
+  const uploadUrl = init.headers.get("location");
+  if (!uploadUrl) throw new Error("YouTube did not return a resumable upload URL.");
+
+  const source = createReadStream(filePath, { highWaterMark: 1024 * 1024 });
+  const iterator = source[Symbol.asyncIterator]();
+  const stream = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try { const next = await iterator.next(); if (next.done) controller.close(); else controller.enqueue(next.value as Uint8Array); }
+      catch (error) { controller.error(error); }
+    },
+    async cancel() { source.destroy(); },
+  });
+  const result = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": "video/mp4", "Content-Length": String(size) }, body: stream, duplex: "half" } as RequestInit & { duplex: "half" });
+  if (!result.ok) throw new Error(`YouTube upload failed (${result.status}): ${(await result.text()).slice(0, 500)}`);
+  const uploaded = await result.json();
+  if (!uploaded.id) throw new Error("YouTube did not confirm a video ID.");
+  return String(uploaded.id);
+}
+
+export async function POST(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return NextResponse.json({ error: "CRON_SECRET is not configured." }, { status: 503 });
+  if (request.headers.get("authorization") !== `Bearer ${secret}`) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+
+  const now = new Date();
+  const timeZone = process.env.AUTOPILOT_TIMEZONE || "Asia/Kolkata";
+  const baseUrl = new URL(request.url).origin;
+  const settingsList = await prisma.autopilotSettings.findMany({ where: { isActive: true } });
+  const results: Array<Record<string, unknown>> = [];
+
+  for (const settings of settingsList) {
+    if (!matchesSchedule(settings.cronSchedule, now, timeZone)) continue;
+    let videoRecord: { id: string } | null = null;
+    try {
+      const minuteStart = new Date(now); minuteStart.setSeconds(0, 0);
+      const duplicate = await prisma.video.findFirst({ where: { userId: settings.userId, createdAt: { gte: minuteStart } }, select: { id: true } });
+      if (duplicate) { results.push({ userId: settings.userId, status: "skipped_duplicate_minute" }); continue; }
+
+      const channel = await prisma.channel.findFirst({ where: { userId: settings.userId, isActive: true }, orderBy: { createdAt: "asc" } });
+      if (!channel) { results.push({ userId: settings.userId, status: "skipped_no_channel" }); continue; }
+      const account = await prisma.socialAccount.findFirst({ where: { userId: settings.userId, provider: "youtube", isConnected: true }, orderBy: { updatedAt: "desc" } });
+      if (!account) { results.push({ userId: settings.userId, status: "skipped_youtube_not_connected" }); continue; }
+
+      const topic = `${settings.subCategory} — ${new Intl.DateTimeFormat("en-CA", { timeZone }).format(now)} episode`;
+      videoRecord = await prisma.video.create({ data: { userId: settings.userId, channelId: channel.id, title: `Generating: ${topic}`.slice(0, 100), topic, status: "autopilot-processing", scheduledDate: now } });
+
+      const scriptData = await callJson(baseUrl, "/api/videos/generate", {
+        topic, language: settings.language === "hi" ? "Hindi" : settings.language === "hinglish" ? "Hinglish" : "English",
+        channelName: channel.name, category: settings.category || channel.category || "general", mode: "shorts",
+      });
+      const voice = await callJson(baseUrl, "/api/voiceover", { text: scriptData.script, category: settings.category || "general", isShorts: true, translateHindi: settings.language === "hi" });
+      const rendered = await callJson(baseUrl, "/api/video/generate", {
+        audioUrl: voice.audioUrl, title: scriptData.title, script: scriptData.script, hook: scriptData.hook,
+        videoType: "shorts", category: settings.category || "general", language: settings.language,
+      });
+      const thumb = await callJson(baseUrl, "/api/thumbnail", { title: scriptData.title, boldText: scriptData.thumbnail?.boldText || scriptData.title, category: settings.category || "general", videoType: "shorts" });
+
+      const commonVideoData = {
+        title: String(scriptData.title || topic).slice(0, 100), script: String(scriptData.script || ""), hook: String(scriptData.hook || ""),
+        description: String(scriptData.description || ""), tags: JSON.stringify(Array.isArray(scriptData.tags) ? scriptData.tags : []),
+        videoType: "shorts", audioUrl: String(voice.audioUrl || ""), videoFileUrl: String(rendered.videoUrl || ""),
+        thumbnailUrl: String(thumb.thumbnailUrl || ""), subCategory: settings.subCategory,
+      };
+
+      if (!settings.isAutoApprove) {
+        await prisma.video.update({ where: { id: videoRecord.id }, data: { ...commonVideoData, status: "pending-approval" } });
+        results.push({ userId: settings.userId, videoId: videoRecord.id, status: "pending-approval" });
+        continue;
+      }
+
+      let accessToken: string;
+      if (!account.accessTokenExpiry || account.accessTokenExpiry.getTime() < Date.now() + 120000) {
+        if (!account.refreshToken) throw new Error("YouTube token expired and no refresh token is stored. Reconnect YouTube.");
+        const refreshed = await refreshAccessToken(decryptSocialToken(account.refreshToken));
+        accessToken = refreshed.access_token;
+        await prisma.socialAccount.update({ where: { id: account.id }, data: { accessToken: encryptSocialToken(accessToken), accessTokenExpiry: new Date(Date.now() + Number(refreshed.expires_in || 3600) * 1000) } });
+      } else accessToken = decryptSocialToken(account.accessToken);
+
+      const fileName = path.basename(String(rendered.videoUrl || ""));
+      const videoPath = path.resolve(process.cwd(), "storage", "videos", fileName);
+      if (!fileName || !videoPath.startsWith(path.resolve(process.cwd(), "storage", "videos") + path.sep) || !existsSync(videoPath)) throw new Error("Rendered video file is missing from local storage.");
+      const youtubeVideoId = await uploadToYouTube(videoPath, accessToken, { title: commonVideoData.title, description: commonVideoData.description, tags: JSON.parse(commonVideoData.tags) });
+      await prisma.video.update({ where: { id: videoRecord.id }, data: { ...commonVideoData, status: "published", userApproved: true, userApprovedAt: now, youtubeVideoId, youtubeUrl: `https://www.youtube.com/watch?v=${youtubeVideoId}`, uploadedAt: new Date() } });
+      results.push({ userId: settings.userId, videoId: videoRecord.id, status: "published", youtubeUrl: `https://www.youtube.com/watch?v=${youtubeVideoId}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown autopilot failure";
+      if (videoRecord) await prisma.video.update({ where: { id: videoRecord.id }, data: { status: "failed", uploadError: message.slice(0, 1000) } }).catch(() => undefined);
+      results.push({ userId: settings.userId, status: "failed", error: message });
+    }
+  }
+
+  return NextResponse.json({ success: true, checkedAt: now.toISOString(), timeZone, matchedUsers: results.length, results });
+}
+

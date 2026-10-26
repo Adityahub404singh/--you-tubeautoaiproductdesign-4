@@ -1,0 +1,69 @@
+﻿{
+    "project":  "C:\\Users\\alc\\--you-tubeautoaiproductdesign-4",
+    "baseUrl":  "http://localhost:3000",
+    "publishTested":  false,
+    "note":  "No YouTube or Instagram upload was attempted. Publishing must be a separate explicit test.",
+    "results":  [
+                    {
+                        "stage":  "0-server",
+                        "passed":  true,
+                        "message":  "Next.js app reachable (HTTP 200)",
+                        "data":  null,
+                        "time":  "2026-10-24T14:14:31.8799435+05:30"
+                    },
+                    {
+                        "stage":  "1-script",
+                        "passed":  true,
+                        "message":  "Generated title and script",
+                        "data":  {
+                                     "title":  "3 Aadiyo Se Focus Kaise Badhaye",
+                                     "tagsCount":  8,
+                                     "scriptCharacters":  121
+                                 },
+                        "time":  "2026-10-24T14:14:34.0273989+05:30"
+                    },
+                    {
+                        "stage":  "2-voiceover",
+                        "passed":  true,
+                        "message":  "Audio created (86784 bytes; provider=google-tts)",
+                        "data":  {
+                                     "provider":  "google-tts",
+                                     "audioUrl":  "/storage/audio/audio_1792831474272.mp3",
+                                     "bytes":  86784
+                                 },
+                        "time":  "2026-10-24T14:14:35.3908010+05:30"
+                    },
+                    {
+                        "stage":  "3-render-video",
+                        "passed":  true,
+                        "message":  "MP4 rendered (555688 bytes; duration=11s)",
+                        "data":  {
+                                     "videoUrl":  "/storage/videos/video_1792831475474.mp4",
+                                     "duration":  11,
+                                     "videoId":  "video_1792831475474",
+                                     "bytes":  555688,
+                                     "videoMode":  "typography"
+                                 },
+                        "time":  "2026-10-24T14:14:44.7791141+05:30"
+                    },
+                    {
+                        "stage":  "4-thumbnail",
+                        "passed":  true,
+                        "message":  "Thumbnail created (48581 bytes; 1080x1920)",
+                        "data":  {
+                                     "height":  1920,
+                                     "width":  1080,
+                                     "fileName":  "thumb_1792831484857_ievjoq.jpg",
+                                     "thumbnailUrl":  "/api/storage/thumbnails/thumb_1792831484857_ievjoq.jpg",
+                                     "bytes":  48581
+                                 },
+                        "time":  "2026-10-24T14:14:45.1381504+05:30"
+                    }
+                ],
+    "generated":  {
+                      "videoUrl":  "/storage/videos/video_1792831475474.mp4",
+                      "title":  "3 Aadiyo Se Focus Kaise Badhaye",
+                      "audioUrl":  "/storage/audio/audio_1792831474272.mp3",
+                      "thumbnailUrl":  "/api/storage/thumbnails/thumb_1792831484857_ievjoq.jpg"
+                  }
+}

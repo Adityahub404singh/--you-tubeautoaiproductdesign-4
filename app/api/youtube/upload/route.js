@@ -1,9 +1,11 @@
-﻿
+
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getValidAccessToken } from "@/lib/youtube-token";
+import { prisma } from "@/lib/prisma";
+import { decryptSocialToken, encryptSocialToken } from "@/lib/social-account-crypto";
+import { refreshAccessToken } from "@/lib/youtube-token";
 import {
   existsSync,
   statSync,
@@ -26,37 +28,31 @@ const jsonError = (error, status = 500) =>
 
 export async function POST(request) {
   try {
-    // 1. Server-side admin authentication
+    // Authenticate the current user and load only their connected YouTube account.
     const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+    if (!userId) return jsonError("Please log in first.", 401);
 
-    if (!session?.user) {
-      return jsonError("Please log in first.", 401);
-    }
+    const socialAccount = await prisma.socialAccount.findFirst({
+      where: { userId, provider: "youtube", isConnected: true },
+      orderBy: { updatedAt: "desc" },
+    });
+    if (!socialAccount) return jsonError("Connect your YouTube channel first.", 401);
 
-    if (session.user.role !== "admin") {
-      return jsonError("Admin permission required.", 403);
-    }
-
-    // 2. Verify YouTube OAuth
-    const cookieStore = await cookies();
     let accessToken;
-    let newToken;
-
-    try {
-      const tokenResult = await getValidAccessToken(cookieStore);
-      accessToken = tokenResult.accessToken;
-      newToken = tokenResult.newToken;
-    } catch (error) {
-      if (error?.message === "NOT_CONNECTED") {
-        return jsonError("YouTube account is not connected.", 401);
-      }
-
-      throw error;
+    const needsRefresh = !socialAccount.accessTokenExpiry || socialAccount.accessTokenExpiry.getTime() < Date.now() + 120000;
+    if (needsRefresh && socialAccount.refreshToken) {
+      const refreshToken = decryptSocialToken(socialAccount.refreshToken);
+      const refreshed = await refreshAccessToken(refreshToken);
+      accessToken = refreshed.access_token;
+      await prisma.socialAccount.update({
+        where: { id: socialAccount.id },
+        data: { accessToken: encryptSocialToken(accessToken), accessTokenExpiry: new Date(Date.now() + Number(refreshed.expires_in || 3600) * 1000) },
+      });
+    } else {
+      accessToken = decryptSocialToken(socialAccount.accessToken);
     }
-
-    if (!accessToken) {
-      return jsonError("YouTube access token is unavailable.", 401);
-    }
+    if (!accessToken) return jsonError("YouTube access token is unavailable.", 401);
 
     // 3. Validate request body
     const body = await request.json();
@@ -375,16 +371,6 @@ export async function POST(request) {
           ? "Upload completed. YouTube reports the video as public."
           : `Upload completed, but the video is ${returnedPrivacy}. It is not publicly live.`,
     });
-
-    if (newToken) {
-      response.cookies.set("yt_access_token", newToken, {
-        httpOnly: true,
-        maxAge: 3600,
-        path: "/",
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      });
-    }
 
     return response;
   } catch (error) {

@@ -1,0 +1,2389 @@
+﻿
+========== package.json ==========
+
+{
+  "name": "my-v0-project",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "prisma generate && next build",
+    "dev": "next dev",
+    "lint": "eslint .",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@auth/prisma-adapter": "^2.11.2",
+    "@hookform/resolvers": "^3.10.0",
+    "@libsql/client": "^0.18.0",
+    "@libsql/sqlite3": "^0.3.1",
+    "@prisma/adapter-libsql": "^6.19.0",
+    "@prisma/client": "^6.19.0",
+    "@radix-ui/react-accordion": "1.2.2",
+    "@radix-ui/react-alert-dialog": "1.1.4",
+    "@radix-ui/react-aspect-ratio": "1.1.1",
+    "@radix-ui/react-avatar": "1.1.2",
+    "@radix-ui/react-checkbox": "1.1.3",
+    "@radix-ui/react-collapsible": "1.1.2",
+    "@radix-ui/react-context-menu": "2.2.4",
+    "@radix-ui/react-dialog": "1.1.4",
+    "@radix-ui/react-dropdown-menu": "2.1.4",
+    "@radix-ui/react-hover-card": "1.1.4",
+    "@radix-ui/react-label": "2.1.1",
+    "@radix-ui/react-menubar": "1.1.4",
+    "@radix-ui/react-navigation-menu": "1.2.3",
+    "@radix-ui/react-popover": "1.1.4",
+    "@radix-ui/react-progress": "1.1.1",
+    "@radix-ui/react-radio-group": "1.2.2",
+    "@radix-ui/react-scroll-area": "1.2.2",
+    "@radix-ui/react-select": "2.1.4",
+    "@radix-ui/react-separator": "1.1.1",
+    "@radix-ui/react-slider": "1.2.2",
+    "@radix-ui/react-slot": "1.1.1",
+    "@radix-ui/react-switch": "1.1.2",
+    "@radix-ui/react-tabs": "1.1.2",
+    "@radix-ui/react-toast": "1.2.4",
+    "@radix-ui/react-toggle": "1.1.1",
+    "@radix-ui/react-toggle-group": "1.1.1",
+    "@radix-ui/react-tooltip": "1.1.6",
+    "@vercel/analytics": "1.3.1",
+    "autoprefixer": "^10.4.20",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^5.81.0",
+    "canvas": "^3.2.1",
+    "class-variance-authority": "^0.7.1",
+    "cloudinary": "^2.9.0",
+    "clsx": "^2.1.1",
+    "cmdk": "1.0.4",
+    "crypto-js": "^4.2.0",
+    "date-fns": "4.1.0",
+    "dotenv": "^17.4.2",
+    "edge-tts-node": "^1.5.7",
+    "elevenlabs": "^1.59.0",
+    "embla-carousel-react": "8.5.1",
+    "fluent-ffmpeg": "^2.1.3",
+    "framer-motion": "^12.38.0",
+    "groq-sdk": "^0.37.0",
+    "input-otp": "1.4.1",
+    "ioredis": "^5.11.1",
+    "lucide-react": "^0.454.0",
+    "msedge-tts": "^2.0.4",
+    "next": "16.1.6",
+    "next-auth": "^4.24.14",
+    "next-themes": "^0.4.6",
+    "node-cron": "^4.6.0",
+    "openai": "^6.25.0",
+    "razorpay": "^2.9.6",
+    "react": "19.2.0",
+    "react-day-picker": "9.8.0",
+    "react-dom": "19.2.0",
+    "react-hook-form": "^7.60.0",
+    "react-resizable-panels": "^2.1.7",
+    "recharts": "2.15.4",
+    "replicate": "^1.4.0",
+    "resend": "^6.9.3",
+    "sharp": "^0.34.5",
+    "sonner": "^1.7.4",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.0.7",
+    "vaul": "^1.1.2",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^22.19.13",
+    "@types/node-cron": "^3.0.11",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "postcss": "^8.5",
+    "prisma": "^6.19.0",
+    "tailwindcss": "^4.3.0",
+    "tw-animate-css": "1.3.3",
+    "typescript": "^5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "canvas",
+      "@prisma/engines",
+      "prisma",
+      "msedge-tts"
+    ]
+  }
+}
+
+
+========== tsconfig.json ==========
+
+{
+  "compilerOptions": {
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "target": "ES6",
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+
+
+========== prisma/schema.prisma ==========
+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  password          String?
+  name              String
+  phone             String             @default("")
+  role              String             @default("user")
+  plan              String             @default("free")
+  hasCompletedSetup Boolean            @default(false)
+  freeVideosUsed    Int                @default(0)
+  paidVideoCredits  Int                @default(0)
+  totalSpent        Float              @default(0)
+  youtubeMonetized  Boolean            @default(false)
+  youtubeEarnings   Float              @default(0)
+  youtubeShareOwed  Float              @default(0)
+  lastActive        DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  autopilotSettings AutopilotSettings?
+  channels          Channel[]
+  conceptHistory    ConceptHistory[]
+  creditLedgers     CreditLedger[]
+  payments          Payment[]
+  videos            Video[]
+  socialAccounts    SocialAccount[]
+}
+
+model Channel {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  subscribers     Int      @default(0)
+  category        String   @default("tech")
+  language        String   @default("hi")
+  voice           String   @default("hi-IN-Wavenet-B")
+  defaultTags     String   @default("")
+  privacy         String   @default("public")
+  uploadTime      String   @default("10:00")
+  contentStrategy String   @default("")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id])
+  videos          Video[]
+}
+
+model Video {
+  id              String    @id @default(cuid())
+  channelId       String
+  userId          String
+  title           String
+  status          String    @default("pending-approval")
+  riskLevel       String    @default("low")
+  scheduledDate   DateTime  @default(now())
+  views           Int       @default(0)
+  likes           Int       @default(0)
+  comments        Int       @default(0)
+  retentionRate   Float     @default(0.0)
+  thumbnail       String    @default("")
+  topic           String
+  subCategory     String    @default("general")
+  description     String    @default("")
+  tags            String    @default("[]")
+  aiScore         Int       @default(75)
+  adminApproved   Boolean   @default(false)
+  adminApprovedBy String?
+  adminApprovedAt DateTime?
+  userApproved    Boolean   @default(false)
+  userApprovedAt  DateTime?
+  cost            Float     @default(0)
+  isFree          Boolean   @default(true)
+  audioUrl        String    @default("")
+  thumbnailUrl    String    @default("")
+  script          String    @default("")
+  hook            String    @default("")
+  videoType       String    @default("long")
+  scheduledTime   String?
+  youtubeUrl      String?
+  youtubeVideoId  String?
+  uploadedAt      DateTime?
+  uploadError     String?
+  videoFileUrl    String?
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id])
+  channel         Channel   @relation(fields: [channelId], references: [id])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  amount    Float
+  videoId   String?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ConceptHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  category    String
+  subCategory String
+  topic       String
+  hook        String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model AutopilotSettings {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  category      String   @default("cinematic")
+  subCategory   String   @default("sigma")
+  cronSchedule  String   @default("0 18 * * *")
+  isAutoApprove Boolean  @default(false)
+  language      String   @default("en")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CreditLedger {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Float
+  type        String
+  description String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SocialAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  platformUserId    String
+  accountName       String
+  accessToken       String
+  refreshToken      String?
+  accessTokenExpiry DateTime?
+  scopes            String   @default("")
+  isConnected       Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, platformUserId])
+  @@index([userId, provider])
+}
+
+
+========== lib/db.ts ==========
+
+export { prisma, prisma as default } from "./prisma";
+
+
+========== lib/prisma.ts ==========
+
+
+import { PrismaClient } from "@prisma/client";
+import { PrismaLibSQL } from "@prisma/adapter-libsql";
+import path from "path";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+function createPrismaClient(): PrismaClient {
+  const dbPath = path
+    .join(process.cwd(), "prisma", "dev.db")
+    .replace(/\\/g, "/");
+
+  const adapter = new PrismaLibSQL({
+    url: `file:${dbPath}`,
+  });
+
+  return new PrismaClient({
+    adapter,
+    log: ["error"],
+  });
+}
+
+export const prisma =
+  globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
+
+========== lib/auth-context.tsx ==========
+
+"use client"
+import type React from "react"
+import { createContext, useContext, useState, useEffect } from "react"
+import { signIn, signOut, useSession } from "next-auth/react"
+
+interface User {
+  id: string; email: string; name: string; phone: string
+  role: string; plan: string; hasCompletedSetup: boolean
+  freeVideosUsed: number; paidVideoCredits: number
+}
+
+interface AuthContextType {
+  user: User | null
+  login: (email: string, password: string) => Promise<boolean>
+  signup: (name: string, email: string, password: string, phone: string) => Promise<boolean>
+  logout: () => void
+  isLoading: boolean
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession()
+  const [extraData, setExtraData] = useState<Partial<User>>({})
+
+  const user: User | null = session?.user ? {
+    id: (session.user as any).id || "",
+    email: session.user.email || "",
+    name: session.user.name || "",
+    phone: extraData.phone || "",
+    role: (session.user as any).role || "user",
+    plan: (session.user as any).plan || "free",
+    hasCompletedSetup: extraData.hasCompletedSetup ?? true,
+    freeVideosUsed: extraData.freeVideosUsed || 0,
+    paidVideoCredits: extraData.paidVideoCredits || 0,
+  } : null
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    const result = await signIn("credentials", { email, password, redirect: false })
+    return !result?.error
+  }
+
+  const signup = async (name: string, email: string, password: string, phone: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, phone })
+      })
+      const data = await res.json()
+      if (!data.success) return false
+      const result = await signIn("credentials", { email, password, redirect: false })
+      return !result?.error
+    } catch { return false }
+  }
+
+  const logout = () => signOut({ callbackUrl: "/login" })
+
+  return (
+    <AuthContext.Provider value={{ user, login, signup, logout, isLoading: status === "loading" }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider")
+  return ctx
+}
+
+
+========== app/api/db/users/route.ts ==========
+
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/db";
+
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const email = searchParams.get("email");
+    const id = searchParams.get("id");
+
+    if (email) {
+      return NextResponse.json(
+        await prisma.user.findUnique({ where: { email } })
+      );
+    }
+
+    if (id) {
+      return NextResponse.json(
+        await prisma.user.findUnique({ where: { id } })
+      );
+    }
+
+    return NextResponse.json(await prisma.user.findMany());
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to fetch users" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const data = await req.json();
+
+    if (!data.email) {
+      return NextResponse.json(
+        { error: "Email is required" },
+        { status: 400 }
+      );
+    }
+
+    const user = await prisma.user.upsert({
+      where: { email: data.email },
+      update: data,
+      create: data,
+    });
+
+    return NextResponse.json(user);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to save user" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, ...updates } = await req.json();
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "User ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: updates,
+    });
+
+    return NextResponse.json(user);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to update user" },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== app/api/db/channels/route.ts ==========
+
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/db";
+
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  try {
+    const userId = new URL(req.url).searchParams.get("userId");
+
+    const channels = await prisma.channel.findMany({
+      where: userId ? { userId } : {},
+    });
+
+    return NextResponse.json(channels);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to fetch channels" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const data = await req.json();
+    const channel = await prisma.channel.create({ data });
+
+    return NextResponse.json(channel);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to create channel" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, ...updates } = await req.json();
+
+    const channel = await prisma.channel.update({
+      where: { id },
+      data: updates,
+    });
+
+    return NextResponse.json(channel);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to update channel" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { id } = await req.json();
+
+    await prisma.channel.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to delete channel" },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== app/api/db/videos/route.ts ==========
+
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/db";
+
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const where: any = {};
+
+    const channelId = searchParams.get("channelId");
+    const userId = searchParams.get("userId");
+    const status = searchParams.get("status");
+
+    if (channelId) where.channelId = channelId;
+    if (userId) where.userId = userId;
+    if (status) where.status = status;
+
+    const videos = await prisma.video.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(videos);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to fetch videos" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const data = await req.json();
+
+    if (Array.isArray(data.tags)) {
+      data.tags = JSON.stringify(data.tags);
+    }
+
+    const video = await prisma.video.create({ data });
+    return NextResponse.json(video);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to create video" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, ...updates } = await req.json();
+
+    if (Array.isArray(updates.tags)) {
+      updates.tags = JSON.stringify(updates.tags);
+    }
+
+    const video = await prisma.video.update({
+      where: { id },
+      data: updates,
+    });
+
+    return NextResponse.json(video);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to update video" },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== app/api/auth/[...nextauth]/route.ts ==========
+
+
+import NextAuth, { NextAuthOptions } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+
+export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+  },
+  pages: {
+    signIn: "/login",
+  },
+
+  providers: [
+    GoogleProvider({
+      clientId:
+        process.env.GOOGLE_CLIENT_ID ||
+        process.env.YOUTUBE_CLIENT_ID ||
+        "",
+      clientSecret:
+        process.env.GOOGLE_CLIENT_SECRET ||
+        process.env.YOUTUBE_CLIENT_SECRET ||
+        "",
+    }),
+
+    CredentialsProvider({
+      name: "credentials",
+
+      credentials: {
+        email: {
+          label: "Email",
+          type: "email",
+        },
+        password: {
+          label: "Password",
+          type: "password",
+        },
+      },
+
+      async authorize(credentials) {
+        if (
+          !credentials?.email ||
+          !credentials?.password
+        ) {
+          return null;
+        }
+
+        try {
+          const cleanEmail = credentials.email
+            .toLowerCase()
+            .trim();
+
+          const user = await prisma.user.findUnique({
+            where: {
+              email: cleanEmail,
+            },
+          });
+
+          // User must exist and have a password hash.
+          if (!user || !user.password) {
+            return null;
+          }
+
+          const valid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!valid) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role || "user",
+            plan: user.plan || "free",
+          };
+        } catch (error: unknown) {
+          console.error(
+            "[NEXTAUTH AUTHORIZE ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+
+          return null;
+        }
+      },
+    }),
+  ],
+
+  callbacks: {
+    async signIn({ user, account }) {
+      if (account?.provider === "google" && user.email) {
+        try {
+          const cleanEmail = user.email
+            .toLowerCase()
+            .trim();
+
+          const existingUser = await prisma.user.findUnique({
+            where: {
+              email: cleanEmail,
+            },
+          });
+
+          if (!existingUser) {
+            await prisma.user.create({
+              data: {
+                email: cleanEmail,
+                name: user.name || "Google User",
+                role: "user",
+                plan: "free",
+              },
+            });
+          }
+        } catch (error: unknown) {
+          console.error(
+            "[NEXTAUTH GOOGLE SIGNIN DB ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+        }
+      }
+
+      return true;
+    },
+
+    async jwt({ token, user, account }) {
+      // Credentials login supplies the database user.
+      if (user && account?.provider === "credentials") {
+        token.id = user.id;
+        token.role = (user as any).role || "user";
+        token.plan = (user as any).plan || "free";
+      }
+
+      // Resolve Google user's database record.
+      if (
+        account?.provider === "google" &&
+        user?.email
+      ) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: {
+              email: user.email.toLowerCase().trim(),
+            },
+          });
+
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role || "user";
+            token.plan = dbUser.plan || "free";
+          }
+        } catch (error) {
+          console.error(
+            "[NEXTAUTH JWT DB ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+        }
+      }
+
+      // Refresh database-backed role and plan for existing sessions.
+      if (!user && token.email) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: {
+              email: token.email.toLowerCase().trim(),
+            },
+          });
+
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role || "user";
+            token.plan = dbUser.plan || "free";
+          }
+        } catch (error) {
+          console.error(
+            "[NEXTAUTH JWT REFRESH ERROR]:",
+            error instanceof Error
+              ? error.message
+              : "Unknown error"
+          );
+        }
+      }
+
+      return token;
+    },
+
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).id =
+          token.id || token.sub;
+
+        (session.user as any).role =
+          token.role || "user";
+
+        (session.user as any).plan =
+          token.plan || "free";
+      }
+
+      return session;
+    },
+  },
+};
+
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };
+
+
+========== app/api/auth/signup/route.ts ==========
+
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(req: NextRequest) {
+  try {
+    const { name, email, password, phone } = await req.json();
+    if (!name || !email || !password) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    const existing = await prisma.user.findUnique({
+      where: { email: cleanEmail }
+    });
+
+    if (existing) {
+      return NextResponse.json({ error: "Email already registered" }, { status: 409 });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await prisma.user.create({
+      data: {
+        email: cleanEmail,
+        name,
+        phone: phone || "",
+        password: hashedPassword,
+        role: "user",
+        plan: "free",
+        hasCompletedSetup: false,
+        freeVideosUsed: 0,
+        paidVideoCredits: 0
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        phone: newUser.phone || "",
+        role: newUser.role,
+        plan: newUser.plan,
+        hasCompletedSetup: false,
+        freeVideosUsed: 0,
+        paidVideoCredits: 0
+      }
+    });
+  } catch (error: any) {
+    console.error("Signup Error:", error.message);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+========== app/api/auth/login/route.ts ==========
+
+
+import { NextRequest, NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(req: NextRequest) {
+  try {
+    const { email, password } = await req.json();
+
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      !email.trim() ||
+      !password
+    ) {
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 }
+      );
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    const user = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+    });
+
+    // Reject unknown users and accounts without a password.
+    if (!user || !user.password) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+
+    if (!valid) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone || "",
+        role: user.role,
+        plan: user.plan,
+        hasCompletedSetup: !!user.hasCompletedSetup,
+        freeVideosUsed: user.freeVideosUsed || 0,
+        paidVideoCredits: user.paidVideoCredits || 0,
+      },
+    });
+  } catch (error: unknown) {
+    console.error("Login Error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to process login right now" },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== app/api/autopilot/settings/route.ts ==========
+
+
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const defaults = {
+  category: "cinematic",
+  subCategory: "sigma",
+  cronSchedule: "0 18 * * *",
+  isAutoApprove: false,
+  language: "en",
+  isActive: false,
+};
+
+function validCron(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 100) {
+    return false;
+  }
+
+  const fields = value.trim().split(/\s+/);
+
+  return (
+    fields.length === 5 &&
+    fields.every((field) => /^[0-9*/,-]+$/.test(field))
+  );
+}
+
+async function getUserId(): Promise<string | null> {
+  const session = await getServerSession(authOptions);
+
+  const userId = (session?.user as { id?: string } | undefined)?.id;
+
+  return typeof userId === "string" && userId.length > 0
+    ? userId
+    : null;
+}
+
+export async function GET() {
+  try {
+    const userId = await getUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Please log in first." },
+        { status: 401 }
+      );
+    }
+
+    const settings = await prisma.autopilotSettings.findUnique({
+      where: { userId },
+    });
+
+    return NextResponse.json({
+      settings: settings ?? { ...defaults },
+    });
+  } catch (error) {
+    console.error("Autopilot settings GET error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to load autopilot settings." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const userId = await getUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Please log in first." },
+        { status: 401 }
+      );
+    }
+
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON request body." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      Array.isArray(body)
+    ) {
+      return NextResponse.json(
+        { error: "Request body must be a JSON object." },
+        { status: 400 }
+      );
+    }
+
+    const data = body as Record<string, unknown>;
+
+    const category = typeof data.category === "string" ? data.category.trim().toLowerCase() : defaults.category;
+
+    const subCategory =
+      typeof data.subCategory === "string"
+        ? data.subCategory.trim()
+        : defaults.subCategory;
+
+    const language =
+      typeof data.language === "string"
+        ? data.language.trim()
+        : defaults.language;
+
+    const cronSchedule =
+      data.cronSchedule ?? defaults.cronSchedule;
+
+    if (!category || category.length > 50 || !/^[a-z0-9 _-]+$/.test(category)) {
+      return NextResponse.json({ error: "Invalid category." }, { status: 400 });
+    }
+
+    if (!subCategory || subCategory.length > 80) {
+      return NextResponse.json(
+        { error: "Invalid subCategory." },
+        { status: 400 }
+      );
+    }
+
+    if (!language || language.length > 20) {
+      return NextResponse.json(
+        { error: "Invalid language." },
+        { status: 400 }
+      );
+    }
+
+    if (!validCron(cronSchedule)) {
+      return NextResponse.json(
+        { error: "Schedule must contain five valid-format cron fields." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      data.isActive !== undefined &&
+      typeof data.isActive !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "isActive must be true or false." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      data.isAutoApprove !== undefined &&
+      typeof data.isAutoApprove !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "isAutoApprove must be true or false." },
+        { status: 400 }
+      );
+    }
+
+    const settings = await prisma.autopilotSettings.upsert({
+      where: { userId },
+
+      create: {
+        userId,
+        category,
+        subCategory,
+        language,
+        cronSchedule: cronSchedule.trim(),
+        isAutoApprove: data.isAutoApprove ?? false,
+        isActive: data.isActive ?? false,
+      },
+
+      update: {
+        category,
+        subCategory,
+        language,
+        cronSchedule: cronSchedule.trim(),
+
+        ...(data.isAutoApprove !== undefined && {
+          isAutoApprove: data.isAutoApprove,
+        }),
+
+        ...(data.isActive !== undefined && {
+          isActive: data.isActive,
+        }),
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      settings,
+    });
+  } catch (error) {
+    console.error("Autopilot settings POST error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to save autopilot settings." },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== app/api/autopilot/run/route.ts ==========
+
+import { NextResponse } from "next/server";
+import { createReadStream, existsSync, statSync } from "node:fs";
+import path from "node:path";
+import { prisma } from "@/lib/prisma";
+import { decryptSocialToken, encryptSocialToken } from "@/lib/social-account-crypto";
+import { refreshAccessToken } from "@/lib/youtube-token";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
+type CronParts = { minute: number; hour: number; day: number; month: number; weekday: number };
+
+function getTimeParts(date: Date, timeZone: string): CronParts {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, minute: "2-digit", hour: "2-digit", day: "2-digit", month: "2-digit", weekday: "short", hourCycle: "h23",
+  }).formatToParts(date);
+  const v = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  const days: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { minute: Number(v.minute), hour: Number(v.hour), day: Number(v.day), month: Number(v.month), weekday: days[v.weekday] ?? date.getDay() };
+}
+
+function fieldMatches(field: string, value: number, min: number, max: number): boolean {
+  if (field === "*") return true;
+  return field.split(",").some((part) => {
+    const [base, stepText] = part.split("/");
+    const step = stepText ? Number(stepText) : 1;
+    if (!Number.isInteger(step) || step < 1) return false;
+    let low = min, high = max;
+    if (base && base !== "*") {
+      if (base.includes("-")) {
+        const pair = base.split("-").map(Number);
+        if (pair.length !== 2) return false;
+        [low, high] = pair;
+      } else {
+        low = Number(base); high = low;
+      }
+    }
+    return Number.isInteger(low) && Number.isInteger(high) && low >= min && high <= max && value >= low && value <= high && (value - low) % step === 0;
+  });
+}
+
+function matchesSchedule(expression: string, date: Date, timeZone: string): boolean {
+  const fields = expression.trim().split(/\s+/);
+  if (fields.length !== 5) return false;
+  const t = getTimeParts(date, timeZone);
+  return fieldMatches(fields[0], t.minute, 0, 59) && fieldMatches(fields[1], t.hour, 0, 23) &&
+    fieldMatches(fields[2], t.day, 1, 31) && fieldMatches(fields[3], t.month, 1, 12) && fieldMatches(fields[4], t.weekday, 0, 6);
+}
+
+async function callJson(baseUrl: string, route: string, body: Record<string, unknown>) {
+  const response = await fetch(`${baseUrl}${route}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.success === false || data.error) throw new Error(data.error || `${route} failed (${response.status})`);
+  return data;
+}
+
+async function uploadToYouTube(filePath: string, token: string, metadata: { title: string; description: string; tags: string[] }) {
+  const size = statSync(filePath).size;
+  const init = await fetch("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "X-Upload-Content-Type": "video/mp4", "X-Upload-Content-Length": String(size) },
+    body: JSON.stringify({ snippet: { title: metadata.title.slice(0, 100), description: metadata.description.slice(0, 4900), tags: metadata.tags.slice(0, 20), categoryId: "22" }, status: { privacyStatus: "public", selfDeclaredMadeForKids: false } }),
+  });
+  const initData = await init.json().catch(() => ({}));
+  if (!init.ok) throw new Error(initData?.error?.message || `YouTube upload initialization failed (${init.status})`);
+  const uploadUrl = init.headers.get("location");
+  if (!uploadUrl) throw new Error("YouTube did not return a resumable upload URL.");
+
+  const source = createReadStream(filePath, { highWaterMark: 1024 * 1024 });
+  const iterator = source[Symbol.asyncIterator]();
+  const stream = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try { const next = await iterator.next(); if (next.done) controller.close(); else controller.enqueue(next.value as Uint8Array); }
+      catch (error) { controller.error(error); }
+    },
+    async cancel() { source.destroy(); },
+  });
+  const result = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": "video/mp4", "Content-Length": String(size) }, body: stream, duplex: "half" } as RequestInit & { duplex: "half" });
+  if (!result.ok) throw new Error(`YouTube upload failed (${result.status}): ${(await result.text()).slice(0, 500)}`);
+  const uploaded = await result.json();
+  if (!uploaded.id) throw new Error("YouTube did not confirm a video ID.");
+  return String(uploaded.id);
+}
+
+export async function POST(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return NextResponse.json({ error: "CRON_SECRET is not configured." }, { status: 503 });
+  if (request.headers.get("authorization") !== `Bearer ${secret}`) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+
+  const now = new Date();
+  const timeZone = process.env.AUTOPILOT_TIMEZONE || "Asia/Kolkata";
+  const baseUrl = new URL(request.url).origin;
+  const settingsList = await prisma.autopilotSettings.findMany({ where: { isActive: true } });
+  const results: Array<Record<string, unknown>> = [];
+
+  for (const settings of settingsList) {
+    if (!matchesSchedule(settings.cronSchedule, now, timeZone)) continue;
+    let videoRecord: { id: string } | null = null;
+    try {
+      const minuteStart = new Date(now); minuteStart.setSeconds(0, 0);
+      const duplicate = await prisma.video.findFirst({ where: { userId: settings.userId, createdAt: { gte: minuteStart } }, select: { id: true } });
+      if (duplicate) { results.push({ userId: settings.userId, status: "skipped_duplicate_minute" }); continue; }
+
+      const channel = await prisma.channel.findFirst({ where: { userId: settings.userId, isActive: true }, orderBy: { createdAt: "asc" } });
+      if (!channel) { results.push({ userId: settings.userId, status: "skipped_no_channel" }); continue; }
+      const account = await prisma.socialAccount.findFirst({ where: { userId: settings.userId, provider: "youtube", isConnected: true }, orderBy: { updatedAt: "desc" } });
+      if (!account) { results.push({ userId: settings.userId, status: "skipped_youtube_not_connected" }); continue; }
+
+      const topic = `${settings.subCategory} â€” ${new Intl.DateTimeFormat("en-CA", { timeZone }).format(now)} episode`;
+      videoRecord = await prisma.video.create({ data: { userId: settings.userId, channelId: channel.id, title: `Generating: ${topic}`.slice(0, 100), topic, status: "autopilot-processing", scheduledDate: now } });
+
+      const scriptData = await callJson(baseUrl, "/api/videos/generate", {
+        topic, language: settings.language === "hi" ? "Hindi" : settings.language === "hinglish" ? "Hinglish" : "English",
+        channelName: channel.name, category: settings.category || channel.category || "general", mode: "shorts",
+      });
+      const voice = await callJson(baseUrl, "/api/voiceover", { text: scriptData.script, category: settings.category || "general", isShorts: true, translateHindi: settings.language === "hi" });
+      const rendered = await callJson(baseUrl, "/api/video/generate", {
+        audioUrl: voice.audioUrl, title: scriptData.title, script: scriptData.script, hook: scriptData.hook,
+        videoType: "shorts", category: settings.category || "general", language: settings.language,
+      });
+      const thumb = await callJson(baseUrl, "/api/thumbnail", { title: scriptData.title, boldText: scriptData.thumbnail?.boldText || scriptData.title, category: settings.category || "general", videoType: "shorts" });
+
+      const commonVideoData = {
+        title: String(scriptData.title || topic).slice(0, 100), script: String(scriptData.script || ""), hook: String(scriptData.hook || ""),
+        description: String(scriptData.description || ""), tags: JSON.stringify(Array.isArray(scriptData.tags) ? scriptData.tags : []),
+        videoType: "shorts", audioUrl: String(voice.audioUrl || ""), videoFileUrl: String(rendered.videoUrl || ""),
+        thumbnailUrl: String(thumb.thumbnailUrl || ""), subCategory: settings.subCategory,
+      };
+
+      if (!settings.isAutoApprove) {
+        await prisma.video.update({ where: { id: videoRecord.id }, data: { ...commonVideoData, status: "pending-approval" } });
+        results.push({ userId: settings.userId, videoId: videoRecord.id, status: "pending-approval" });
+        continue;
+      }
+
+      let accessToken: string;
+      if (!account.accessTokenExpiry || account.accessTokenExpiry.getTime() < Date.now() + 120000) {
+        if (!account.refreshToken) throw new Error("YouTube token expired and no refresh token is stored. Reconnect YouTube.");
+        const refreshed = await refreshAccessToken(decryptSocialToken(account.refreshToken));
+        accessToken = refreshed.access_token;
+        await prisma.socialAccount.update({ where: { id: account.id }, data: { accessToken: encryptSocialToken(accessToken), accessTokenExpiry: new Date(Date.now() + Number(refreshed.expires_in || 3600) * 1000) } });
+      } else accessToken = decryptSocialToken(account.accessToken);
+
+      const fileName = path.basename(String(rendered.videoUrl || ""));
+      const videoPath = path.resolve(process.cwd(), "storage", "videos", fileName);
+      if (!fileName || !videoPath.startsWith(path.resolve(process.cwd(), "storage", "videos") + path.sep) || !existsSync(videoPath)) throw new Error("Rendered video file is missing from local storage.");
+      const youtubeVideoId = await uploadToYouTube(videoPath, accessToken, { title: commonVideoData.title, description: commonVideoData.description, tags: JSON.parse(commonVideoData.tags) });
+      await prisma.video.update({ where: { id: videoRecord.id }, data: { ...commonVideoData, status: "published", userApproved: true, userApprovedAt: now, youtubeVideoId, youtubeUrl: `https://www.youtube.com/watch?v=${youtubeVideoId}`, uploadedAt: new Date() } });
+      results.push({ userId: settings.userId, videoId: videoRecord.id, status: "published", youtubeUrl: `https://www.youtube.com/watch?v=${youtubeVideoId}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown autopilot failure";
+      if (videoRecord) await prisma.video.update({ where: { id: videoRecord.id }, data: { status: "failed", uploadError: message.slice(0, 1000) } }).catch(() => undefined);
+      results.push({ userId: settings.userId, status: "failed", error: message });
+    }
+  }
+
+  return NextResponse.json({ success: true, checkedAt: now.toISOString(), timeZone, matchedUsers: results.length, results });
+}
+
+
+========== app/dashboard/billing/page.tsx ==========
+
+"use client"
+
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { useSession } from "next-auth/react"
+import {
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  CreditCard,
+  Crown,
+  LoaderCircle,
+  Sparkles,
+  Zap,
+  Shield,
+  AlertCircle,
+  Receipt,
+  RefreshCw,
+  ExternalLink,
+} from "lucide-react"
+
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+type Plan = {
+  id: string
+  name: string
+  price: number
+  priceLabel: string
+  period: string
+  badge?: string
+  color: string
+  accentBg: string
+  borderColor: string
+  icon: React.ReactNode
+  features: string[]
+  limit: string
+}
+
+type UserPlan = {
+  plan: string
+  freeVideosUsed: number
+  paidVideoCredits: number
+  totalSpent: number
+}
+
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+const PLANS: Plan[] = [
+  {
+    id: "free",
+    name: "Free",
+    price: 0,
+    priceLabel: "â‚¹0",
+    period: "forever",
+    color: "text-slate-300",
+    accentBg: "bg-slate-400/[0.06]",
+    borderColor: "border-white/[0.08]",
+    icon: <Zap className="h-5 w-5 text-slate-400" />,
+    limit: "2 free videos",
+    features: [
+      "2 AI-generated videos",
+      "All content categories",
+      "Hindi / English / Hinglish",
+      "720p quality",
+      "Basic thumbnail",
+      "Script + voiceover",
+    ],
+  },
+  {
+    id: "starter",
+    name: "Starter",
+    price: 499,
+    priceLabel: "â‚¹499",
+    period: "month",
+    color: "text-violet-300",
+    accentBg: "bg-violet-500/[0.07]",
+    borderColor: "border-violet-400/25",
+    icon: <Sparkles className="h-5 w-5 text-violet-300" />,
+    limit: "20 videos/month",
+    features: [
+      "20 videos per month",
+      "All content categories",
+      "Hindi / English / Hinglish",
+      "1080p quality",
+      "AI thumbnails",
+      "Script + voiceover",
+      "YouTube auto-upload",
+      "Email support",
+    ],
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    price: 999,
+    priceLabel: "â‚¹999",
+    period: "month",
+    badge: "Most Popular",
+    color: "text-fuchsia-300",
+    accentBg: "bg-fuchsia-500/[0.08]",
+    borderColor: "border-fuchsia-400/30",
+    icon: <Crown className="h-5 w-5 text-fuchsia-300" />,
+    limit: "60 videos/month",
+    features: [
+      "60 videos per month",
+      "All content categories",
+      "Hindi / English / Hinglish",
+      "1080p + Shorts format",
+      "AI thumbnails + captions",
+      "Script + voiceover",
+      "YouTube + Instagram upload",
+      "Autopilot scheduling",
+      "Priority support",
+    ],
+  },
+  {
+    id: "creator",
+    name: "Creator",
+    price: 1999,
+    priceLabel: "â‚¹1,999",
+    period: "month",
+    color: "text-cyan-300",
+    accentBg: "bg-cyan-500/[0.07]",
+    borderColor: "border-cyan-400/25",
+    icon: <Shield className="h-5 w-5 text-cyan-300" />,
+    limit: "150 videos/month",
+    features: [
+      "150 videos per month",
+      "All content categories",
+      "Hindi / English / Hinglish",
+      "4K + Shorts + Reels",
+      "Advanced AI thumbnails",
+      "Script + voice cloning",
+      "YouTube + Instagram + Reels",
+      "Full autopilot mode",
+      "Admin approval panel",
+      "Dedicated support",
+    ],
+  },
+]
+
+const cardCls =
+  "rounded-2xl border border-white/[0.08] bg-[#10121b]/90 shadow-[0_18px_60px_rgba(0,0,0,0.18)]"
+
+// â”€â”€â”€ Razorpay loader â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+declare global {
+  interface Window {
+    Razorpay: any
+  }
+}
+
+function loadRazorpay(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) { resolve(true); return }
+    const s = document.createElement("script")
+    s.src = "https://checkout.razorpay.com/v1/checkout.js"
+    s.onload = () => resolve(true)
+    s.onerror = () => resolve(false)
+    document.body.appendChild(s)
+  })
+}
+
+// â”€â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+export default function BillingPage() {
+  const { data: session } = useSession()
+  const [userPlan, setUserPlan]     = useState<UserPlan | null>(null)
+  const [loadingPlan, setLoadingPlan] = useState(true)
+  const [paying, setPaying]         = useState<string | null>(null)
+  const [success, setSuccess]       = useState("")
+  const [error, setError]           = useState("")
+
+  // Fetch current plan
+  useEffect(() => {
+    fetch("/api/db/users")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.user) setUserPlan({
+          plan: d.user.plan || "free",
+          freeVideosUsed: d.user.freeVideosUsed || 0,
+          paidVideoCredits: d.user.paidVideoCredits || 0,
+          totalSpent: d.user.totalSpent || 0,
+        })
+      })
+      .catch(() => {})
+      .finally(() => setLoadingPlan(false))
+  }, [])
+
+  async function handleUpgrade(plan: Plan) {
+    if (plan.price === 0) return
+    setError("")
+    setSuccess("")
+    setPaying(plan.id)
+
+    try {
+      const ok = await loadRazorpay()
+      if (!ok) throw new Error("Payment gateway failed to load. Check your internet connection.")
+
+      // Create order
+      const orderRes = await fetch("/api/payments/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: plan.price, plan: plan.id }),
+      })
+      const orderData = await orderRes.json()
+      if (!orderRes.ok) throw new Error(orderData.error || "Order creation failed.")
+
+      // Open Razorpay
+      await new Promise<void>((resolve, reject) => {
+        const rzp = new window.Razorpay({
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+          amount: orderData.amount,
+          currency: "INR",
+          name: "YouTubeAuto.ai",
+          description: `${plan.name} Plan â€” ${plan.priceLabel}/month`,
+          order_id: orderData.id,
+          prefill: {
+            name: session?.user?.name || "",
+            email: session?.user?.email || "",
+          },
+          theme: { color: "#7c3aed" },
+          handler: async (response: any) => {
+            try {
+              const verifyRes = await fetch("/api/payments/razorpay/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  plan: plan.id,
+                }),
+              })
+              const vData = await verifyRes.json()
+              if (!verifyRes.ok) throw new Error(vData.error || "Payment verification failed.")
+              setSuccess(`ðŸŽ‰ Welcome to ${plan.name}! Your plan is now active.`)
+              setUserPlan((u) => u ? { ...u, plan: plan.id } : u)
+              resolve()
+            } catch (e: any) {
+              reject(e)
+            }
+          },
+          modal: { ondismiss: () => reject(new Error("Payment cancelled.")) },
+        })
+        rzp.open()
+      })
+    } catch (e: any) {
+      if (e.message !== "Payment cancelled.") setError(e.message)
+    } finally {
+      setPaying(null)
+    }
+  }
+
+  const currentPlanId = userPlan?.plan || "free"
+  const currentPlan   = PLANS.find((p) => p.id === currentPlanId) || PLANS[0]
+
+  // Usage stats
+  const usedCredits = currentPlanId === "free"
+    ? userPlan?.freeVideosUsed || 0
+    : (userPlan?.paidVideoCredits || 0)
+
+  const totalCredits = currentPlanId === "free" ? 2
+    : currentPlanId === "starter" ? 20
+    : currentPlanId === "pro" ? 60
+    : 150
+
+  const usagePct = Math.min((usedCredits / totalCredits) * 100, 100)
+
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-[#080910] text-white">
+
+      {/* Blobs */}
+      <div className="pointer-events-none fixed inset-0" aria-hidden>
+        <div className="absolute -top-44 left-[18%] h-[28rem] w-[28rem] rounded-full bg-violet-600/10 blur-[110px]" />
+        <div className="absolute right-[-6rem] top-[30%] h-[22rem] w-[22rem] rounded-full bg-cyan-500/[0.06] blur-[100px]" />
+        <div className="absolute bottom-0 left-1/3 h-[16rem] w-[16rem] rounded-full bg-fuchsia-600/[0.05] blur-[90px]" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1300px] px-4 py-6 sm:px-6 lg:px-8 lg:py-9">
+
+        {/* Top bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link href="/dashboard" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-3.5 text-sm text-slate-300 transition hover:border-white/20 hover:bg-white/[0.07] hover:text-white">
+            <ArrowRight className="h-4 w-4 rotate-180" /> Dashboard
+          </Link>
+          <div className="flex items-center gap-2 rounded-full border border-violet-300/20 bg-violet-300/[0.07] px-3 py-1.5 text-xs font-semibold text-violet-200">
+            <CreditCard className="h-3.5 w-3.5" /> Billing &amp; Plans
+          </div>
+        </div>
+
+        {/* Hero */}
+        <div className="mt-8">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-violet-300/20 bg-violet-300/[0.07] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-violet-200">
+            <Sparkles className="h-3.5 w-3.5" /> Subscription
+          </div>
+          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+            Grow without limits.
+            <span className="mt-1 block bg-gradient-to-r from-violet-300 via-fuchsia-300 to-cyan-200 bg-clip-text text-transparent">
+              Pick your plan.
+            </span>
+          </h1>
+          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-400">
+            All plans include AI script, voiceover, thumbnail generation and YouTube auto-upload. Cancel anytime.
+          </p>
+        </div>
+
+        {/* Current plan + usage */}
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+
+          {/* Plan card */}
+          <div className={`${cardCls} p-5`}>
+            {loadingPlan ? (
+              <div className="space-y-3">
+                <div className="h-5 w-24 animate-pulse rounded bg-white/5" />
+                <div className="h-8 w-32 animate-pulse rounded bg-white/5" />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-slate-400 uppercase tracking-widest">Current plan</p>
+                  <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${currentPlan.borderColor} ${currentPlan.accentBg} ${currentPlan.color}`}>
+                    {currentPlan.name}
+                  </span>
+                </div>
+                <p className="mt-3 text-3xl font-bold">{currentPlan.priceLabel}
+                  {currentPlan.price > 0 && <span className="text-sm font-normal text-slate-400">/mo</span>}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">{currentPlan.limit}</p>
+              </>
+            )}
+          </div>
+
+          {/* Usage card */}
+          <div className={`${cardCls} p-5`}>
+            <p className="text-xs text-slate-400 uppercase tracking-widest">Video credits</p>
+            <p className="mt-3 text-3xl font-bold">{usedCredits}
+              <span className="text-sm font-normal text-slate-400"> / {totalCredits}</span>
+            </p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${usagePct >= 90 ? "bg-rose-400" : usagePct >= 60 ? "bg-amber-400" : "bg-gradient-to-r from-violet-400 to-cyan-300"}`}
+                style={{ width: `${usagePct}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-slate-500">{Math.round(usagePct)}% used this cycle</p>
+          </div>
+
+          {/* Spend card */}
+          <div className={`${cardCls} p-5`}>
+            <p className="text-xs text-slate-400 uppercase tracking-widest">Total spent</p>
+            <p className="mt-3 text-3xl font-bold">â‚¹{(userPlan?.totalSpent || 0).toLocaleString("en-IN")}</p>
+            <p className="mt-1 text-xs text-slate-500">Lifetime on YouTubeAuto.ai</p>
+            <div className="mt-4 flex items-center gap-1.5 text-xs text-emerald-300">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Payments via Razorpay Â· Secure
+            </div>
+          </div>
+        </div>
+
+        {/* Alerts */}
+        {error && (
+          <div className="mt-5 flex items-start gap-2 rounded-xl border border-rose-400/20 bg-rose-400/[0.07] p-3 text-sm text-rose-200">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
+          </div>
+        )}
+        {success && (
+          <div className="mt-5 flex items-start gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.07] p-3 text-sm text-emerald-200">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> {success}
+          </div>
+        )}
+
+        {/* Plan cards */}
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {PLANS.map((plan) => {
+            const isCurrent = plan.id === currentPlanId
+            const isDowngrade = PLANS.findIndex(p => p.id === plan.id) < PLANS.findIndex(p => p.id === currentPlanId)
+            const isLoading = paying === plan.id
+
+            return (
+              <div
+                key={plan.id}
+                className={`relative flex flex-col rounded-2xl border p-5 transition ${
+                  isCurrent
+                    ? `${plan.borderColor} ${plan.accentBg}`
+                    : plan.badge
+                    ? "border-fuchsia-400/30 bg-[#10121b]/90"
+                    : "border-white/[0.08] bg-[#10121b]/90"
+                } shadow-[0_18px_60px_rgba(0,0,0,0.18)]`}
+              >
+                {/* Popular badge */}
+                {plan.badge && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-fuchsia-400/30 bg-fuchsia-500/20 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-fuchsia-200">
+                    {plan.badge}
+                  </div>
+                )}
+
+                {/* Header */}
+                <div className="flex items-center gap-2.5">
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl border ${plan.borderColor} ${plan.accentBg}`}>
+                    {plan.icon}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">{plan.name}</p>
+                    <p className="text-[10px] text-slate-500">{plan.limit}</p>
+                  </div>
+                </div>
+
+                {/* Price */}
+                <div className="mt-4">
+                  <span className={`text-3xl font-bold ${plan.color}`}>{plan.priceLabel}</span>
+                  {plan.price > 0 && <span className="text-xs text-slate-400"> / {plan.period}</span>}
+                </div>
+
+                {/* Features */}
+                <ul className="mt-4 flex-1 space-y-2">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-xs text-slate-300">
+                      <Check className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${plan.color}`} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                {/* CTA */}
+                <button
+                  type="button"
+                  disabled={isCurrent || isDowngrade || isLoading || paying !== null}
+                  onClick={() => handleUpgrade(plan)}
+                  className={`mt-5 w-full rounded-xl py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    isCurrent
+                      ? `border ${plan.borderColor} ${plan.color} bg-transparent`
+                      : isDowngrade
+                      ? "border border-white/10 text-slate-500 bg-transparent"
+                      : plan.id === "pro"
+                      ? "bg-gradient-to-r from-fuchsia-500 to-violet-500 text-white shadow-lg shadow-fuchsia-900/20 hover:brightness-110"
+                      : `border ${plan.borderColor} ${plan.color} ${plan.accentBg} hover:brightness-110`
+                  }`}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <LoaderCircle className="h-4 w-4 animate-spin" /> Processingâ€¦
+                    </span>
+                  ) : isCurrent ? "Current plan" : isDowngrade ? "Downgrade" : plan.price === 0 ? "Free" : `Upgrade to ${plan.name}`}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Info strip */}
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[
+            { icon: Shield,    label: "Secure payments",   desc: "256-bit SSL via Razorpay" },
+            { icon: RefreshCw, label: "Cancel anytime",    desc: "No lock-in, no hidden fees" },
+            { icon: Receipt,   label: "GST invoice",       desc: "Auto-generated after payment" },
+          ].map(({ icon: Icon, label, desc }) => (
+            <div key={label} className={`${cardCls} flex items-center gap-3 p-4`}>
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03]">
+                <Icon className="h-4 w-4 text-slate-400" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-slate-200">{label}</p>
+                <p className="text-[10px] text-slate-500">{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* FAQ */}
+        <div className={`${cardCls} mt-6 p-5 sm:p-6`}>
+          <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-400">FAQ</h3>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {[
+              { q: "When do credits reset?", a: "Video credits reset on the 1st of every month." },
+              { q: "Can I upgrade mid-month?", a: "Yes â€” you're charged immediately and credits top up instantly." },
+              { q: "What payment methods are accepted?", a: "UPI, credit/debit cards, net banking via Razorpay." },
+              { q: "Is there a refund policy?", a: "Contact support within 24 hrs of payment for refund requests." },
+            ].map(({ q, a }) => (
+              <div key={q} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
+                <p className="text-xs font-semibold text-slate-200">{q}</p>
+                <p className="mt-1.5 text-xs leading-5 text-slate-400">{a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <footer className="mt-7 flex flex-col items-center justify-between gap-2 border-t border-white/[0.07] pt-5 text-center text-xs text-slate-600 sm:flex-row sm:text-left">
+          <span>YouTubeAuto.ai Â· Billing powered by Razorpay</span>
+          <a href="mailto:singhaditya4560@gmail.com" className="flex items-center gap-1 hover:text-slate-400 transition">
+            Need help? Contact support <ExternalLink className="h-3 w-3" />
+          </a>
+        </footer>
+      </div>
+    </main>
+  )
+}
+
+
+========== components/admin/video-approval-list.tsx ==========
+
+"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { store, type Video as VideoType } from "@/lib/store"
+import { useAuth } from "@/lib/auth-context"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  CheckCircle2,
+  XCircle,
+  Clock3,
+  Video as VideoIcon,
+  RefreshCw,
+  ExternalLink,
+  AlertTriangle,
+} from "lucide-react"
+
+type FilterType = "pending" | "approved" | "rejected"
+
+interface VideoApprovalListProps {
+  filter: FilterType
+}
+
+interface UploadResult {
+  success?: boolean
+  queued?: boolean
+  error?: string
+  message?: string
+  videoId?: string
+  youtubeUrl?: string
+  status?: string
+}
+
+export function VideoApprovalList({ filter }: VideoApprovalListProps) {
+  const { user } = useAuth()
+  const [videos, setVideos] = useState<VideoType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [message, setMessage] = useState("")
+  const [error, setError] = useState("")
+
+  const refreshVideos = useCallback(() => {
+    try {
+      setVideos(store ? store.getVideos() : [])
+    } catch (e) {
+      console.error("Could not load videos:", e)
+      setError("Videos load nahi ho paaye.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshVideos()
+
+    const onStorage = () => refreshVideos()
+    window.addEventListener("storage", onStorage)
+
+    return () => window.removeEventListener("storage", onStorage)
+  }, [refreshVideos])
+
+  const filteredVideos = useMemo(() => {
+    return videos
+      .filter((video) => {
+        if (filter === "pending") {
+          return (
+            video.status === "pending-approval" ||
+            (!video.adminApproved &&
+              video.status !== "rejected" &&
+              video.status !== "live" &&
+              video.status !== "failed")
+          )
+        }
+
+        if (filter === "approved") {
+          return video.adminApproved === true && video.status !== "rejected"
+        }
+
+        return video.status === "rejected"
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime(),
+      )
+  }, [videos, filter])
+
+  const handleApprove = async (video: VideoType) => {
+    if (!store || !user?.id) {
+      setError("Admin session ya local video store available nahi hai.")
+      return
+    }
+
+    if (!video.videoUrl) {
+      setError(
+        `"${video.title}" ki video file missing hai. Pehle video generate karke save karo.`,
+      )
+      return
+    }
+
+    if (!video.thumbnailUrl && !video.thumbnail) {
+      setError(
+        `"${video.title}" ka thumbnail missing hai. Pehle thumbnail generate karo.`,
+      )
+      return
+    }
+
+    if (video.status === "live" && video.youtubeUrl) {
+      setMessage("Yeh video pehle se YouTube par publish ho chuka hai.")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `"${video.title}" ko approve karke YouTube par PUBLIC publish karna hai? Agar upload successful hua, video public ho sakta hai.`,
+    )
+
+    if (!confirmed) return
+
+    setBusyId(video.id)
+    setError("")
+    setMessage("YouTube par video upload ho raha hai. Is window ko band mat karo.")
+
+    try {
+      // Save admin approval first. Upload success is tracked separately.
+      store.adminApproveVideo(video.id, user.id)
+      refreshVideos()
+
+      const response = await fetch("/api/youtube/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          videoUrl: video.videoUrl,
+          title: video.title,
+          description: video.description || "",
+          tags: video.tags || [],
+          categoryId: "22",
+          privacyStatus: "public",
+          language: "hi",
+        }),
+      })
+
+      const result = (await response.json().catch(() => ({}))) as UploadResult
+
+      if (!response.ok || !result.success) {
+        if (result.queued) {
+          setMessage(
+            result.message ||
+              "Video upload queue mein add hua hai; abhi Live nahi hai.",
+          )
+          refreshVideos()
+          return
+        }
+
+        throw new Error(result.error || result.message || `Upload failed (${response.status})`)
+      }
+
+      if (!result.videoId || !result.youtubeUrl) {
+        throw new Error(
+          "Upload API ne success response diya, lekin YouTube video ID/link nahi mila. YouTube par status verify karo.",
+        )
+      }
+
+      // Mark Live only when the API confirms public status.
+      if (result.status?.toLowerCase() === "public") {
+        store.updateVideo(video.id, {
+          status: "live",
+          youtubeUrl: result.youtubeUrl,
+          adminApproved: true,
+        })
+
+        setMessage(
+          `Video YouTube par publish ho gaya: ${result.youtubeUrl}`,
+        )
+      } else {
+        store.updateVideo(video.id, {
+          youtubeUrl: result.youtubeUrl,
+          adminApproved: true,
+          status: "approved",
+        })
+
+        setMessage(
+          `YouTube upload complete hai, lekin visibility "${result.status || "unknown"}" hai. Video ko Live mark nahi kiya gaya.`,
+        )
+      }
+
+      refreshVideos()
+    } catch (e) {
+      console.error("Approval/upload failed:", e)
+      const details =
+        e instanceof Error ? e.message : "Unknown error"
+
+      setError(
+        `Approval save ho sakta hai, lekin YouTube upload/publish confirm nahi hua: ${details}`,
+      )
+      refreshVideos()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleReject = (video: VideoType) => {
+    if (!store) {
+      setError("Video store available nahi hai.")
+      return
+    }
+
+    const confirmed = window.confirm(`"${video.title}" ko reject karna hai?`)
+    if (!confirmed) return
+
+    setBusyId(video.id)
+    setError("")
+    setMessage("")
+
+    try {
+      store.adminRejectVideo(video.id)
+      refreshVideos()
+      setMessage("Video reject kar diya gaya.")
+    } catch (e) {
+      console.error("Rejection failed:", e)
+      setError("Video reject nahi ho paaya.")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-12 text-muted-foreground">
+        <RefreshCw className="h-4 w-4 animate-spin" />
+        Videos load ho rahe hain...
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {filteredVideos.length} video(s)
+        </p>
+
+        <Button variant="outline" onClick={refreshVideos}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
+
+      {message && (
+        <div
+          role="status"
+          className="break-words rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300"
+        >
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          className="break-words rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300"
+        >
+          <AlertTriangle className="mr-2 inline h-4 w-4" />
+          {error}
+        </div>
+      )}
+
+      {filteredVideos.length === 0 ? (
+        <div className="rounded-xl border border-dashed p-10 text-center">
+          <VideoIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+
+          <h2 className="font-semibold">
+            {filter === "pending"
+              ? "No videos pending approval"
+              : filter === "approved"
+                ? "No approved videos"
+                : "No rejected videos"}
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            Videos generate hone ke baad yahan refresh karke dekho.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6">
+          {filteredVideos.map((video) => {
+            const thumbnail = video.thumbnailUrl || video.thumbnail || ""
+            const videoUrl = video.videoUrl || ""
+
+            const status =
+              video.status === "live"
+                ? "Live"
+                : video.status === "rejected"
+                  ? "Rejected"
+                  : video.adminApproved
+                    ? "Approved"
+                    : "Pending approval"
+
+            return (
+              <article
+                key={video.id}
+                className="overflow-hidden rounded-xl border bg-card"
+              >
+                <div className="grid grid-cols-1 gap-5 p-4 md:grid-cols-[300px_minmax(0,1fr)]">
+                  <div className="space-y-3">
+                    <div className="overflow-hidden rounded-lg border bg-black">
+                      {thumbnail ? (
+                        <a
+                          href={thumbnail}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open full thumbnail"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={thumbnail}
+                            alt={`Thumbnail: ${video.title}`}
+                            className="aspect-video w-full object-cover"
+                            onError={(event) => {
+                              event.currentTarget.style.display = "none"
+                            }}
+                          />
+                        </a>
+                      ) : (
+                        <div className="flex aspect-video items-center justify-center text-sm text-white">
+                          Thumbnail unavailable
+                        </div>
+                      )}
+                    </div>
+
+                    {videoUrl ? (
+                      <video
+                        key={videoUrl}
+                        src={videoUrl}
+                        controls
+                        preload="metadata"
+                        className="aspect-video w-full rounded-lg border bg-black"
+                      >
+                        Your browser does not support video playback.
+                      </video>
+                    ) : (
+                      <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground">
+                        <div>
+                          <VideoIcon className="mx-auto mb-2 h-7 w-7" />
+                          Actual video file missing
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="break-words text-xl font-bold">
+                          {video.title || "Untitled video"}
+                        </h2>
+
+                        <p className="mt-1 break-all text-xs text-muted-foreground">
+                          ID: {video.id}
+                        </p>
+                      </div>
+
+                      <Badge
+                        variant="outline"
+                        className={
+                          video.status === "rejected"
+                            ? "border-red-500/40 text-red-600"
+                            : video.status === "live"
+                              ? "border-emerald-500/40 text-emerald-600"
+                              : video.adminApproved
+                                ? "border-blue-500/40 text-blue-600"
+                                : "border-amber-500/40 text-amber-600"
+                        }
+                      >
+                        {status === "Live" ? (
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                        ) : status === "Rejected" ? (
+                          <XCircle className="mr-1 h-3 w-3" />
+                        ) : (
+                          <Clock3 className="mr-1 h-3 w-3" />
+                        )}
+                        {status}
+                      </Badge>
+                    </div>
+
+                    <div>
+                      <h3 className="mb-1 text-sm font-semibold">
+                        Description
+                      </h3>
+                      <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                        {video.description || "No description provided."}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="mb-1 text-sm font-semibold">Tags</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {video.tags?.length ? (
+                          video.tags.map((tag, index) => (
+                            <Badge
+                              key={`${tag}-${index}`}
+                              variant="secondary"
+                            >
+                              {tag}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            No tags
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {video.script && (
+                      <details className="rounded-lg border p-3">
+                        <summary className="cursor-pointer text-sm font-semibold">
+                          View script
+                        </summary>
+                        <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
+                          {video.script}
+                        </p>
+                      </details>
+                    )}
+
+                    <div className="text-xs text-muted-foreground">
+                      Created:{" "}
+                      {video.createdAt
+                        ? new Date(video.createdAt).toLocaleString()
+                        : "Unknown"}
+                    </div>
+
+                    {video.youtubeUrl && (
+                      <a
+                        href={video.youtubeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 break-all text-sm text-blue-600 underline"
+                      >
+                        View on YouTube
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    )}
+
+                    {filter === "pending" && (
+                      <div className="flex flex-wrap gap-3 border-t pt-4">
+                        <Button
+                          onClick={() => handleApprove(video)}
+                          disabled={busyId === video.id}
+                          className="bg-emerald-600 text-white hover:bg-emerald-700"
+                        >
+                          {busyId === video.id ? (
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                          )}
+                          {busyId === video.id
+                            ? "Uploading..."
+                            : "Approve & Publish"}
+                        </Button>
+
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleReject(video)}
+                          disabled={busyId === video.id}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject Video
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+========== API REFERENCES ==========
+
+
+app\dashboard\billing\page.tsx:175:    fetch("/api/db/users")
+components\admin\video-approval-list.tsx:125:      store.adminApproveVideo(video.id, user.id)
+lib\store.ts:479:  adminApproveVideo(videoId: string, adminId: string): void {
+
+
+

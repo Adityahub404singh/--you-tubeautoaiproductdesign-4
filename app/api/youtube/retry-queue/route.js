@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { readdir, readFile, unlink } from "fs/promises";
 import { existsSync, statSync, createReadStream } from "fs";
 import path from "path";
@@ -77,7 +77,7 @@ export async function GET() {
       } catch {}
     }
     return NextResponse.json({ queued: items.length, items });
-  } catch(e: any) {
+  } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
@@ -116,7 +116,7 @@ export async function POST(req) {
         console.log(`? Retry Successful! Video ID: ${videoId}`);
         
         if (toProcess.length > 1) await new Promise(r => setTimeout(r, 3000));
-      } catch(e: any) {
+      } catch (e) {
         if (e.message === "QUOTA_EXCEEDED") {
           results.push({ file, status: "quota_exceeded" });
           break;
@@ -132,3 +132,4 @@ export async function POST(req) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

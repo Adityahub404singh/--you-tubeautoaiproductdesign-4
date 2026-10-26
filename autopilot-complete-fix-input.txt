@@ -1,0 +1,3401 @@
+CODE REVIEW INPUT - 10/25/2026 22:04:53
+
+========== lib/db.ts ==========
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
+
+export const prisma =
+  globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
+export default prisma;
+
+
+========== lib/prisma.ts ==========
+
+import { PrismaClient } from "@prisma/client";
+import { PrismaLibSQL } from "@prisma/adapter-libsql";
+import path from "path";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+function createPrismaClient(): PrismaClient {
+  const dbPath = path
+    .join(process.cwd(), "prisma", "dev.db")
+    .replace(/\\/g, "/");
+
+  const adapter = new PrismaLibSQL({
+    url: `file:${dbPath}`,
+  });
+
+  return new PrismaClient({
+    adapter,
+    log: ["error"],
+  });
+}
+
+export const prisma =
+  globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
+
+========== app/api/db/users/route.ts ==========
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/db";
+
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const email = searchParams.get("email");
+    const id = searchParams.get("id");
+
+    if (email) {
+      return NextResponse.json(
+        await prisma.user.findUnique({ where: { email } })
+      );
+    }
+
+    if (id) {
+      return NextResponse.json(
+        await prisma.user.findUnique({ where: { id } })
+      );
+    }
+
+    return NextResponse.json(await prisma.user.findMany());
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to fetch users" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const data = await req.json();
+
+    if (!data.email) {
+      return NextResponse.json(
+        { error: "Email is required" },
+        { status: 400 }
+      );
+    }
+
+    const user = await prisma.user.upsert({
+      where: { email: data.email },
+      update: data,
+      create: data,
+    });
+
+    return NextResponse.json(user);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to save user" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, ...updates } = await req.json();
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "User ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const user = await prisma.user.update({
+      where: { id },
+      data: updates,
+    });
+
+    return NextResponse.json(user);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to update user" },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== app/api/db/channels/route.ts ==========
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/db";
+
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  try {
+    const userId = new URL(req.url).searchParams.get("userId");
+
+    const channels = await prisma.channel.findMany({
+      where: userId ? { userId } : {},
+    });
+
+    return NextResponse.json(channels);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to fetch channels" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const data = await req.json();
+    const channel = await prisma.channel.create({ data });
+
+    return NextResponse.json(channel);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to create channel" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, ...updates } = await req.json();
+
+    const channel = await prisma.channel.update({
+      where: { id },
+      data: updates,
+    });
+
+    return NextResponse.json(channel);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to update channel" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { id } = await req.json();
+
+    await prisma.channel.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to delete channel" },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== app/api/db/videos/route.ts ==========
+import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/db";
+
+export const runtime = "nodejs";
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const where: any = {};
+
+    const channelId = searchParams.get("channelId");
+    const userId = searchParams.get("userId");
+    const status = searchParams.get("status");
+
+    if (channelId) where.channelId = channelId;
+    if (userId) where.userId = userId;
+    if (status) where.status = status;
+
+    const videos = await prisma.video.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(videos);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to fetch videos" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const data = await req.json();
+
+    if (Array.isArray(data.tags)) {
+      data.tags = JSON.stringify(data.tags);
+    }
+
+    const video = await prisma.video.create({ data });
+    return NextResponse.json(video);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to create video" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const { id, ...updates } = await req.json();
+
+    if (Array.isArray(updates.tags)) {
+      updates.tags = JSON.stringify(updates.tags);
+    }
+
+    const video = await prisma.video.update({
+      where: { id },
+      data: updates,
+    });
+
+    return NextResponse.json(video);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error.message || "Failed to update video" },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== app/api/autopilot/settings/route.ts ==========
+
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { prisma } from "@/lib/prisma";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const defaults = {
+  category: "cinematic",
+  subCategory: "sigma",
+  cronSchedule: "0 18 * * *",
+  isAutoApprove: false,
+  language: "en",
+  isActive: false,
+};
+
+function validCron(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 100) {
+    return false;
+  }
+
+  const fields = value.trim().split(/\s+/);
+
+  return (
+    fields.length === 5 &&
+    fields.every((field) => /^[0-9*/,-]+$/.test(field))
+  );
+}
+
+async function getUserId(): Promise<string | null> {
+  const session = await getServerSession(authOptions);
+
+  const userId = (session?.user as { id?: string } | undefined)?.id;
+
+  return typeof userId === "string" && userId.length > 0
+    ? userId
+    : null;
+}
+
+export async function GET() {
+  try {
+    const userId = await getUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Please log in first." },
+        { status: 401 }
+      );
+    }
+
+    const settings = await prisma.autopilotSettings.findUnique({
+      where: { userId },
+    });
+
+    return NextResponse.json({
+      settings: settings ?? { ...defaults },
+    });
+  } catch (error) {
+    console.error("Autopilot settings GET error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to load autopilot settings." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const userId = await getUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "Please log in first." },
+        { status: 401 }
+      );
+    }
+
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON request body." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      Array.isArray(body)
+    ) {
+      return NextResponse.json(
+        { error: "Request body must be a JSON object." },
+        { status: 400 }
+      );
+    }
+
+    const data = body as Record<string, unknown>;
+
+    const category = typeof data.category === "string" ? data.category.trim().toLowerCase() : defaults.category;
+
+    const subCategory =
+      typeof data.subCategory === "string"
+        ? data.subCategory.trim()
+        : defaults.subCategory;
+
+    const language =
+      typeof data.language === "string"
+        ? data.language.trim()
+        : defaults.language;
+
+    const cronSchedule =
+      data.cronSchedule ?? defaults.cronSchedule;
+
+    if (!category || category.length > 50 || !/^[a-z0-9 _-]+$/.test(category)) {
+      return NextResponse.json({ error: "Invalid category." }, { status: 400 });
+    }
+
+    if (!subCategory || subCategory.length > 80) {
+      return NextResponse.json(
+        { error: "Invalid subCategory." },
+        { status: 400 }
+      );
+    }
+
+    if (!language || language.length > 20) {
+      return NextResponse.json(
+        { error: "Invalid language." },
+        { status: 400 }
+      );
+    }
+
+    if (!validCron(cronSchedule)) {
+      return NextResponse.json(
+        { error: "Schedule must contain five valid-format cron fields." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      data.isActive !== undefined &&
+      typeof data.isActive !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "isActive must be true or false." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      data.isAutoApprove !== undefined &&
+      typeof data.isAutoApprove !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "isAutoApprove must be true or false." },
+        { status: 400 }
+      );
+    }
+
+    const settings = await prisma.autopilotSettings.upsert({
+      where: { userId },
+
+      create: {
+        userId,
+        category,
+        subCategory,
+        language,
+        cronSchedule: cronSchedule.trim(),
+        isAutoApprove: data.isAutoApprove ?? false,
+        isActive: data.isActive ?? false,
+      },
+
+      update: {
+        category,
+        subCategory,
+        language,
+        cronSchedule: cronSchedule.trim(),
+
+        ...(data.isAutoApprove !== undefined && {
+          isAutoApprove: data.isAutoApprove,
+        }),
+
+        ...(data.isActive !== undefined && {
+          isActive: data.isActive,
+        }),
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      settings,
+    });
+  } catch (error) {
+    console.error("Autopilot settings POST error:", error);
+
+    return NextResponse.json(
+      { error: "Unable to save autopilot settings." },
+      { status: 500 }
+    );
+  }
+}
+
+
+========== app/api/autopilot/run/route.ts ==========
+import { NextResponse } from "next/server";
+import { createReadStream, existsSync, statSync } from "node:fs";
+import path from "node:path";
+import { prisma } from "@/lib/prisma";
+import { decryptSocialToken, encryptSocialToken } from "@/lib/social-account-crypto";
+import { refreshAccessToken } from "@/lib/youtube-token";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
+type CronParts = { minute: number; hour: number; day: number; month: number; weekday: number };
+
+function getTimeParts(date: Date, timeZone: string): CronParts {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, minute: "2-digit", hour: "2-digit", day: "2-digit", month: "2-digit", weekday: "short", hourCycle: "h23",
+  }).formatToParts(date);
+  const v = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  const days: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { minute: Number(v.minute), hour: Number(v.hour), day: Number(v.day), month: Number(v.month), weekday: days[v.weekday] ?? date.getDay() };
+}
+
+function fieldMatches(field: string, value: number, min: number, max: number): boolean {
+  if (field === "*") return true;
+  return field.split(",").some((part) => {
+    const [base, stepText] = part.split("/");
+    const step = stepText ? Number(stepText) : 1;
+    if (!Number.isInteger(step) || step < 1) return false;
+    let low = min, high = max;
+    if (base && base !== "*") {
+      if (base.includes("-")) {
+        const pair = base.split("-").map(Number);
+        if (pair.length !== 2) return false;
+        [low, high] = pair;
+      } else {
+        low = Number(base); high = low;
+      }
+    }
+    return Number.isInteger(low) && Number.isInteger(high) && low >= min && high <= max && value >= low && value <= high && (value - low) % step === 0;
+  });
+}
+
+function matchesSchedule(expression: string, date: Date, timeZone: string): boolean {
+  const fields = expression.trim().split(/\s+/);
+  if (fields.length !== 5) return false;
+  const t = getTimeParts(date, timeZone);
+  return fieldMatches(fields[0], t.minute, 0, 59) && fieldMatches(fields[1], t.hour, 0, 23) &&
+    fieldMatches(fields[2], t.day, 1, 31) && fieldMatches(fields[3], t.month, 1, 12) && fieldMatches(fields[4], t.weekday, 0, 6);
+}
+
+async function callJson(baseUrl: string, route: string, body: Record<string, unknown>) {
+  const response = await fetch(`${baseUrl}${route}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.success === false || data.error) throw new Error(data.error || `${route} failed (${response.status})`);
+  return data;
+}
+
+async function uploadToYouTube(filePath: string, token: string, metadata: { title: string; description: string; tags: string[] }) {
+  const size = statSync(filePath).size;
+  const init = await fetch("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "X-Upload-Content-Type": "video/mp4", "X-Upload-Content-Length": String(size) },
+    body: JSON.stringify({ snippet: { title: metadata.title.slice(0, 100), description: metadata.description.slice(0, 4900), tags: metadata.tags.slice(0, 20), categoryId: "22" }, status: { privacyStatus: "public", selfDeclaredMadeForKids: false } }),
+  });
+  const initData = await init.json().catch(() => ({}));
+  if (!init.ok) throw new Error(initData?.error?.message || `YouTube upload initialization failed (${init.status})`);
+  const uploadUrl = init.headers.get("location");
+  if (!uploadUrl) throw new Error("YouTube did not return a resumable upload URL.");
+
+  const source = createReadStream(filePath, { highWaterMark: 1024 * 1024 });
+  const iterator = source[Symbol.asyncIterator]();
+  const stream = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try { const next = await iterator.next(); if (next.done) controller.close(); else controller.enqueue(next.value as Uint8Array); }
+      catch (error) { controller.error(error); }
+    },
+    async cancel() { source.destroy(); },
+  });
+  const result = await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": "video/mp4", "Content-Length": String(size) }, body: stream, duplex: "half" } as RequestInit & { duplex: "half" });
+  if (!result.ok) throw new Error(`YouTube upload failed (${result.status}): ${(await result.text()).slice(0, 500)}`);
+  const uploaded = await result.json();
+  if (!uploaded.id) throw new Error("YouTube did not confirm a video ID.");
+  return String(uploaded.id);
+}
+
+export async function POST(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return NextResponse.json({ error: "CRON_SECRET is not configured." }, { status: 503 });
+  if (request.headers.get("authorization") !== `Bearer ${secret}`) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+
+  const now = new Date();
+  const timeZone = process.env.AUTOPILOT_TIMEZONE || "Asia/Kolkata";
+  const baseUrl = new URL(request.url).origin;
+  const settingsList = await prisma.autopilotSettings.findMany({ where: { isActive: true } });
+  const results: Array<Record<string, unknown>> = [];
+
+  for (const settings of settingsList) {
+    if (!matchesSchedule(settings.cronSchedule, now, timeZone)) continue;
+    let videoRecord: { id: string } | null = null;
+    try {
+      const minuteStart = new Date(now); minuteStart.setSeconds(0, 0);
+      const duplicate = await prisma.video.findFirst({ where: { userId: settings.userId, createdAt: { gte: minuteStart } }, select: { id: true } });
+      if (duplicate) { results.push({ userId: settings.userId, status: "skipped_duplicate_minute" }); continue; }
+
+      const channel = await prisma.channel.findFirst({ where: { userId: settings.userId, isActive: true }, orderBy: { createdAt: "asc" } });
+      if (!channel) { results.push({ userId: settings.userId, status: "skipped_no_channel" }); continue; }
+      const account = await prisma.socialAccount.findFirst({ where: { userId: settings.userId, provider: "youtube", isConnected: true }, orderBy: { updatedAt: "desc" } });
+      if (!account) { results.push({ userId: settings.userId, status: "skipped_youtube_not_connected" }); continue; }
+
+      const topic = `${settings.subCategory} — ${new Intl.DateTimeFormat("en-CA", { timeZone }).format(now)} episode`;
+      videoRecord = await prisma.video.create({ data: { userId: settings.userId, channelId: channel.id, title: `Generating: ${topic}`.slice(0, 100), topic, status: "autopilot-processing", scheduledDate: now } });
+
+      const scriptData = await callJson(baseUrl, "/api/videos/generate", {
+        topic, language: settings.language === "hi" ? "Hindi" : settings.language === "hinglish" ? "Hinglish" : "English",
+        channelName: channel.name, category: settings.category || channel.category || "general", mode: "shorts",
+      });
+      const voice = await callJson(baseUrl, "/api/voiceover", { text: scriptData.script, category: settings.category || "general", isShorts: true, translateHindi: settings.language === "hi" });
+      const rendered = await callJson(baseUrl, "/api/video/generate", {
+        audioUrl: voice.audioUrl, title: scriptData.title, script: scriptData.script, hook: scriptData.hook,
+        videoType: "shorts", category: settings.category || "general", language: settings.language,
+      });
+      const thumb = await callJson(baseUrl, "/api/thumbnail", { title: scriptData.title, boldText: scriptData.thumbnail?.boldText || scriptData.title, category: settings.category || "general", videoType: "shorts" });
+
+      const commonVideoData = {
+        title: String(scriptData.title || topic).slice(0, 100), script: String(scriptData.script || ""), hook: String(scriptData.hook || ""),
+        description: String(scriptData.description || ""), tags: JSON.stringify(Array.isArray(scriptData.tags) ? scriptData.tags : []),
+        videoType: "shorts", audioUrl: String(voice.audioUrl || ""), videoFileUrl: String(rendered.videoUrl || ""),
+        thumbnailUrl: String(thumb.thumbnailUrl || ""), subCategory: settings.subCategory,
+      };
+
+      if (!settings.isAutoApprove) {
+        await prisma.video.update({ where: { id: videoRecord.id }, data: { ...commonVideoData, status: "pending-approval" } });
+        results.push({ userId: settings.userId, videoId: videoRecord.id, status: "pending-approval" });
+        continue;
+      }
+
+      let accessToken: string;
+      if (!account.accessTokenExpiry || account.accessTokenExpiry.getTime() < Date.now() + 120000) {
+        if (!account.refreshToken) throw new Error("YouTube token expired and no refresh token is stored. Reconnect YouTube.");
+        const refreshed = await refreshAccessToken(decryptSocialToken(account.refreshToken));
+        accessToken = refreshed.access_token;
+        await prisma.socialAccount.update({ where: { id: account.id }, data: { accessToken: encryptSocialToken(accessToken), accessTokenExpiry: new Date(Date.now() + Number(refreshed.expires_in || 3600) * 1000) } });
+      } else accessToken = decryptSocialToken(account.accessToken);
+
+      const fileName = path.basename(String(rendered.videoUrl || ""));
+      const videoPath = path.resolve(process.cwd(), "storage", "videos", fileName);
+      if (!fileName || !videoPath.startsWith(path.resolve(process.cwd(), "storage", "videos") + path.sep) || !existsSync(videoPath)) throw new Error("Rendered video file is missing from local storage.");
+      const youtubeVideoId = await uploadToYouTube(videoPath, accessToken, { title: commonVideoData.title, description: commonVideoData.description, tags: JSON.parse(commonVideoData.tags) });
+      await prisma.video.update({ where: { id: videoRecord.id }, data: { ...commonVideoData, status: "published", userApproved: true, userApprovedAt: now, youtubeVideoId, youtubeUrl: `https://www.youtube.com/watch?v=${youtubeVideoId}`, uploadedAt: new Date() } });
+      results.push({ userId: settings.userId, videoId: videoRecord.id, status: "published", youtubeUrl: `https://www.youtube.com/watch?v=${youtubeVideoId}` });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown autopilot failure";
+      if (videoRecord) await prisma.video.update({ where: { id: videoRecord.id }, data: { status: "failed", uploadError: message.slice(0, 1000) } }).catch(() => undefined);
+      results.push({ userId: settings.userId, status: "failed", error: message });
+    }
+  }
+
+  return NextResponse.json({ success: true, checkedAt: now.toISOString(), timeZone, matchedUsers: results.length, results });
+}
+
+
+========== app/dashboard/autopilot/page.tsx ==========
+"use client";
+
+import { useEffect, useRef, useState, type DragEvent, type SyntheticEvent } from "react";
+import Link from "next/link";
+import {
+  Activity,
+  AlertCircle,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  Clock3,
+  FileVideo,
+  Film,
+  Gauge,
+  HardDrive,
+  Languages,
+  LoaderCircle,
+  Save,
+  ShieldCheck,
+  Sparkles,
+  Upload,
+  Youtube,
+  Zap,
+  Globe,
+  Instagram,
+  RefreshCw,
+  XCircle,
+  BarChart3,
+  Settings2,
+} from "lucide-react";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type Settings = {
+  category: string;
+  subCategory: string;
+  cronSchedule: string;
+  isAutoApprove: boolean;
+  language: string;
+  isActive: boolean;
+};
+
+type VideoReport = {
+  name: string;
+  size: number;
+  type: string;
+  duration: number;
+  width: number;
+  height: number;
+  ratio: number;
+};
+
+type ConnectionStatus = {
+  youtube: "loading" | "connected" | "disconnected";
+  instagram: "loading" | "connected" | "disconnected";
+};
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const INITIAL: Settings = {
+  category: "psychology",
+  subCategory: "dark_psychology",
+  cronSchedule: "0 18 * * *",
+  isAutoApprove: false,
+  language: "hi",
+  isActive: false,
+};
+
+const CATEGORIES = [
+  { value: "psychology",      label: "🧠 Psychology" },
+  { value: "motivation",      label: "🔥 Motivation" },
+  { value: "history",         label: "📜 History" },
+  { value: "horror",          label: "👻 Horror" },
+  { value: "storytelling",    label: "📖 Storytelling" },
+  { value: "businesslessons", label: "💼 Business Lessons" },
+  { value: "startupstories",  label: "🚀 Startup Stories" },
+  { value: "luxury",          label: "💎 Luxury" },
+  { value: "quotes",          label: "💬 Quotes" },
+  { value: "stoicism",        label: "⚖️ Stoicism" },
+  { value: "pov",             label: "🎭 POV Stories" },
+  { value: "ainews",          label: "🤖 AI News" },
+  { value: "general",         label: "🌟 General" },
+];
+
+const CRON_PRESETS = [
+  { label: "Daily 6 PM",     value: "0 18 * * *" },
+  { label: "Daily 9 AM",     value: "0 9 * * *" },
+  { label: "Twice daily",    value: "0 9,18 * * *" },
+  { label: "Every 2 days",   value: "0 18 */2 * *" },
+  { label: "Weekdays only",  value: "0 18 * * 1-5" },
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes < 0) return "—";
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function formatDuration(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "—";
+  const total = Math.floor(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0
+    ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+    : `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function parseCron(cron: string) {
+  try {
+    const parts = cron.trim().split(/\s+/);
+    if (parts.length !== 5) return null;
+    const [min, hour] = parts;
+    if (min === "0" && /^\d+$/.test(hour)) {
+      const h = parseInt(hour);
+      return `Daily at ${h === 0 ? "12:00 AM" : h < 12 ? `${h}:00 AM` : h === 12 ? "12:00 PM" : `${h - 12}:00 PM`}`;
+    }
+    return "Custom schedule";
+  } catch {
+    return null;
+  }
+}
+
+// ─── Style constants ──────────────────────────────────────────────────────────
+
+const inputCls =
+  "mt-1.5 w-full rounded-xl border border-white/10 bg-[#0b0d14] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/15";
+
+const cardCls =
+  "rounded-2xl border border-white/[0.08] bg-[#10121b]/90 shadow-[0_18px_60px_rgba(0,0,0,0.18)]";
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function SettingsPage() {
+  const [settings, setSettings]       = useState<Settings>(INITIAL);
+  const [loading, setLoading]         = useState(true);
+  const [saving, setSaving]           = useState(false);
+  const [saved, setSaved]             = useState(false);
+  const [error, setError]             = useState("");
+  const [connections, setConnections] = useState<ConnectionStatus>({ youtube: "loading", instagram: "loading" });
+
+  const [videoFile, setVideoFile]     = useState<File | null>(null);
+  const [videoUrl, setVideoUrl]       = useState("");
+  const [videoReport, setVideoReport] = useState<VideoReport | null>(null);
+  const [videoError, setVideoError]   = useState("");
+  const [videoBusy, setVideoBusy]     = useState(false);
+  const [dragging, setDragging]       = useState(false);
+  const fileRef                       = useRef<HTMLInputElement>(null);
+
+  // Load settings
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/autopilot/settings", { cache: "no-store" })
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || "Failed to load.");
+        if (alive && d.settings) setSettings({ ...INITIAL, ...d.settings });
+      })
+      .catch((e) => { if (alive) setError(e.message); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, []);
+
+  // Check connection status
+  useEffect(() => {
+    fetch("/api/youtube/status")
+      .then((r) => r.json())
+      .then((d) => setConnections((c) => ({ ...c, youtube: d.connected ? "connected" : "disconnected" })))
+      .catch(() => setConnections((c) => ({ ...c, youtube: "disconnected" })));
+
+    fetch("/api/instagram/status")
+      .then((r) => r.json())
+      .then((d) => setConnections((c) => ({ ...c, instagram: d.connected ? "connected" : "disconnected" })))
+      .catch(() => setConnections((c) => ({ ...c, instagram: "disconnected" })));
+  }, []);
+
+  // Revoke blob URL
+  useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);
+
+  function update<K extends keyof Settings>(key: K, value: Settings[K]) {
+    setSettings((s) => ({ ...s, [key]: value }));
+    setSaved(false);
+  }
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      const r = await fetch("/api/autopilot/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Save failed.");
+      setSettings({ ...INITIAL, ...d.settings });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Video helpers ──
+  function clearVideo() {
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    setVideoFile(null); setVideoUrl(""); setVideoReport(null);
+    setVideoError(""); setVideoBusy(false);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function acceptFile(file?: File) {
+    setVideoError(""); setVideoReport(null);
+    if (!file) return;
+    if (!file.type.startsWith("video/") && !/\.(mp4|mov|webm|m4v|ogv)$/i.test(file.name)) {
+      setVideoError("Choose an MP4, MOV, WebM or M4V file."); return;
+    }
+    if (file.size === 0) { setVideoError("File is empty."); return; }
+    if (file.size > 500 * 1024 * 1024) { setVideoError("Max 500 MB supported."); return; }
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    setVideoFile(file);
+    setVideoUrl(URL.createObjectURL(file));
+    setVideoBusy(true);
+  }
+
+  function onMetadata(e: SyntheticEvent<HTMLVideoElement>) {
+    const el = e.currentTarget;
+    if (!videoFile) return;
+    const { videoWidth: w, videoHeight: h, duration } = el;
+    if (!w || !h || !Number.isFinite(duration)) {
+      setVideoError("Cannot read metadata — try another MP4/WebM.");
+      setVideoBusy(false); return;
+    }
+    setVideoReport({ name: videoFile.name, size: videoFile.size, type: videoFile.type || "unknown", duration, width: w, height: h, ratio: w / h });
+    setVideoBusy(false);
+  }
+
+  function onDrop(e: DragEvent) {
+    e.preventDefault(); setDragging(false);
+    acceptFile(e.dataTransfer.files?.[0]);
+  }
+
+  const checks = videoReport ? [
+    { label: "Metadata readable",  ok: true,                                              detail: "Duration and dimensions confirmed." },
+    { label: "HD resolution",      ok: videoReport.width >= 1280 && videoReport.height >= 720,  detail: videoReport.width >= 1280 ? "1280×720 or above — good." : "Below 720p — export at HD." },
+    { label: "Portrait / square",  ok: videoReport.height >= videoReport.width,           detail: videoReport.height >= videoReport.width ? "9:16 — Shorts-ready." : "16:9 landscape format." },
+    { label: "File size ≤ 100 MB", ok: videoReport.size <= 100 * 1024 * 1024,            detail: videoReport.size <= 100 * 1024 * 1024 ? "Within upload limit." : "Large file — check server limits." },
+  ] : [];
+
+  const cronLabel = parseCron(settings.cronSchedule);
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-[#080910] text-white">
+
+      {/* Ambient blobs */}
+      <div className="pointer-events-none fixed inset-0" aria-hidden>
+        <div className="absolute -top-44 left-[18%] h-[28rem] w-[28rem] rounded-full bg-violet-600/10 blur-[110px]" />
+        <div className="absolute right-[-6rem] top-[30%] h-[22rem] w-[22rem] rounded-full bg-cyan-500/[0.07] blur-[100px]" />
+        <div className="absolute bottom-0 left-1/2 h-[18rem] w-[18rem] -translate-x-1/2 rounded-full bg-fuchsia-600/[0.05] blur-[90px]" />
+      </div>
+
+      <div className="relative mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-9">
+
+        {/* ── Top bar ── */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link href="/dashboard" className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-3.5 text-sm text-slate-300 transition hover:border-white/20 hover:bg-white/[0.07] hover:text-white">
+            <ArrowRight className="h-4 w-4 rotate-180" /> Dashboard
+          </Link>
+          <div className="flex items-center gap-2 rounded-full border border-emerald-300/15 bg-emerald-300/[0.06] px-3 py-1.5 text-xs font-medium text-emerald-200">
+            <ShieldCheck className="h-3.5 w-3.5" /> Manual review active
+          </div>
+        </div>
+
+        {/* ── Hero ── */}
+        <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px] lg:items-end">
+          <div>
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-violet-300/20 bg-violet-300/[0.07] px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-violet-200">
+              <Sparkles className="h-3.5 w-3.5" /> Creator Automation Studio
+            </div>
+            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl lg:text-[3.5rem]">
+              Automate smarter.
+              <span className="mt-1 block bg-gradient-to-r from-violet-300 via-fuchsia-300 to-cyan-200 bg-clip-text text-transparent">
+                Stay in control.
+              </span>
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
+              Configure your content niche, schedule, and platform connections — then let YouTubeAuto.ai handle the rest.
+            </p>
+          </div>
+
+          {/* Status card */}
+          <div className={`${cardCls} p-5`}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-400 uppercase tracking-widest">Autopilot</span>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${settings.isActive ? "bg-emerald-300/10 text-emerald-200" : "bg-slate-400/10 text-slate-400"}`}>
+                {settings.isActive ? "● Active" : "○ Paused"}
+              </span>
+            </div>
+            <p className="mt-3 text-xl font-semibold">{settings.isActive ? "Configured & ready" : "You're in control"}</p>
+            <p className="mt-1.5 text-xs leading-5 text-slate-400">{settings.isActive ? "Disable auto-publish until workflow is fully tested." : "Set your preferences and save. No scheduler starts automatically."}</p>
+            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div className={`h-full rounded-full transition-all duration-500 ${settings.isActive ? "w-2/3 bg-gradient-to-r from-violet-400 to-cyan-300" : "w-1/4 bg-slate-600"}`} />
+            </div>
+            {cronLabel && (
+              <p className="mt-3 text-xs text-slate-500 flex items-center gap-1.5">
+                <Clock3 className="h-3 w-3" /> {cronLabel}
+              </p>
+            )}
+          </div>
+        </section>
+
+        {/* ── Main grid ── */}
+        <section className="mt-8 grid gap-5 xl:grid-cols-[1fr_400px]">
+
+          {/* ── LEFT: Settings form ── */}
+          <div className={`${cardCls} min-w-0 p-5 sm:p-7`}>
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-white/[0.08] pb-5">
+              <div>
+                <div className="flex items-center gap-2 text-violet-200">
+                  <Settings2 className="h-4 w-4" />
+                  <span className="text-xs font-semibold uppercase tracking-[0.14em]">Workspace setup</span>
+                </div>
+                <h2 className="mt-2 text-xl font-semibold">Content settings</h2>
+                <p className="mt-1 text-sm text-slate-400">Define your niche, language and publishing rhythm.</p>
+              </div>
+              <span className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-500">01 / CONFIGURE</span>
+            </div>
+
+            {loading ? (
+              <div className="space-y-4 py-8">
+                {[1,2,3].map(i => <div key={i} className="h-12 animate-pulse rounded-xl bg-white/5" />)}
+              </div>
+            ) : (
+              <div className="grid gap-5 pt-5 sm:grid-cols-2">
+
+                {/* Category */}
+                <div>
+                  <label className="text-sm font-medium text-slate-200">Content category</label>
+                  <select className={inputCls} value={settings.category} onChange={(e) => update("category", e.target.value)}>
+                    {CATEGORIES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </div>
+
+                {/* Sub-niche */}
+                <div>
+                  <label className="text-sm font-medium text-slate-200">Sub-niche / angle</label>
+                  <input className={inputCls} value={settings.subCategory} maxLength={80}
+                    placeholder="e.g. dark_psychology, sigma mindset"
+                    onChange={(e) => update("subCategory", e.target.value)} />
+                </div>
+
+                {/* Language */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-200">
+                    <Languages className="h-4 w-4 text-slate-400" /> Video language
+                  </label>
+                  <select className={inputCls} value={settings.language} onChange={(e) => update("language", e.target.value)}>
+                    <option value="hi">🇮🇳 Hindi</option>
+                    <option value="en">🇬🇧 English</option>
+                    <option value="hinglish">🔀 Hinglish</option>
+                  </select>
+                </div>
+
+                {/* Schedule */}
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-200">
+                    <Clock3 className="h-4 w-4 text-slate-400" /> Cron schedule
+                  </label>
+                  <input className={`${inputCls} font-mono`} value={settings.cronSchedule}
+                    onChange={(e) => update("cronSchedule", e.target.value)} />
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {CRON_PRESETS.map((p) => (
+                      <button key={p.value} type="button"
+                        onClick={() => update("cronSchedule", p.value)}
+                        className={`rounded-lg border px-2.5 py-1 text-xs transition ${settings.cronSchedule === p.value ? "border-violet-400/40 bg-violet-400/10 text-violet-200" : "border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-300"}`}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Toggles */}
+            <div className="mt-6 space-y-3 border-t border-white/[0.08] pt-5">
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 transition hover:border-violet-300/20 hover:bg-white/[0.04]">
+                <div className="relative mt-0.5">
+                  <input type="checkbox" className="sr-only peer" checked={settings.isActive} onChange={(e) => update("isActive", e.target.checked)} />
+                  <div className="h-5 w-9 rounded-full bg-white/10 peer-checked:bg-violet-500 transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+                </div>
+                <span>
+                  <span className="block text-sm font-medium">Enable autopilot</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-400">Marks this workspace as active. A cron job must be configured separately on your server.</span>
+                </span>
+              </label>
+
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-300/15 bg-amber-300/[0.03] p-4 transition hover:bg-amber-300/[0.05]">
+                <div className="relative mt-0.5">
+                  <input type="checkbox" className="sr-only peer" checked={settings.isAutoApprove} onChange={(e) => update("isAutoApprove", e.target.checked)} />
+                  <div className="h-5 w-9 rounded-full bg-white/10 peer-checked:bg-amber-400 transition-colors" />
+                  <div className="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+                </div>
+                <span>
+                  <span className="block text-sm font-medium">Auto-publish without review</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-400">⚠️ Videos go live without approval. Keep off during testing.</span>
+                </span>
+              </label>
+            </div>
+
+            {/* Platform connections */}
+            <div className="mt-6 border-t border-white/[0.08] pt-5">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Platform connections</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {/* YouTube */}
+                <div className={`flex items-center justify-between rounded-xl border p-3 ${connections.youtube === "connected" ? "border-red-300/20 bg-red-300/[0.04]" : "border-white/[0.08] bg-white/[0.02]"}`}>
+                  <div className="flex items-center gap-2.5">
+                    <Youtube className={`h-4 w-4 ${connections.youtube === "connected" ? "text-red-400" : "text-slate-500"}`} />
+                    <div>
+                      <p className="text-xs font-semibold">YouTube</p>
+                      <p className={`text-[10px] ${connections.youtube === "connected" ? "text-emerald-300" : connections.youtube === "loading" ? "text-slate-500" : "text-slate-500"}`}>
+                        {connections.youtube === "loading" ? "Checking…" : connections.youtube === "connected" ? "● Connected" : "○ Not connected"}
+                      </p>
+                    </div>
+                  </div>
+                  <button type="button"
+                    onClick={() => { window.location.href = "/api/auth/youtube?action=connect"; }}
+                    className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 transition hover:border-red-300/30 hover:bg-red-300/[0.06]">
+                    {connections.youtube === "connected" ? "Reconnect" : "Connect"}
+                  </button>
+                </div>
+
+                {/* Instagram */}
+                <div className={`flex items-center justify-between rounded-xl border p-3 ${connections.instagram === "connected" ? "border-pink-300/20 bg-pink-300/[0.04]" : "border-white/[0.08] bg-white/[0.02]"}`}>
+                  <div className="flex items-center gap-2.5">
+                    <Instagram className={`h-4 w-4 ${connections.instagram === "connected" ? "text-pink-400" : "text-slate-500"}`} />
+                    <div>
+                      <p className="text-xs font-semibold">Instagram</p>
+                      <p className={`text-[10px] ${connections.instagram === "connected" ? "text-emerald-300" : connections.instagram === "loading" ? "text-slate-500" : "text-slate-500"}`}>
+                        {connections.instagram === "loading" ? "Checking…" : connections.instagram === "connected" ? "● Connected" : "○ Not connected"}
+                      </p>
+                    </div>
+                  </div>
+                  <button type="button"
+                    onClick={() => { window.location.href = "/api/auth/instagram?action=connect"; }}
+                    className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-300 transition hover:border-pink-300/30 hover:bg-pink-300/[0.06]">
+                    {connections.instagram === "connected" ? "Reconnect" : "Connect"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Save */}
+            <div className="mt-6 flex items-center justify-between gap-3 border-t border-white/[0.08] pt-5">
+              <Link href="/dashboard/new-prompt"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.06]">
+                <Zap className="h-4 w-4 text-violet-300" /> Generate video
+              </Link>
+              <button type="button" disabled={saving || loading} onClick={save}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 px-6 py-3 text-sm font-semibold shadow-lg shadow-violet-900/25 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
+                {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+                {saving ? "Saving…" : saved ? "Saved!" : "Save settings"}
+              </button>
+            </div>
+
+            {/* Feedback */}
+            {error && (
+              <div className="mt-4 flex items-start gap-2 rounded-xl border border-rose-400/20 bg-rose-400/[0.07] p-3 text-sm text-rose-200">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {error}
+              </div>
+            )}
+            {saved && (
+              <div className="mt-4 flex items-start gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.07] p-3 text-sm text-emerald-200">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> Settings saved successfully.
+              </div>
+            )}
+          </div>
+
+          {/* ── RIGHT: Video inspector + Workflow ── */}
+          <div className="space-y-5">
+
+            {/* Video preflight */}
+            <section className={`${cardCls} p-5 sm:p-6`}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 text-cyan-200">
+                    <FileVideo className="h-4 w-4" />
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em]">Video preflight</span>
+                  </div>
+                  <h2 className="mt-2 text-xl font-semibold">Inspect before upload</h2>
+                  <p className="mt-1 text-sm leading-5 text-slate-400">Check duration, resolution and file size locally — nothing is uploaded.</p>
+                </div>
+                <span className="rounded-lg border border-white/10 px-2.5 py-1 text-xs text-slate-500">02 / REVIEW</span>
+              </div>
+
+              <input ref={fileRef} type="file" className="sr-only"
+                accept="video/mp4,video/webm,video/quicktime,video/x-m4v,.mp4,.mov,.webm,.m4v"
+                onChange={(e) => acceptFile(e.target.files?.[0])} />
+
+              {!videoFile ? (
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={onDrop}
+                  onClick={() => fileRef.current?.click()}
+                  className={`mt-5 flex min-h-36 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-5 py-7 text-center transition ${dragging ? "border-violet-300/60 bg-violet-300/[0.08]" : "border-violet-300/25 bg-violet-300/[0.035] hover:border-violet-300/50 hover:bg-violet-300/[0.06]"}`}>
+                  <span className="flex h-11 w-11 items-center justify-center rounded-2xl border border-violet-300/20 bg-violet-300/10 text-violet-200">
+                    <Upload className="h-5 w-5" />
+                  </span>
+                  <span className="mt-3 text-sm font-semibold">Drop video or click to browse</span>
+                  <span className="mt-1 text-xs text-slate-500">MP4, MOV, WebM · up to 500 MB</span>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  <div className="overflow-hidden rounded-2xl border border-white/10 bg-black">
+                    <video key={videoUrl} src={videoUrl} controls playsInline preload="metadata"
+                      onLoadedMetadata={onMetadata}
+                      onError={() => { setVideoError("Cannot preview — try MP4 (H.264)."); setVideoBusy(false); }}
+                      className="max-h-[260px] w-full bg-black" />
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Film className="h-4 w-4 shrink-0 text-violet-300" />
+                      <span className="truncate text-sm font-medium">{videoFile.name}</span>
+                    </div>
+                    <button onClick={clearVideo} className="flex items-center gap-1 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-slate-300 transition hover:bg-white/[0.06]">
+                      <XCircle className="h-3.5 w-3.5" /> Remove
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {videoBusy && (
+                <p className="mt-4 flex items-center gap-2 text-sm text-slate-300">
+                  <LoaderCircle className="h-4 w-4 animate-spin text-violet-300" /> Reading metadata…
+                </p>
+              )}
+              {videoError && (
+                <p className="mt-4 flex items-start gap-2 rounded-xl border border-rose-300/20 bg-rose-300/[0.06] p-3 text-sm text-rose-200">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /> {videoError}
+                </p>
+              )}
+
+              {videoReport && (
+                <>
+                  <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                    {[
+                      { label: "Duration",     value: formatDuration(videoReport.duration), Icon: Clock3 },
+                      { label: "Resolution",   value: `${videoReport.width}×${videoReport.height}`, Icon: Gauge },
+                      { label: "File size",    value: formatBytes(videoReport.size), Icon: HardDrive },
+                      { label: "Aspect",       value: videoReport.ratio >= 1.7 ? "16:9" : videoReport.ratio <= 0.62 ? "9:16" : `${videoReport.ratio.toFixed(2)}:1`, Icon: BarChart3 },
+                    ].map(({ label, value, Icon }) => (
+                      <div key={label} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+                        <Icon className="h-3.5 w-3.5 text-slate-500" />
+                        <p className="mt-2.5 break-words text-sm font-semibold">{value}</p>
+                        <p className="mt-0.5 text-[10px] text-slate-500">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold">Preflight checklist</p>
+                      <span className="text-[10px] text-slate-500">{checks.filter(c => c.ok).length}/{checks.length} passed</span>
+                    </div>
+                    <ul className="mt-2.5 space-y-2">
+                      {checks.map((c) => (
+                        <li key={c.label} className="flex items-start gap-2.5 rounded-xl border border-white/[0.06] p-3">
+                          {c.ok
+                            ? <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" />
+                            : <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />}
+                          <div>
+                            <p className="text-xs font-medium">{c.label}</p>
+                            <p className="mt-0.5 text-[10px] leading-4 text-slate-400">{c.detail}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </>
+              )}
+
+              <p className="mt-4 rounded-xl border border-amber-300/15 bg-amber-300/[0.03] p-3 text-[11px] leading-5 text-amber-100/70">
+                Local preflight only — no upload, no AI analysis.
+              </p>
+            </section>
+
+            {/* Workflow checklist */}
+            <section className={`${cardCls} p-5`}>
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-300/10 text-violet-200">
+                  <Activity className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">Pre-automation checklist</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Complete all stages before enabling autopilot</p>
+                </div>
+              </div>
+              <ol className="mt-4 space-y-2.5">
+                {[
+                  { n: "01", title: "Topic & script",    desc: "Generate and review AI script",      done: true },
+                  { n: "02", title: "Voice-over",        desc: "Confirm audio rendered correctly",   done: connections.youtube !== "loading" },
+                  { n: "03", title: "Video render",      desc: "Preview final exported file",        done: false },
+                  { n: "04", title: "Thumbnail review",  desc: "Check title, tags, thumbnail",       done: false },
+                  { n: "05", title: "YouTube connected", desc: "Authorize channel upload access",    done: connections.youtube === "connected" },
+                ].map(({ n, title, desc, done }) => (
+                  <li key={n} className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.015] p-3">
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold ${done ? "border border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border border-violet-300/20 bg-violet-300/[0.07] text-violet-300"}`}>{n}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-slate-200">{title}</p>
+                      <p className="mt-0.5 text-[10px] text-slate-500">{desc}</p>
+                    </div>
+                    {done
+                      ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                      : <span className="mt-0.5 text-[9px] text-slate-600 uppercase tracking-widest">todo</span>}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="mt-7 flex flex-col items-center justify-between gap-2 border-t border-white/[0.07] pt-5 text-center text-xs text-slate-600 sm:flex-row sm:text-left">
+          <span>YouTubeAuto.ai · Review-first workflow</span>
+          <span>Saving settings does not start the scheduler automatically.</span>
+        </footer>
+      </div>
+    </main>
+  );
+}
+
+
+========== app/dashboard/my-videos/page.tsx ==========
+"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  Film,
+  ImageOff,
+  LoaderCircle,
+  Plus,
+  RefreshCw,
+  Search,
+  Video,
+  Youtube,
+} from "lucide-react"
+
+import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+import { ProtectedRoute } from "@/components/auth/protected-route"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { useAuth } from "@/lib/auth-context"
+import { store, type Video as VideoType, type Channel } from "@/lib/store"
+
+type TabKey = "all" | "live" | "pending" | "failed"
+
+const statusConfig: Record<
+  string,
+  { label: string; className: string; icon: typeof CheckCircle2 }
+> = {
+  live: {
+    label: "Live on YouTube",
+    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    icon: CheckCircle2,
+  },
+  approved: {
+    label: "Approved",
+    className: "border-blue-500/30 bg-blue-500/10 text-blue-400",
+    icon: CheckCircle2,
+  },
+  "pending-approval": {
+    label: "Pending approval",
+    className: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+    icon: Clock3,
+  },
+  uploading: {
+    label: "Uploading",
+    className: "border-sky-500/30 bg-sky-500/10 text-sky-400",
+    icon: LoaderCircle,
+  },
+  "user-approved": {
+    label: "User approved",
+    className: "border-violet-500/30 bg-violet-500/10 text-violet-400",
+    icon: CheckCircle2,
+  },
+  failed: {
+    label: "Upload failed",
+    className: "border-red-500/30 bg-red-500/10 text-red-400",
+    icon: AlertTriangle,
+  },
+  rejected: {
+    label: "Rejected",
+    className: "border-red-500/30 bg-red-500/10 text-red-400",
+    icon: AlertTriangle,
+  },
+}
+
+function createFallbackThumbnail(title: string, topic = ""): string {
+  try {
+    const canvas = document.createElement("canvas")
+    canvas.width = 1280
+    canvas.height = 720
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return ""
+
+    const gradient = ctx.createLinearGradient(0, 0, 1280, 720)
+    gradient.addColorStop(0, "#09090b")
+    gradient.addColorStop(0.55, "#17111f")
+    gradient.addColorStop(1, "#321014")
+
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, 1280, 720)
+
+    // Decorative background elements.
+    ctx.fillStyle = "rgba(239, 68, 68, 0.10)"
+    ctx.beginPath()
+    ctx.arc(1110, 110, 300, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.fillStyle = "#ef4444"
+    ctx.fillRect(0, 0, 14, 720)
+    ctx.fillRect(64, 76, 128, 8)
+
+    // Brand label.
+    ctx.fillStyle = "#ffffff"
+    ctx.font = "bold 26px Arial"
+    ctx.textAlign = "left"
+    ctx.fillText("YouTubeAuto.ai", 64, 130)
+
+    ctx.fillStyle = "#f87171"
+    ctx.font = "bold 20px Arial"
+    ctx.fillText("VIDEO PREVIEW", 64, 190)
+
+    // Wrap long titles without overflowing the canvas.
+    const text = (title || topic || "Your next video").trim().toUpperCase()
+    const words = text.split(/\s+/)
+    const maxWidth = 1080
+    const lineHeight = 76
+    const lines: string[] = []
+    let line = ""
+
+    ctx.font = "bold 56px Arial"
+
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word
+
+      if (ctx.measureText(candidate).width > maxWidth && line) {
+        lines.push(line)
+        line = word
+      } else {
+        line = candidate
+      }
+    }
+
+    if (line) lines.push(line)
+
+    const visibleLines = lines.slice(0, 4)
+    let y = 300
+
+    for (const item of visibleLines) {
+      let output = item
+
+      while (ctx.measureText(output).width > maxWidth && output.length > 3) {
+        output = `${output.slice(0, -4)}...`
+      }
+
+      ctx.fillStyle = "#ffffff"
+      ctx.fillText(output, 64, y)
+      y += lineHeight
+    }
+
+    // Bottom accent and preview label.
+    ctx.fillStyle = "rgba(255,255,255,0.12)"
+    ctx.fillRect(64, 620, 1152, 1)
+
+    ctx.fillStyle = "#ef4444"
+    ctx.beginPath()
+    ctx.roundRect(64, 646, 170, 42, 10)
+    ctx.fill()
+
+    ctx.fillStyle = "#ffffff"
+    ctx.font = "bold 18px Arial"
+    ctx.fillText("VIDEO", 111, 673)
+
+    ctx.textAlign = "right"
+    ctx.fillStyle = "#d4d4d8"
+    ctx.font = "18px Arial"
+    ctx.fillText("Thumbnail preview", 1216, 674)
+
+    return canvas.toDataURL("image/jpeg", 0.88)
+  } catch {
+    return ""
+  }
+}
+
+function VideoThumbnail({ video }: { video: VideoType }) {
+  const [src, setSrc] = useState("")
+  const [usingFallback, setUsingFallback] = useState(false)
+  const [imageFailed, setImageFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    setSrc("")
+    setUsingFallback(false)
+    setImageFailed(false)
+
+    const original =
+      video.thumbnailUrl?.trim() || video.thumbnail?.trim() || ""
+
+    // Keep the actual thumbnail whenever it exists.
+    if (
+      original &&
+      (original.startsWith("/") ||
+        original.startsWith("https://") ||
+        original.startsWith("http://") ||
+        original.startsWith("data:image/"))
+    ) {
+      setSrc(original)
+      return
+    }
+
+    const fallback = createFallbackThumbnail(video.title, video.topic)
+
+    if (!cancelled) {
+      setUsingFallback(true)
+      if (fallback) setSrc(fallback)
+      else setImageFailed(true)
+    }
+
+    return () => {
+      cancelled = true
+    }
+  }, [video.id, video.title, video.topic, video.thumbnail, video.thumbnailUrl])
+
+  const handleImageError = () => {
+    // A missing real thumbnail should never leave a broken-image icon.
+    if (!usingFallback) {
+      const fallback = createFallbackThumbnail(video.title, video.topic)
+      setUsingFallback(true)
+
+      if (fallback) {
+        setSrc(fallback)
+      } else {
+        setImageFailed(true)
+      }
+      return
+    }
+
+    setImageFailed(true)
+  }
+
+  if (!src || imageFailed) {
+    return (
+      <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-zinc-950 via-zinc-900 to-red-950 text-zinc-400">
+        <ImageOff className="h-8 w-8" />
+        <span className="text-xs">Thumbnail unavailable</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative aspect-video w-full overflow-hidden bg-zinc-950">
+      <img
+        src={src}
+        alt={`${video.title || "Video"} thumbnail`}
+        loading="lazy"
+        decoding="async"
+        onError={handleImageError}
+        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+      />
+
+      {usingFallback && (
+        <div className="absolute bottom-2 left-2 rounded-md border border-white/10 bg-black/70 px-2 py-1 text-[10px] text-white/80 backdrop-blur">
+          Preview thumbnail
+        </div>
+      )}
+
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+    </div>
+  )
+}
+
+function formatDate(value?: string) {
+  if (!value) return "Date unavailable"
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "Date unavailable"
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date)
+}
+
+function VideoCard({
+  video,
+  channelName,
+}: {
+  video: VideoType
+  channelName: string
+}) {
+  const config = statusConfig[video.status] || statusConfig["pending-approval"]
+  const StatusIcon = config.icon
+
+  return (
+    <article className="group min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-zinc-950/70 transition duration-300 hover:-translate-y-1 hover:border-red-500/30 hover:shadow-xl hover:shadow-red-950/20">
+      <div className="relative overflow-hidden">
+        <VideoThumbnail video={video} />
+
+        <div className="absolute left-3 top-3 rounded-md border border-white/10 bg-black/65 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white/80 backdrop-blur">
+          {video.videoType === "shorts"
+            ? "Shorts"
+            : video.videoType === "long"
+              ? "Long video"
+              : "Video"}
+        </div>
+
+        <Badge
+          variant="outline"
+          className={`absolute right-3 top-3 max-w-[75%] gap-1 truncate backdrop-blur ${config.className}`}
+        >
+          <StatusIcon
+            className={`h-3 w-3 shrink-0 ${
+              video.status === "uploading" ? "animate-spin" : ""
+            }`}
+          />
+          <span className="truncate">{config.label}</span>
+        </Badge>
+      </div>
+
+      <div className="space-y-4 p-4">
+        <div>
+          <h2
+            className="line-clamp-2 min-h-10 break-words text-sm font-semibold leading-5 text-white"
+            title={video.title}
+          >
+            {video.title || "Untitled video"}
+          </h2>
+
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-400">
+            <span className="inline-flex min-w-0 items-center gap-1.5">
+              <Youtube className="h-3.5 w-3.5 shrink-0 text-red-500" />
+              <span className="max-w-[150px] truncate">{channelName}</span>
+            </span>
+            <span className="text-zinc-600">•</span>
+            <span>{formatDate(video.createdAt)}</span>
+          </div>
+        </div>
+
+        {video.description && (
+          <p className="line-clamp-2 text-xs leading-5 text-zinc-400">
+            {video.description}
+          </p>
+        )}
+
+        {video.tags && video.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {video.tags.slice(0, 3).map((tag, index) => (
+              <span
+                key={`${tag}-${index}`}
+                className="max-w-full truncate rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] text-zinc-300"
+              >
+                {tag}
+              </span>
+            ))}
+            {video.tags.length > 3 && (
+              <span className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-zinc-400">
+                +{video.tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wider text-zinc-500">
+              AI score
+            </p>
+            <p className="mt-0.5 text-sm font-semibold text-zinc-200">
+              {Number.isFinite(video.aiScore) ? video.aiScore : 0}
+              <span className="text-zinc-500">/100</span>
+            </p>
+          </div>
+
+          {video.status === "live" && video.youtubeUrl ? (
+            <a
+              href={video.youtubeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-red-500"
+            >
+              <Youtube className="h-3.5 w-3.5" />
+              Watch video
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          ) : video.youtubeUrl ? (
+            <a
+              href={video.youtubeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex shrink-0 items-center gap-1 text-xs text-zinc-300 transition hover:text-white"
+            >
+              View link <ExternalLink className="h-3 w-3" />
+            </a>
+          ) : null}
+        </div>
+
+        {video.status === "failed" && video.uploadError && (
+          <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs leading-5 text-red-300">
+            <p className="mb-1 font-semibold">Upload issue</p>
+            <p className="break-words">{video.uploadError}</p>
+          </div>
+        )}
+      </div>
+    </article>
+  )
+}
+
+export default function MyVideosPage() {
+  const { user } = useAuth()
+
+  const [videos, setVideos] = useState<VideoType[]>([])
+  const [channels, setChannels] = useState<Channel[]>([])
+  const [activeTab, setActiveTab] = useState<TabKey>("all")
+  const [selectedChannel, setSelectedChannel] = useState("main-channel")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+
+  const refreshVideos = useCallback(() => {
+    if (!user?.email || !store) {
+      setChannels([])
+      setVideos([])
+      setLoaded(true)
+      return
+    }
+
+    const localUser = store.getUserByEmail(user.email)
+
+    if (!localUser) {
+      setChannels([])
+      setVideos([])
+      setLoaded(true)
+      console.warn(
+        "My Videos: no local Store profile matches the signed-in email."
+      )
+      return
+    }
+
+    store.repairOrphanedChannelsForSingleUser(localUser.id)
+
+    const userChannels = store.getChannels(localUser.id)
+    setChannels(userChannels)
+
+    const channelIds = new Set(userChannels.map((channel) => channel.id))
+
+    const userVideos = store
+      .getVideos()
+      .filter((video) => channelIds.has(video.channelId))
+      .sort((a, b) => {
+        const dateA = new Date(a.createdAt || 0).getTime()
+        const dateB = new Date(b.createdAt || 0).getTime()
+        return dateB - dateA
+      })
+
+    setVideos(userVideos)
+    setLoaded(true)
+  }, [user?.email])
+
+  useEffect(() => {
+    refreshVideos()
+
+    const handleStorage = () => refreshVideos()
+    const handleFocus = () => refreshVideos()
+
+    window.addEventListener("storage", handleStorage)
+    window.addEventListener("focus", handleFocus)
+
+    return () => {
+      window.removeEventListener("storage", handleStorage)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [refreshVideos])
+
+  const counts = useMemo(
+    () => ({
+      all: videos.length,
+      live: videos.filter((video) => video.status === "live").length,
+      pending: videos.filter((video) =>
+        ["pending-approval", "approved", "uploading", "user-approved"].includes(
+          video.status
+        )
+      ).length,
+      failed: videos.filter((video) =>
+        ["failed", "rejected"].includes(video.status)
+      ).length,
+    }),
+    [videos]
+  )
+
+  const filteredVideos = useMemo(() => {
+    let result = videos
+
+    if (activeTab === "live") {
+      result = result.filter((video) => video.status === "live")
+    } else if (activeTab === "pending") {
+      result = result.filter((video) =>
+        ["pending-approval", "approved", "uploading", "user-approved"].includes(
+          video.status
+        )
+      )
+    } else if (activeTab === "failed") {
+      result = result.filter((video) =>
+        ["failed", "rejected"].includes(video.status)
+      )
+    }
+
+    const query = searchQuery.trim().toLowerCase()
+
+    if (query) {
+      result = result.filter((video) => {
+        const channelName =
+          channels.find((channel) => channel.id === video.channelId)?.name || ""
+
+        return (
+          video.title?.toLowerCase().includes(query) ||
+          video.topic?.toLowerCase().includes(query) ||
+          channelName.toLowerCase().includes(query) ||
+          video.tags?.some((tag) => tag.toLowerCase().includes(query))
+        )
+      })
+    }
+
+    return result
+  }, [videos, channels, activeTab, searchQuery])
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      refreshVideos()
+    } finally {
+      window.setTimeout(() => setIsRefreshing(false), 350)
+    }
+  }
+
+  const tabs: { key: TabKey; label: string; count: number }[] = [
+    { key: "all", label: "All videos", count: counts.all },
+    { key: "live", label: "Live", count: counts.live },
+    { key: "pending", label: "Pending", count: counts.pending },
+    { key: "failed", label: "Failed", count: counts.failed },
+  ]
+
+  return (
+    <ProtectedRoute>
+      <div className="min-h-screen bg-black text-white">
+        <DashboardHeader
+          selectedChannel={selectedChannel}
+          onChannelChange={setSelectedChannel}
+        />
+
+        <main className="mx-auto max-w-[1600px] px-4 py-7 sm:px-6 lg:px-8">
+          <section className="relative mb-8 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-950 via-zinc-950 to-red-950/30 p-6 sm:p-8">
+            <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-red-600/10 blur-3xl" />
+
+            <div className="relative flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
+              <div>
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300">
+                  <Film className="h-3.5 w-3.5" />
+                  Your content library
+                </div>
+
+                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                  My Videos
+                </h1>
+
+                <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-400">
+                  Manage your generated content, review publishing status, and
+                  open videos that are live on YouTube.
+                </p>
+
+                <div className="mt-5 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-zinc-300">
+                    {counts.all} total
+                  </span>
+                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-emerald-300">
+                    {counts.live} live
+                  </span>
+                  <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-amber-300">
+                    {counts.pending} pending
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 flex-wrap gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="border-white/15 bg-white/[0.04] text-white hover:bg-white/10"
+                >
+                  <RefreshCw
+                    className={`mr-2 h-4 w-4 ${
+                      isRefreshing ? "animate-spin" : ""
+                    }`}
+                  />
+                  Refresh
+                </Button>
+
+                <Button asChild className="bg-red-600 text-white hover:bg-red-500">
+                  <Link href="/dashboard/new-prompt">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create video
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[
+              {
+                label: "Total videos",
+                value: counts.all,
+                icon: Video,
+                color: "text-white",
+              },
+              {
+                label: "Live on YouTube",
+                value: counts.live,
+                icon: Youtube,
+                color: "text-emerald-400",
+              },
+              {
+                label: "Awaiting action",
+                value: counts.pending,
+                icon: Clock3,
+                color: "text-amber-400",
+              },
+              {
+                label: "Failed / rejected",
+                value: counts.failed,
+                icon: AlertTriangle,
+                color: "text-red-400",
+              },
+            ].map((item) => {
+              const Icon = item.icon
+
+              return (
+                <div
+                  key={item.label}
+                  className="rounded-2xl border border-white/10 bg-zinc-950/70 p-4 sm:p-5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-zinc-400 sm:text-sm">
+                      {item.label}
+                    </p>
+                    <Icon className={`h-4 w-4 shrink-0 ${item.color}`} />
+                  </div>
+                  <p className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
+                    {item.value}
+                  </p>
+                </div>
+              )
+            })}
+          </section>
+
+          <section className="rounded-2xl border border-white/10 bg-zinc-950/50 p-4 sm:p-5">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="font-semibold">Your library</h2>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Search by title, topic, tag, or channel.
+                </p>
+              </div>
+
+              <div className="relative w-full lg:max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search your videos..."
+                  className="border-white/10 bg-black pl-9 text-white placeholder:text-zinc-600 focus-visible:ring-red-500/50"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-2 overflow-x-auto border-b border-white/10 pb-3">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition ${
+                    activeTab === tab.key
+                      ? "bg-red-600 text-white shadow-lg shadow-red-950/20"
+                      : "bg-white/[0.04] text-zinc-400 hover:bg-white/[0.08] hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                  <span
+                    className={`rounded-md px-1.5 py-0.5 text-[10px] ${
+                      activeTab === tab.key
+                        ? "bg-white/20 text-white"
+                        : "bg-black/40 text-zinc-400"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {!loaded ? (
+              <div className="flex min-h-64 items-center justify-center gap-3 text-sm text-zinc-400">
+                <LoaderCircle className="h-5 w-5 animate-spin" />
+                Loading your videos...
+              </div>
+            ) : filteredVideos.length === 0 ? (
+              <div className="flex min-h-72 flex-col items-center justify-center px-4 py-12 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
+                  {searchQuery ? (
+                    <Search className="h-7 w-7 text-zinc-500" />
+                  ) : (
+                    <Film className="h-7 w-7 text-zinc-500" />
+                  )}
+                </div>
+
+                <h3 className="text-lg font-semibold">
+                  {searchQuery
+                    ? "No matching videos"
+                    : activeTab === "live"
+                      ? "No videos live yet"
+                      : activeTab === "pending"
+                        ? "No pending videos"
+                        : activeTab === "failed"
+                          ? "No failed videos"
+                          : "Your library is ready for its first video"}
+                </h3>
+
+                <p className="mt-2 max-w-md text-sm leading-6 text-zinc-400">
+                  {searchQuery
+                    ? "Try a different title, topic, tag, or channel name."
+                    : channels.length === 0
+                      ? "No channels are associated with this local profile. Check your channel setup and account."
+                      : activeTab === "live"
+                        ? "Once a video is successfully published, it will appear here."
+                        : "Create a video to see its thumbnail, review status, and publishing details here."}
+                </p>
+
+                {searchQuery ? (
+                  <Button
+                    variant="outline"
+                    className="mt-5 border-white/15 text-white hover:bg-white/10"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    Clear search
+                  </Button>
+                ) : activeTab === "all" ? (
+                  <Button asChild className="mt-5 bg-red-600 hover:bg-red-500">
+                    <Link href="/dashboard/new-prompt">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create your first video
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="mt-5 border-white/15 text-white hover:bg-white/10"
+                    onClick={() => setActiveTab("all")}
+                  >
+                    View all videos
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between py-4 text-xs text-zinc-500">
+                  <span>
+                    Showing {filteredVideos.length} of {videos.length} videos
+                  </span>
+                  <span className="hidden sm:inline">
+                    Newest videos first
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {filteredVideos.map((video) => {
+                    const channelName =
+                      channels.find(
+                        (channel) => channel.id === video.channelId
+                      )?.name || "Unknown channel"
+
+                    return (
+                      <VideoCard
+                        key={video.id}
+                        video={video}
+                        channelName={channelName}
+                      />
+                    )
+                  })}
+                </div>
+              </>
+            )}
+          </section>
+        </main>
+      </div>
+    </ProtectedRoute>
+  )
+}
+
+
+========== components/admin/video-approval-list.tsx ==========
+"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { store, type Video as VideoType } from "@/lib/store"
+import { useAuth } from "@/lib/auth-context"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  CheckCircle2,
+  XCircle,
+  Clock3,
+  Video as VideoIcon,
+  RefreshCw,
+  ExternalLink,
+  AlertTriangle,
+} from "lucide-react"
+
+type FilterType = "pending" | "approved" | "rejected"
+
+interface VideoApprovalListProps {
+  filter: FilterType
+}
+
+interface UploadResult {
+  success?: boolean
+  queued?: boolean
+  error?: string
+  message?: string
+  videoId?: string
+  youtubeUrl?: string
+  status?: string
+}
+
+export function VideoApprovalList({ filter }: VideoApprovalListProps) {
+  const { user } = useAuth()
+  const [videos, setVideos] = useState<VideoType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [message, setMessage] = useState("")
+  const [error, setError] = useState("")
+
+  const refreshVideos = useCallback(() => {
+    try {
+      setVideos(store ? store.getVideos() : [])
+    } catch (e) {
+      console.error("Could not load videos:", e)
+      setError("Videos load nahi ho paaye.")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshVideos()
+
+    const onStorage = () => refreshVideos()
+    window.addEventListener("storage", onStorage)
+
+    return () => window.removeEventListener("storage", onStorage)
+  }, [refreshVideos])
+
+  const filteredVideos = useMemo(() => {
+    return videos
+      .filter((video) => {
+        if (filter === "pending") {
+          return (
+            video.status === "pending-approval" ||
+            (!video.adminApproved &&
+              video.status !== "rejected" &&
+              video.status !== "live" &&
+              video.status !== "failed")
+          )
+        }
+
+        if (filter === "approved") {
+          return video.adminApproved === true && video.status !== "rejected"
+        }
+
+        return video.status === "rejected"
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime(),
+      )
+  }, [videos, filter])
+
+  const handleApprove = async (video: VideoType) => {
+    if (!store || !user?.id) {
+      setError("Admin session ya local video store available nahi hai.")
+      return
+    }
+
+    if (!video.videoUrl) {
+      setError(
+        `"${video.title}" ki video file missing hai. Pehle video generate karke save karo.`,
+      )
+      return
+    }
+
+    if (!video.thumbnailUrl && !video.thumbnail) {
+      setError(
+        `"${video.title}" ka thumbnail missing hai. Pehle thumbnail generate karo.`,
+      )
+      return
+    }
+
+    if (video.status === "live" && video.youtubeUrl) {
+      setMessage("Yeh video pehle se YouTube par publish ho chuka hai.")
+      return
+    }
+
+    const confirmed = window.confirm(
+      `"${video.title}" ko approve karke YouTube par PUBLIC publish karna hai? Agar upload successful hua, video public ho sakta hai.`,
+    )
+
+    if (!confirmed) return
+
+    setBusyId(video.id)
+    setError("")
+    setMessage("YouTube par video upload ho raha hai. Is window ko band mat karo.")
+
+    try {
+      // Save admin approval first. Upload success is tracked separately.
+      store.adminApproveVideo(video.id, user.id)
+      refreshVideos()
+
+      const response = await fetch("/api/youtube/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          videoUrl: video.videoUrl,
+          title: video.title,
+          description: video.description || "",
+          tags: video.tags || [],
+          categoryId: "22",
+          privacyStatus: "public",
+          language: "hi",
+        }),
+      })
+
+      const result = (await response.json().catch(() => ({}))) as UploadResult
+
+      if (!response.ok || !result.success) {
+        if (result.queued) {
+          setMessage(
+            result.message ||
+              "Video upload queue mein add hua hai; abhi Live nahi hai.",
+          )
+          refreshVideos()
+          return
+        }
+
+        throw new Error(result.error || result.message || `Upload failed (${response.status})`)
+      }
+
+      if (!result.videoId || !result.youtubeUrl) {
+        throw new Error(
+          "Upload API ne success response diya, lekin YouTube video ID/link nahi mila. YouTube par status verify karo.",
+        )
+      }
+
+      // Mark Live only when the API confirms public status.
+      if (result.status?.toLowerCase() === "public") {
+        store.updateVideo(video.id, {
+          status: "live",
+          youtubeUrl: result.youtubeUrl,
+          adminApproved: true,
+        })
+
+        setMessage(
+          `Video YouTube par publish ho gaya: ${result.youtubeUrl}`,
+        )
+      } else {
+        store.updateVideo(video.id, {
+          youtubeUrl: result.youtubeUrl,
+          adminApproved: true,
+          status: "approved",
+        })
+
+        setMessage(
+          `YouTube upload complete hai, lekin visibility "${result.status || "unknown"}" hai. Video ko Live mark nahi kiya gaya.`,
+        )
+      }
+
+      refreshVideos()
+    } catch (e) {
+      console.error("Approval/upload failed:", e)
+      const details =
+        e instanceof Error ? e.message : "Unknown error"
+
+      setError(
+        `Approval save ho sakta hai, lekin YouTube upload/publish confirm nahi hua: ${details}`,
+      )
+      refreshVideos()
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleReject = (video: VideoType) => {
+    if (!store) {
+      setError("Video store available nahi hai.")
+      return
+    }
+
+    const confirmed = window.confirm(`"${video.title}" ko reject karna hai?`)
+    if (!confirmed) return
+
+    setBusyId(video.id)
+    setError("")
+    setMessage("")
+
+    try {
+      store.adminRejectVideo(video.id)
+      refreshVideos()
+      setMessage("Video reject kar diya gaya.")
+    } catch (e) {
+      console.error("Rejection failed:", e)
+      setError("Video reject nahi ho paaya.")
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-12 text-muted-foreground">
+        <RefreshCw className="h-4 w-4 animate-spin" />
+        Videos load ho rahe hain...
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {filteredVideos.length} video(s)
+        </p>
+
+        <Button variant="outline" onClick={refreshVideos}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
+
+      {message && (
+        <div
+          role="status"
+          className="break-words rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-300"
+        >
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div
+          role="alert"
+          className="break-words rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-300"
+        >
+          <AlertTriangle className="mr-2 inline h-4 w-4" />
+          {error}
+        </div>
+      )}
+
+      {filteredVideos.length === 0 ? (
+        <div className="rounded-xl border border-dashed p-10 text-center">
+          <VideoIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+
+          <h2 className="font-semibold">
+            {filter === "pending"
+              ? "No videos pending approval"
+              : filter === "approved"
+                ? "No approved videos"
+                : "No rejected videos"}
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            Videos generate hone ke baad yahan refresh karke dekho.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-6">
+          {filteredVideos.map((video) => {
+            const thumbnail = video.thumbnailUrl || video.thumbnail || ""
+            const videoUrl = video.videoUrl || ""
+
+            const status =
+              video.status === "live"
+                ? "Live"
+                : video.status === "rejected"
+                  ? "Rejected"
+                  : video.adminApproved
+                    ? "Approved"
+                    : "Pending approval"
+
+            return (
+              <article
+                key={video.id}
+                className="overflow-hidden rounded-xl border bg-card"
+              >
+                <div className="grid grid-cols-1 gap-5 p-4 md:grid-cols-[300px_minmax(0,1fr)]">
+                  <div className="space-y-3">
+                    <div className="overflow-hidden rounded-lg border bg-black">
+                      {thumbnail ? (
+                        <a
+                          href={thumbnail}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Open full thumbnail"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={thumbnail}
+                            alt={`Thumbnail: ${video.title}`}
+                            className="aspect-video w-full object-cover"
+                            onError={(event) => {
+                              event.currentTarget.style.display = "none"
+                            }}
+                          />
+                        </a>
+                      ) : (
+                        <div className="flex aspect-video items-center justify-center text-sm text-white">
+                          Thumbnail unavailable
+                        </div>
+                      )}
+                    </div>
+
+                    {videoUrl ? (
+                      <video
+                        key={videoUrl}
+                        src={videoUrl}
+                        controls
+                        preload="metadata"
+                        className="aspect-video w-full rounded-lg border bg-black"
+                      >
+                        Your browser does not support video playback.
+                      </video>
+                    ) : (
+                      <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed text-center text-sm text-muted-foreground">
+                        <div>
+                          <VideoIcon className="mx-auto mb-2 h-7 w-7" />
+                          Actual video file missing
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="break-words text-xl font-bold">
+                          {video.title || "Untitled video"}
+                        </h2>
+
+                        <p className="mt-1 break-all text-xs text-muted-foreground">
+                          ID: {video.id}
+                        </p>
+                      </div>
+
+                      <Badge
+                        variant="outline"
+                        className={
+                          video.status === "rejected"
+                            ? "border-red-500/40 text-red-600"
+                            : video.status === "live"
+                              ? "border-emerald-500/40 text-emerald-600"
+                              : video.adminApproved
+                                ? "border-blue-500/40 text-blue-600"
+                                : "border-amber-500/40 text-amber-600"
+                        }
+                      >
+                        {status === "Live" ? (
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                        ) : status === "Rejected" ? (
+                          <XCircle className="mr-1 h-3 w-3" />
+                        ) : (
+                          <Clock3 className="mr-1 h-3 w-3" />
+                        )}
+                        {status}
+                      </Badge>
+                    </div>
+
+                    <div>
+                      <h3 className="mb-1 text-sm font-semibold">
+                        Description
+                      </h3>
+                      <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                        {video.description || "No description provided."}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="mb-1 text-sm font-semibold">Tags</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {video.tags?.length ? (
+                          video.tags.map((tag, index) => (
+                            <Badge
+                              key={`${tag}-${index}`}
+                              variant="secondary"
+                            >
+                              {tag}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            No tags
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {video.script && (
+                      <details className="rounded-lg border p-3">
+                        <summary className="cursor-pointer text-sm font-semibold">
+                          View script
+                        </summary>
+                        <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
+                          {video.script}
+                        </p>
+                      </details>
+                    )}
+
+                    <div className="text-xs text-muted-foreground">
+                      Created:{" "}
+                      {video.createdAt
+                        ? new Date(video.createdAt).toLocaleString()
+                        : "Unknown"}
+                    </div>
+
+                    {video.youtubeUrl && (
+                      <a
+                        href={video.youtubeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 break-all text-sm text-blue-600 underline"
+                      >
+                        View on YouTube
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    )}
+
+                    {filter === "pending" && (
+                      <div className="flex flex-wrap gap-3 border-t pt-4">
+                        <Button
+                          onClick={() => handleApprove(video)}
+                          disabled={busyId === video.id}
+                          className="bg-emerald-600 text-white hover:bg-emerald-700"
+                        >
+                          {busyId === video.id ? (
+                            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                          )}
+                          {busyId === video.id
+                            ? "Uploading..."
+                            : "Approve & Publish"}
+                        </Button>
+
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleReject(video)}
+                          disabled={busyId === video.id}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject Video
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+========== lib/auth-context.tsx ==========
+"use client"
+import type React from "react"
+import { createContext, useContext, useState, useEffect } from "react"
+import { signIn, signOut, useSession } from "next-auth/react"
+
+interface User {
+  id: string; email: string; name: string; phone: string
+  role: string; plan: string; hasCompletedSetup: boolean
+  freeVideosUsed: number; paidVideoCredits: number
+}
+
+interface AuthContextType {
+  user: User | null
+  login: (email: string, password: string) => Promise<boolean>
+  signup: (name: string, email: string, password: string, phone: string) => Promise<boolean>
+  logout: () => void
+  isLoading: boolean
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession()
+  const [extraData, setExtraData] = useState<Partial<User>>({})
+
+  const user: User | null = session?.user ? {
+    id: (session.user as any).id || "",
+    email: session.user.email || "",
+    name: session.user.name || "",
+    phone: extraData.phone || "",
+    role: (session.user as any).role || "user",
+    plan: (session.user as any).plan || "free",
+    hasCompletedSetup: extraData.hasCompletedSetup ?? true,
+    freeVideosUsed: extraData.freeVideosUsed || 0,
+    paidVideoCredits: extraData.paidVideoCredits || 0,
+  } : null
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    const result = await signIn("credentials", { email, password, redirect: false })
+    return !result?.error
+  }
+
+  const signup = async (name: string, email: string, password: string, phone: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/auth/signup", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, phone })
+      })
+      const data = await res.json()
+      if (!data.success) return false
+      const result = await signIn("credentials", { email, password, redirect: false })
+      return !result?.error
+    } catch { return false }
+  }
+
+  const logout = () => signOut({ callbackUrl: "/login" })
+
+  return (
+    <AuthContext.Provider value={{ user, login, signup, logout, isLoading: status === "loading" }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider")
+  return ctx
+}
+
+
+========== lib/store.ts ==========
+"use client"
+
+export interface User {
+  id: string
+  email: string
+  name: string
+  phone: string
+  role: "user" | "admin"
+  plan: "free" | "pro" | "agency"
+  createdAt: string
+  hasCompletedSetup: boolean
+  freeVideosUsed: number // How many free videos used (max 10)
+  paidVideoCredits: number // Paid video credits purchased
+  totalSpent: number // Total amount spent on videos
+  youtubeMonetized: boolean // Is channel monetized
+  youtubeEarnings: number // Total YouTube earnings
+  youtubeShareOwed: number // 10% owed to platform
+  lastActive: string
+}
+
+// Helper getters for computed properties
+export function getFreeVideosRemaining(user: User): number {
+  return Math.max(0, 10 - user.freeVideosUsed)
+}
+
+export function getVideosUsed(user: User): number {
+  return user.freeVideosUsed
+}
+
+export interface Channel {
+  id: string
+  userId: string
+  name: string
+  subscribers: number
+  category: string
+  language: string
+  voice: string
+  defaultTags: string
+  privacy: "public" | "unlisted"
+  uploadTime: string
+  contentStrategy: string
+  isActive: boolean
+}
+
+export interface Video {
+  id: string
+  channelId: string
+  title: string
+  status: "pending-approval" | "approved" | "rejected" | "user-approved" | "uploading" | "live" | "failed"
+  riskLevel: "low" | "high" // Added risk level for queue sorting
+  scheduledDate: string
+  views: number
+  likes: number
+  comments: number
+  thumbnail: string
+  topic: string
+  description?: string // AI generated description
+  tags?: string[] // AI generated tags
+  aiScore: number
+  adminApproved: boolean // Admin approval status
+  adminApprovedBy?: string
+  adminApprovedAt?: string
+  userApproved: boolean // User approval status
+  userApprovedAt?: string
+  cost: number
+  isFree: boolean // Track if this was a free video
+  videoFileId?: string // IndexedDB key for stored video file
+  audioUrl?: string // ElevenLabs/TTS generated audio URL
+  thumbnailUrl?: string // Generated thumbnail URL
+  videoUrl?: string // Assembled video file URL
+  script?: string // AI generated script
+  hook?: string // Video hook
+  videoType?: "shorts" | "long" | "slide" // Video type
+  scheduledTime?: string // YouTube scheduled upload time
+  youtubeUrl?: string // YouTube video URL after upload
+  youtubeVideoId?: string // YouTube video ID
+  uploadedAt?: string // Upload timestamp
+  uploadError?: string // Upload error message
+  youtubeAccessToken?: string // User's YouTube access token (stored encrypted in real app)
+  youtubeRefreshToken?: string // User's YouTube refresh token
+  createdAt: string
+}
+
+export interface Payment {
+  id: string
+  userId: string
+  type: "video" | "youtube-share"
+  amount: number
+  videoId?: string
+  createdAt: string
+  status: "pending" | "completed" | "failed"
+}
+
+class Store {
+  private static instance: Store
+
+  private constructor() {
+    if (typeof window !== "undefined") {
+      this.initializeData()
+    }
+  }
+
+  static getInstance(): Store {
+    if (!Store.instance) {
+      Store.instance = new Store()
+    }
+    return Store.instance
+  }
+
+  private initializeData() {
+    const users = this.getUsers()
+    const adminExists = users.some((u) => u.email === "singhaditya4560@gmail.com")
+
+    if (!adminExists) {
+      const adminUser: User = {
+        id: "admin-001",
+        email: "singhaditya4560@gmail.com",
+        name: "Aditya Singh",
+        phone: "+91 7068003894",
+        role: "admin",
+        plan: "agency",
+        createdAt: new Date().toISOString(),
+        hasCompletedSetup: true,
+        freeVideosUsed: 0,
+        paidVideoCredits: 0,
+        totalSpent: 0,
+        youtubeMonetized: true,
+        youtubeEarnings: 0,
+        youtubeShareOwed: 0,
+        lastActive: new Date().toISOString(),
+      }
+      users.push(adminUser)
+      localStorage.setItem("users", JSON.stringify(users))
+    }
+  }
+
+  // User methods
+  getUsers(): User[] {
+    if (typeof window === "undefined") return []
+    const data = localStorage.getItem("users")
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      return Array.isArray(parsed) ? (parsed as User[]) : []
+    } catch {
+      console.error("Could not parse localStorage users")
+      return []
+    }
+  }
+
+  getUserByEmail(email: string): User | null {
+    if (typeof window === "undefined" || !email?.trim()) return null
+
+    const normalizedEmail = email.trim().toLowerCase()
+    return (
+      this.getUsers().find(
+        (u) => u.email?.trim().toLowerCase() === normalizedEmail
+      ) || null
+    )
+  }
+
+  /**
+   * Repairs legacy channels only when there is exactly one non-admin local user.
+   * The seeded admin profile is ignored. If multiple real users exist, this method
+   * deliberately does nothing to avoid assigning one user's channels to another.
+   */
+  repairOrphanedChannelsForSingleUser(userId: string): void {
+    if (typeof window === "undefined" || !userId) return
+
+    const users = this.getUsers()
+    const nonAdminUsers = users.filter((u) => u.role !== "admin")
+
+    // Only auto-repair when the browser has one real user profile and it matches.
+    if (nonAdminUsers.length !== 1 || nonAdminUsers[0].id !== userId) return
+
+    const channels = this.getChannels()
+    const knownUserIds = new Set(users.map((u) => u.id))
+    let changed = false
+
+    const repairedChannels = channels.map((channel) => {
+      // Reassign only orphaned channel records, never channels owned by a known user.
+      if (!channel.userId || !knownUserIds.has(channel.userId)) {
+        changed = true
+        return { ...channel, userId }
+      }
+      return channel
+    })
+
+    if (changed) {
+      localStorage.setItem("channels", JSON.stringify(repairedChannels))
+    }
+  }
+
+  createUser(
+    user: Omit<
+      User,
+      | "id"
+      | "createdAt"
+      | "freeVideosUsed"
+      | "paidVideoCredits"
+      | "totalSpent"
+      | "youtubeMonetized"
+      | "youtubeEarnings"
+      | "youtubeShareOwed"
+      | "lastActive"
+    >,
+  ): User {
+    const users = this.getUsers()
+    const newUser: User = {
+      ...user,
+      id: `user-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      freeVideosUsed: 0, // Starts at 0, can use up to 1
+      paidVideoCredits: 0,
+      totalSpent: 0,
+      youtubeMonetized: false,
+      youtubeEarnings: 0,
+      youtubeShareOwed: 0,
+      lastActive: new Date().toISOString(),
+    }
+    users.push(newUser)
+    localStorage.setItem("users", JSON.stringify(users))
+    return newUser
+  }
+
+  updateUser(userId: string, updates: Partial<User>): void {
+    const users = this.getUsers()
+    const index = users.findIndex((u) => u.id === userId)
+    if (index !== -1) {
+      users[index] = { ...users[index], ...updates }
+      localStorage.setItem("users", JSON.stringify(users))
+    }
+  }
+
+  getUserById(userId: string): User | null {
+    return this.getUsers().find((u) => u.id === userId) || null
+  }
+
+  // Channel methods
+  getChannels(userId?: string): Channel[] {
+    if (typeof window === "undefined") return []
+    const data = localStorage.getItem("channels")
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      const channels = Array.isArray(parsed) ? (parsed as Channel[]) : []
+      return userId ? channels.filter((c) => c.userId === userId) : channels
+    } catch {
+      console.error("Could not parse localStorage channels")
+      return []
+    }
+  }
+
+  createChannel(channel: Omit<Channel, "id">): Channel {
+    const channels = this.getChannels()
+    const newChannel: Channel = {
+      ...channel,
+      id: `channel-${Date.now()}`,
+    }
+    channels.push(newChannel)
+    localStorage.setItem("channels", JSON.stringify(channels))
+    return newChannel
+  }
+
+  updateChannel(channelId: string, updates: Partial<Channel>): void {
+    const channels = this.getChannels()
+    const index = channels.findIndex((c) => c.id === channelId)
+    if (index !== -1) {
+      channels[index] = { ...channels[index], ...updates }
+      localStorage.setItem("channels", JSON.stringify(channels))
+    }
+  }
+
+  deleteChannel(channelId: string): void {
+    const channels = this.getChannels()
+    const filtered = channels.filter((c) => c.id !== channelId)
+    localStorage.setItem("channels", JSON.stringify(filtered))
+  }
+
+  // Video methods
+  getVideos(channelId?: string): Video[] {
+    if (typeof window === "undefined") return []
+    const data = localStorage.getItem("videos")
+    if (!data) return []
+    try {
+      const parsed: unknown = JSON.parse(data)
+      const videos = Array.isArray(parsed) ? (parsed as Video[]) : []
+      return channelId ? videos.filter((v) => v.channelId === channelId) : videos
+    } catch {
+      console.error("Could not parse localStorage videos")
+      return []
+    }
+  }
+
+  canCreateVideo(userId: string): { allowed: boolean; reason?: string } {
+    const user = this.getUserById(userId)
+    if (!user) return { allowed: false, reason: "User not found" }
+
+    // Admin always allowed
+    if (user.role === "admin") return { allowed: true }
+
+    // Check if user has free videos remaining
+    if (user.freeVideosUsed < 10) return { allowed: true }
+
+    // Check if user has paid credits
+    if (user.paidVideoCredits > 0) return { allowed: true }
+
+    return { allowed: false, reason: "No free videos or credits remaining. Please upgrade." }
+  }
+
+  calculateRiskLevel(niche: string): "low" | "high" {
+    const highRiskNiches = ["news", "politics", "finance", "make money online", "cryptocurrency", "health", "medical"]
+    const lowercaseNiche = niche.toLowerCase()
+    return highRiskNiches.some((risk) => lowercaseNiche.includes(risk)) ? "high" : "low"
+  }
+
+  createVideo(
+    video: Omit<
+      Video,
+      "id" | "aiScore" | "adminApproved" | "userApproved" | "cost" | "isFree" | "riskLevel" | "createdAt"
+    >,
+  ): Video {
+    const videos = this.getVideos()
+    const channel = this.getChannels().find((c) => c.id === video.channelId)
+    if (!channel) throw new Error("Channel not found")
+
+    const user = this.getUserById(channel.userId)
+    if (!user) throw new Error("User not found")
+
+    const canCreate = this.canCreateVideo(user.id)
+    if (!canCreate.allowed) {
+      throw new Error(canCreate.reason)
+    }
+
+    const isAdmin = user.role === "admin"
+    const isFree = isAdmin || user.freeVideosUsed < 10
+    const cost = isFree ? 0 : 0.16
+
+    const riskLevel = this.calculateRiskLevel(channel.category)
+
+    const newVideo: Video = {
+      ...video,
+      id: `video-${Date.now()}`,
+      aiScore: Math.floor(Math.random() * 30) + 70,
+      adminApproved: isAdmin, // Auto-approve admin's own videos
+      adminApprovedBy: isAdmin ? user.id : undefined,
+      adminApprovedAt: isAdmin ? new Date().toISOString() : undefined,
+      userApproved: false,
+      cost,
+      isFree,
+      riskLevel,
+      createdAt: new Date().toISOString(),
+    }
+    videos.push(newVideo)
+    localStorage.setItem("videos", JSON.stringify(videos))
+
+    // Admin videos are free, don't deduct
+    if (!isAdmin) {
+      if (isFree) {
+        this.updateUser(user.id, {
+          freeVideosUsed: user.freeVideosUsed + 1,
+        })
+      } else {
+        this.updateUser(user.id, {
+          paidVideoCredits: user.paidVideoCredits - 1,
+          totalSpent: user.totalSpent + 0.2,
+        })
+      }
+    }
+
+    return newVideo
+  }
+
+  updateVideo(videoId: string, updates: Partial<Video>): void {
+    const videos = this.getVideos()
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = { ...videos[index], ...updates }
+      localStorage.setItem("videos", JSON.stringify(videos))
+    }
+  }
+
+  // Generate 30-day schedule
+  generate30DaySchedule(channelId: string, contentStrategy: string): Video[] {
+    const topics = this.generateTopics(contentStrategy, 30)
+    const videos: Video[] = []
+    const channel = this.getChannels().find((c) => c.id === channelId)
+    if (!channel) return []
+
+    const user = this.getUserById(channel.userId)
+    if (!user) throw new Error("User not found")
+
+    const canCreate = this.canCreateVideo(user.id)
+    if (!canCreate.allowed) {
+      throw new Error(canCreate.reason)
+    }
+
+    const riskLevel = this.calculateRiskLevel(channel.category)
+
+    for (let i = 0; i < 30; i++) {
+      const isFree = user.freeVideosUsed < 10
+      const cost = isFree ? 0 : 0.16
+
+      const video: Video = {
+        id: `video-${Date.now()}-${i}`,
+        channelId,
+        title: topics[i],
+        status: i === 0 ? "pending-approval" : "pending-approval",
+        scheduledDate: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString(),
+        views: 0,
+        likes: 0,
+        comments: 0,
+        thumbnail: `/ai-tools-thumbnail.png`,
+        topic: topics[i],
+        aiScore: Math.floor(Math.random() * 30) + 70,
+        adminApproved: false,
+        userApproved: false,
+        cost,
+        isFree,
+        riskLevel,
+        createdAt: new Date().toISOString(),
+      }
+      videos.push(video)
+    }
+
+    const existingVideos = this.getVideos()
+    localStorage.setItem("videos", JSON.stringify([...existingVideos, ...videos]))
+
+    // Update user video count
+    const freeVideosRemaining = Math.max(0, 10 - user.freeVideosUsed)
+    const freeVideosToUse = Math.min(30, freeVideosRemaining)
+    const paidVideos = 30 - freeVideosToUse
+    this.updateUser(user.id, {
+      freeVideosUsed: user.freeVideosUsed + freeVideosToUse,
+      paidVideoCredits: user.paidVideoCredits - paidVideos,
+      totalSpent: user.totalSpent + paidVideos * 0.2,
+    })
+
+    return videos
+  }
+
+  private generateTopics(strategy: string, count: number): string[] {
+    const topics = [
+      "Top 5 AI Tools 2026 Hindi",
+      "ChatGPT Hindi Tutorial",
+      "Best Laptops Under 50K",
+      "AI Image Generation Guide",
+      "YouTube Growth Tips",
+      "Tech News This Week",
+      "Smartphone Buying Guide",
+      "Internet Safety Tips",
+      "Future of AI Technology",
+      "Free Online Tools",
+      "Productivity Apps Review",
+      "Gaming PC Build Guide",
+      "Photo Editing Tutorial",
+      "Best Budget Gadgets",
+      "AI Voice Generator",
+      "WhatsApp Hidden Features",
+      "Instagram Growth Hacks",
+      "Tech Career Guide",
+      "Best Free Software",
+      "Online Money Making",
+      "Video Editing Tutorial",
+      "AI Music Generator",
+      "Best Tech Under 1000",
+      "Coding for Beginners",
+      "AI Art Tutorial",
+      "Tech Myths Busted",
+      "Smart Home Setup",
+      "Best Apps 2026",
+      "Digital Marketing Tips",
+      "AI Business Tools",
+    ]
+
+    return topics.slice(0, count).map((topic, i) => `${topic} | ${strategy}`)
+  }
+
+  adminApproveVideo(videoId: string, adminId: string): void {
+    const videos = this.getVideos()
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = {
+        ...videos[index],
+        adminApproved: true,
+        adminApprovedBy: adminId,
+        adminApprovedAt: new Date().toISOString(),
+        status: "approved",
+      }
+      localStorage.setItem("videos", JSON.stringify(videos))
+    }
+  }
+
+  adminRejectVideo(videoId: string): void {
+    const videos = this.getVideos()
+    const video = videos.find((v) => v.id === videoId)
+    if (!video) return
+
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = {
+        ...videos[index],
+        status: "rejected",
+      }
+      localStorage.setItem("videos", JSON.stringify(videos))
+
+      const channel = this.getChannels().find((c) => c.id === video.channelId)
+      if (channel) {
+        const user = this.getUserById(channel.userId)
+        if (user) {
+          if (video.isFree) {
+            this.updateUser(user.id, {
+              freeVideosUsed: Math.max(0, user.freeVideosUsed - 1),
+            })
+          } else {
+            this.updateUser(user.id, {
+              paidVideoCredits: user.paidVideoCredits + 1,
+            })
+          }
+        }
+      }
+    }
+  }
+
+  userApproveVideo(videoId: string): void {
+    const videos = this.getVideos()
+    const index = videos.findIndex((v) => v.id === videoId)
+    if (index !== -1) {
+      videos[index] = {
+        ...videos[index],
+        userApproved: true,
+        userApprovedAt: new Date().toISOString(),
+        status: "user-approved",
+      }
+      localStorage.setItem("videos", JSON.stringify(videos))
+    }
+  }
+
+  getVideosByRiskLevel(riskLevel: "low" | "high"): Video[] {
+    return this.getVideos().filter((v) => v.riskLevel === riskLevel && v.status === "pending-approval")
+  }
+
+  bulkApproveVideos(videoIds: string[], adminId: string): void {
+    const videos = this.getVideos()
+    videoIds.forEach((videoId) => {
+      const index = videos.findIndex((v) => v.id === videoId)
+      if (index !== -1) {
+        videos[index] = {
+          ...videos[index],
+          adminApproved: true,
+          adminApprovedBy: adminId,
+          adminApprovedAt: new Date().toISOString(),
+          status: "approved",
+        }
+      }
+    })
+    localStorage.setItem("videos", JSON.stringify(videos))
+  }
+
+  addVideoCredits(userId: string, credits: number, amount: number): void {
+    const user = this.getUserById(userId)
+    if (user) {
+      this.updateUser(userId, {
+        paidVideoCredits: user.paidVideoCredits + credits,
+        totalSpent: user.totalSpent + amount,
+      })
+    }
+  }
+
+  // Admin methods
+  getAdminStats() {
+    const users = this.getUsers()
+    const videos = this.getVideos()
+    const payments: any[] = []
+
+    const totalUsers = users.filter((u) => u.role !== "admin").length
+    const activeToday = users.filter((u) => {
+      const lastActive = new Date(u.lastActive)
+      const today = new Date()
+      return lastActive.toDateString() === today.toDateString()
+    }).length
+
+    const pendingApprovals = videos.filter((v) => v.status === "pending-approval").length
+    const lowRiskPending = videos.filter((v) => v.status === "pending-approval" && v.riskLevel === "low").length
+    const highRiskPending = videos.filter((v) => v.status === "pending-approval" && v.riskLevel === "high").length
+    const totalVideos = videos.length
+
+    const videoRevenue = users.reduce((sum, u) => sum + u.totalSpent, 0)
+    const youtubeRevenue = users.reduce((sum, u) => sum + u.youtubeShareOwed, 0)
+
+    return {
+      totalUsers,
+      activeToday,
+      pendingApprovals,
+      lowRiskPending,
+      highRiskPending,
+      totalVideos,
+      videoRevenue,
+      youtubeRevenue,
+      totalRevenue: videoRevenue + youtubeRevenue,
+    }
+  }
+}
+
+// IndexedDB helpers for storing video files
+export async function saveVideoToIndexedDB(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      if (!db.objectStoreNames.contains("videos")) {
+        db.createObjectStore("videos", { keyPath: "id" })
+      }
+    }
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const videoId = `video-file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      const transaction = db.transaction(["videos"], "readwrite")
+      const store = transaction.objectStore("videos")
+      
+      const videoData = {
+        id: videoId,
+        file: file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        createdAt: new Date().toISOString()
+      }
+      
+      const putRequest = store.put(videoData)
+      putRequest.onsuccess = () => resolve(videoId)
+      putRequest.onerror = () => reject(putRequest.error)
+    }
+  })
+}
+
+export async function getVideoFromIndexedDB(videoFileId: string): Promise<File | null> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const transaction = db.transaction(["videos"], "readonly")
+      const store = transaction.objectStore("videos")
+      
+      const getRequest = store.get(videoFileId)
+      getRequest.onsuccess = () => {
+        const data = getRequest.result
+        if (data) {
+          resolve(new File([data.file], data.name, { type: data.type }))
+        } else {
+          resolve(null)
+        }
+      }
+      getRequest.onerror = () => reject(getRequest.error)
+    }
+  })
+}
+
+export async function deleteVideoFromIndexedDB(videoFileId: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("YouTubeAutoVideos", 1)
+    
+    request.onerror = () => reject(request.error)
+    
+    request.onsuccess = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result
+      const transaction = db.transaction(["videos"], "readwrite")
+      const store = transaction.objectStore("videos")
+      
+      const deleteRequest = store.delete(videoFileId)
+      deleteRequest.onsuccess = () => resolve()
+      deleteRequest.onerror = () => reject(deleteRequest.error)
+    }
+  })
+}
+
+export const store = typeof window !== "undefined" ? Store.getInstance() : null
+
+// Notification system for video updates
+export interface Notification {
+  id: string
+  userId: string
+  type: "video-live" | "video-failed" | "video-approved" | "video-rejected"
+  title: string
+  message: string
+  videoId?: string
+  youtubeUrl?: string
+  read: boolean
+  createdAt: string
+}
+
+export function addNotification(notification: Omit<Notification, "id" | "read" | "createdAt">): void {
+  if (typeof window === "undefined") return
+  
+  const notifications = getNotifications(notification.userId)
+  const newNotification: Notification = {
+    ...notification,
+    id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    read: false,
+    createdAt: new Date().toISOString(),
+  }
+  
+  notifications.unshift(newNotification) // Add to beginning
+  localStorage.setItem(`notifications_${notification.userId}`, JSON.stringify(notifications.slice(0, 50))) // Keep last 50
+  
+  // Show browser notification if permitted (with proper type check)
+  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+    try {
+      new Notification("YouTubeAuto.ai", {
+        body: newNotification.message,
+        icon: "/favicon.ico",
+      })
+    } catch (e) {
+      console.warn("Browser notification failed:", e)
+    }
+  }
+}
+
+export function getNotifications(userId: string): Notification[] {
+  if (typeof window === "undefined") return []
+  const data = localStorage.getItem(`notifications_${userId}`)
+  return data ? JSON.parse(data) : []
+}
+
+export function markNotificationRead(userId: string, notificationId: string): void {
+  if (typeof window === "undefined") return
+  const notifications = getNotifications(userId)
+  const index = notifications.findIndex(n => n.id === notificationId)
+  if (index !== -1) {
+    notifications[index].read = true
+    localStorage.setItem(`notifications_${userId}`, JSON.stringify(notifications))
+  }
+}
+
+export function markAllNotificationsRead(userId: string): void {
+  if (typeof window === "undefined") return
+  const notifications = getNotifications(userId)
+  notifications.forEach(n => n.read = true)
+  localStorage.setItem(`notifications_${userId}`, JSON.stringify(notifications))
+}
+
+export function getUnreadNotificationCount(userId: string): number {
+  return getNotifications(userId).filter(n => !n.read).length
+}
+
+export function requestBrowserNotificationPermission(): void {
+  if (typeof window !== "undefined" && typeof Notification !== "undefined" && Notification.permission === "default") {
+    Notification.requestPermission()
+  }
+}
+

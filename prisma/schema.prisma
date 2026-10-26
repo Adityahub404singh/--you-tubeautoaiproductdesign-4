@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -30,6 +31,7 @@ model User {
   creditLedgers     CreditLedger[]
   payments          Payment[]
   videos            Video[]
+  socialAccounts    SocialAccount[]
 }
 
 model Channel {
@@ -135,4 +137,24 @@ model CreditLedger {
   description String
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SocialAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String
+  platformUserId    String
+  accountName       String
+  accessToken       String
+  refreshToken      String?
+  accessTokenExpiry DateTime?
+  scopes            String   @default("")
+  isConnected       Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, platformUserId])
+  @@index([userId, provider])
 }
